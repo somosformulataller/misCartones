@@ -692,12 +692,16 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
 
   app.ticker.add(tick);
 
-  // Pausa REAL en segundo plano: se para el bucle y el audio.
+  // Pausa REAL en segundo plano: se para el bucle Y el audio. Sin lo segundo
+  // el campo seguiría sonando —viento y pájaros— con el juego minimizado.
   const onVis = () => {
-    if (document.hidden) app.ticker.stop();
-    else {
+    if (document.hidden) {
+      app.ticker.stop();
+      audio.pausar();
+    } else {
       acumulador = 0;
       app.ticker.start();
+      audio.reanudar();
     }
   };
   document.addEventListener('visibilitychange', onVis);
