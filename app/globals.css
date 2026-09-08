@@ -43,3 +43,13 @@ canvas {
     animation: none;
   }
 }
+
+/* Alto de la pantalla de juego. Se declaran las dos: los navegadores que no
+   entienden `dvh` (Android antiguos) se quedan con `vh`, y los que sí lo
+   entienden usan `dvh`, que descuenta la barra del navegador cuando aparece.
+   Sin el respaldo, en esos navegadores la regla entera se descarta, el
+   contenedor mide 0 y no hay nada que encuadrar. */
+.pantalla-juego {
+  height: 100vh;
+  height: 100dvh;
+}

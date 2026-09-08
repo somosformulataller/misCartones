@@ -260,6 +260,81 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
   ok(aisladas === 0, 'TODAS las bolsas tienen camino hasta la carretilla', `${aisladas} escenarios rotos`);
 }
 
+// ── 5. Encuadre de la cámara ───────────────────────────────────────────────
+// El juego tiene camara FIJA y area de juego FIJA: si la camara no se coloca
+// bien, o se sale medio terreno de la pantalla o sobra la mitad. Y la
+// distancia correcta depende de la FORMA de la pantalla, asi que fijarla a ojo
+// funciona en un telefono y se rompe en todos los demas.
+//
+// `lib/three/encuadre.ts` es puro (sin DOM) justamente para poder comprobarlo
+// aqui, en 14 proporciones reales, sin abrir un navegador.
+console.log('\n5. Encuadre de la cámara en pantallas reales');
+{
+  const { PerspectiveCamera } = require('three');
+  const {
+    distanciaQueEncuadra,
+    cabeTodo,
+    PUNTOS_A_ENCUADRAR,
+    colocarCamara,
+  } = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js'));
+
+  const pantallas = [
+    ['iPhone SE', 375, 667],
+    ['iPhone 14', 390, 844],
+    ['iPhone 14 Pro Max', 430, 932],
+    ['Galaxy S8 (muy estrecho)', 360, 740],
+    ['Android gama baja', 360, 640],
+    ['Pixel 7', 412, 915],
+    ['iPad vertical', 810, 1080],
+    ['iPad horizontal', 1080, 810],
+    ['Portátil 16:9', 1366, 768],
+    ['Escritorio 1080p', 1920, 1080],
+    ['Ultrapanorámico 21:9', 2560, 1080],
+    ['Ventana casi cuadrada', 800, 780],
+    ['Ventana muy baja', 1200, 380],
+    ['Móvil girado', 844, 390],
+  ];
+
+  let malos = 0;
+  let distMin = Infinity;
+  let distMax = 0;
+
+  for (const [nombre, w, h] of pantallas) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    const d = distanciaQueEncuadra(cam);
+    distMin = Math.min(distMin, d);
+    distMax = Math.max(distMax, d);
+
+    // ¿Caben de verdad TODOS los puntos del terreno a esa distancia?
+    colocarCamara(cam, d);
+    let dentro = true;
+    for (const p of PUNTOS_A_ENCUADRAR) {
+      const v = p.clone().project(cam);
+      if (Math.abs(v.x) > 1 || Math.abs(v.y) > 1) dentro = false;
+    }
+    // Y que no se pase del plano lejano, o el terreno se recortaría.
+    const lejos = d + 30 > cam.far;
+
+    if (!dentro || lejos) {
+      malos++;
+      console.log(`     ✗ ${nombre} (${w}×${h}) dist ${d.toFixed(1)}${lejos ? ' — se pasa del plano lejano' : ' — se sale del encuadre'}`);
+    }
+  }
+
+  console.log(`     Distancia de cámara entre ${distMin.toFixed(1)} y ${distMax.toFixed(1)} unidades`);
+  ok(malos === 0, `El terreno cabe entero en las ${pantallas.length} pantallas`, `${malos} fallan`);
+
+  // La distancia TIENE que cambiar con la forma de la pantalla. Si saliera
+  // siempre la misma, el ajuste no estaría haciendo nada.
+  ok(distMax - distMin > 1, 'El encuadre se adapta a la forma de la pantalla');
+
+  // Una pantalla más estrecha nunca puede necesitar MENOS distancia que una
+  // ancha con la misma altura: seria señal de que la búsqueda va al revés.
+  const estrecha = distanciaQueEncuadra(new PerspectiveCamera(42, 360 / 800, 0.5, 120));
+  const ancha = distanciaQueEncuadra(new PerspectiveCamera(42, 900 / 800, 0.5, 120));
+  ok(estrecha >= ancha, 'Una pantalla estrecha aleja la cámara, no la acerca');
+}
+
 console.log(
   fallos === 0
     ? '\n✅ Todo en orden.\n'

@@ -11,6 +11,6 @@
     "baseUrl": "..",
     "paths": { "@/*": ["./*"] }
   },
-  "include": ["../lib/game/**/*.ts", "../types/**/*.ts"],
+  "include": ["../lib/game/**/*.ts", "../lib/three/encuadre.ts", "../types/**/*.ts"],
   "exclude": ["../lib/game/demo.ts"]
 }

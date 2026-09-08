@@ -52,6 +52,7 @@ import {
   wx,
   wz,
 } from './escena';
+import { CENTRO, colocarCamara, distanciaQueEncuadra } from './encuadre';
 import { Fx } from './fx';
 import { Audio } from './audio';
 
@@ -68,9 +69,6 @@ const TROPIEZO_MS = 800;
 const VEL_TROPIEZO = 150;
 const BOOST_POR_ENTREGA = 0.04;
 
-/** Inclinación de la cámara sobre el horizonte. 52° deja ver el volumen de
- *  los objetos sin perder la lectura cenital que necesita el juego. */
-const PITCH = (52 * Math.PI) / 180;
 
 export interface ResultadoEntrega {
   monto: number;
@@ -133,8 +131,11 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Sin mapas de sombra: cada luz con sombra redibuja la escena entera. Cada
   // objeto lleva su mancha oscura plana debajo, que cuesta un círculo.
   renderer.shadowMap.enabled = false;
-  renderer.domElement.style.display = 'block';
-  renderer.domElement.style.touchAction = 'none';
+  // El canvas queda ANCLADO al contenedor. Con `position:absolute` no puede
+  // empujar el diseño ni desbordarlo aunque su tamaño en píxeles vaya un
+  // fotograma por detrás del contenedor al girar el teléfono.
+  renderer.domElement.style.cssText =
+    'display:block;position:absolute;top:0;left:0;touch-action:none;';
   parent.appendChild(renderer.domElement);
 
   const scene = new Scene();
@@ -255,73 +256,32 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   let presionando = false;
   const teclas = new Set<string>();
 
-  // ── Cámara: se coloca sola para que el terreno QUEPA ──────────────────────
-  // En vez de fijar una distancia a ojo (que se rompe en cuanto cambia la
-  // proporción del teléfono), se busca la distancia mínima a la que las cuatro
-  // esquinas del área jugable caen dentro de la pantalla. Funciona igual en un
-  // móvil estrecho que en una tablet.
-  const centro = new Vector3(wx(CX_CENTRO()), 0, wz(CZ_CENTRO()));
-  function CX_CENTRO() {
-    return PLAY.x + PLAY.w / 2;
-  }
-  function CZ_CENTRO() {
-    return PLAY.y + PLAY.h / 2;
-  }
-
-  const esquinas = [
-    new Vector3(wx(PLAY.x), 0, wz(PLAY.y)),
-    new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y)),
-    new Vector3(wx(PLAY.x), 0, wz(PLAY.y + PLAY.h)),
-    new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y + PLAY.h)),
-    // Y un punto alto en el borde de arriba: si no, los árboles del fondo
-    // asoman por encima del encuadre y se ve el vacío.
-    new Vector3(wx(PLAY.x), 3.4, wz(PLAY.y)),
-  ];
-
+  // ── Cámara ────────────────────────────────────────────────────────────────
+  // La distancia la calcula `lib/three/encuadre.ts`, que es un módulo puro
+  // (sin DOM) y por eso `npm test` puede comprobar que el terreno cabe entero
+  // en 14 proporciones de pantalla reales, desde un móvil estrecho hasta un
+  // monitor ultrapanorámico.
   let distCamara = 26;
-  const _v = new Vector3();
-
-  function colocarCamara(dist: number) {
-    camera.position.set(
-      centro.x,
-      centro.y + Math.sin(PITCH) * dist,
-      centro.z + Math.cos(PITCH) * dist
-    );
-    camera.lookAt(centro);
-    camera.updateMatrixWorld();
-    camera.updateProjectionMatrix();
-  }
-
-  function cabeTodo(dist: number): boolean {
-    colocarCamara(dist);
-    for (const e of esquinas) {
-      _v.copy(e).project(camera);
-      // 0.97 deja un margen para que nada roce el borde exacto
-      if (Math.abs(_v.x) > 0.97 || Math.abs(_v.y) > 0.97) return false;
-    }
-    return true;
-  }
 
   function ajustarCamara() {
-    const w = parent.clientWidth || 1;
-    const h = parent.clientHeight || 1;
-    renderer.setSize(w, h, false);
+    const w = Math.round(parent.clientWidth);
+    const h = Math.round(parent.clientHeight);
+    // El contenedor puede medir 0 en el primer instante (típico en móvil, con
+    // la barra del navegador todavía moviéndose). Reintentar es mejor que
+    // encuadrar contra un tamaño falso y quedarse así.
+    if (w < 2 || h < 2) return;
+
+    // OJO con el tercer parámetro de setSize (`updateStyle`). En `false`,
+    // three.js pone los ATRIBUTOS del canvas a ancho × densidad de píxeles
+    // pero NO le da tamaño en CSS: con densidad 2 el canvas se muestra al
+    // DOBLE de la pantalla y la escena se ve gigante y recortada. Pasaba en
+    // móvil y también en Windows con el escalado al 125 %, donde la densidad
+    // tampoco es 1. Tiene que quedarse en `true` (el valor por omisión).
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h);
     camera.aspect = w / h;
 
-    // Búsqueda binaria de la distancia mínima que encuadra el terreno.
-    let lo = 8;
-    let hi = 90;
-    if (!cabeTodo(hi)) {
-      distCamara = hi;
-    } else {
-      for (let i = 0; i < 24; i++) {
-        const mid = (lo + hi) / 2;
-        if (cabeTodo(mid)) hi = mid;
-        else lo = mid;
-      }
-      distCamara = hi;
-    }
-    colocarCamara(distCamara);
+    distCamara = distanciaQueEncuadra(camera);
     calcularDestinoHud();
   }
 
@@ -337,6 +297,24 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   }
 
   ajustarCamara();
+
+  // ── Reencuadre ────────────────────────────────────────────────────────────
+  // `window.resize` NO basta en móvil: la barra del navegador aparece y
+  // desaparece cambiando la altura útil sin disparar un resize fiable, y el
+  // teclado y la rotación tampoco se comportan igual entre navegadores. Un
+  // ResizeObserver sobre el propio contenedor se entera de TODOS esos casos,
+  // incluido el de arrancar con tamaño 0 y recibir el tamaño real un
+  // fotograma después.
+  const ro = new ResizeObserver(() => ajustarCamara());
+  ro.observe(parent);
+
+  // iOS informa medidas viejas justo al girar el teléfono: se vuelve a medir
+  // un momento después.
+  const onOrientacion = () => {
+    ajustarCamara();
+    setTimeout(ajustarCamara, 250);
+  };
+  window.addEventListener('orientationchange', onOrientacion);
   const onResize = () => ajustarCamara();
   window.addEventListener('resize', onResize);
 
@@ -698,9 +676,9 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     // muy poco tras él. Una cámara clavada se siente muerta.
     const sh = reduced ? 0 : fx.shake;
     const zoom = 1 - Math.sin(sim.zoomPulso * Math.PI) * 0.035;
-    colocarCamara(distCamara * zoom);
-    camera.position.x += (wx(px) - centro.x) * 0.05 + (Math.random() - 0.5) * 2 * sh;
-    camera.position.z += (wz(py) - centro.z) * 0.03 + (Math.random() - 0.5) * 2 * sh;
+    colocarCamara(camera, distCamara * zoom);
+    camera.position.x += (wx(px) - CENTRO.x) * 0.05 + (Math.random() - 0.5) * 2 * sh;
+    camera.position.z += (wz(py) - CENTRO.z) * 0.03 + (Math.random() - 0.5) * 2 * sh;
     camera.updateMatrixWorld();
 
     destello.style.opacity = String(reduced ? 0 : fx.flash);
@@ -786,6 +764,8 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     corriendo = false;
     cancelAnimationFrame(rafId);
     document.removeEventListener('visibilitychange', onVis);
+    ro.disconnect();
+    window.removeEventListener('orientationchange', onOrientacion);
     window.removeEventListener('resize', onResize);
     lienzo.removeEventListener('pointerdown', onDown);
     lienzo.removeEventListener('pointermove', onMove);

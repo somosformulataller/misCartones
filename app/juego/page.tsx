@@ -122,7 +122,7 @@ export default function JuegoPage() {
   }, []);
 
   return (
-    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#4fc3f7]">
+    <main className="pantalla-juego relative w-full overflow-hidden bg-[#4fc3f7]">
       {estado === 'jugando' && seed !== null && (
         <>
           <GameCanvas
