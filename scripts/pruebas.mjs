@@ -538,6 +538,35 @@ console.log('\n6. La escena en 3D');
   }
   ok(invaden === 0, 'Ni casas ni árboles asoman sobre la calzada', `${invaden} instancias invaden`);
 
+  // ── La acera derecha se queda sin árboles ──
+  // La cámara mira desde +Z sin ladear, así que +X es el lado DERECHO de la
+  // pantalla. Un árbol de acera está a 9,7 unidades del eje y los edificios a
+  // 23-34: desde la vista cenital la copa se proyecta justo sobre la fachada y
+  // la tapa. La arboleda de acera va solo a la izquierda a propósito, y esto
+  // lo deja escrito para que no vuelva a colarse un árbol a la derecha.
+  const deAcera = veg.copas.datos.filter((a) => Math.abs(a.x) < 40);
+  const derecha = deAcera.filter((a) => a.x > 0);
+  console.log(`     ${deAcera.length} árboles de acera, ${derecha.length} a la derecha`);
+  ok(deAcera.length > 5, 'Sigue habiendo arbolado de acera');
+  ok(derecha.length === 0, 'Ningún árbol de acera tapa los edificios de la derecha', `${derecha.length} árboles`);
+
+  // Y que efectivamente haya edificios a los dos lados que enseñar.
+  let alturaDerecha = 0;
+  let alturaIzquierda = 0;
+  for (const hijo of ciudad.children) {
+    if (!hijo.isInstancedMesh) continue;
+    for (let i = 0; i < hijo.count; i++) {
+      hijo.getMatrixAt(i, matriz);
+      const px = matriz.elements[12];
+      const alto = matriz.elements[13] * 2;
+      if (Math.abs(px) < 40) {
+        if (px > 0) alturaDerecha = Math.max(alturaDerecha, alto);
+        else alturaIzquierda = Math.max(alturaIzquierda, alto);
+      }
+    }
+  }
+  ok(alturaDerecha > 6 && alturaIzquierda > 6, 'Hay edificios altos a los dos lados de la calle');
+
   // ── El suelo llega a todas partes ──
   caja.setFromObject(suelo).getSize(tam);
   ok(tam.x >= 300 && tam.z >= 300, 'El suelo sigue midiendo 320 unidades', `${tam.x} × ${tam.z}`);

@@ -877,25 +877,33 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   // 1,79 de radio, el borde interior queda en 7,95 — por fuera de la calzada,
   // que acaba en 7,7. Hay una prueba que lo comprueba, y falló con el tronco
   // a 9,3: la copa entraba 13 centésimas sobre el asfalto.
+  //
+  // Y van SOLO en la acera izquierda. La cámara mira desde +Z sin ladear, así
+  // que el eje +X del mundo es el lado derecho de la pantalla: una hilera de
+  // árboles ahí queda MUCHO más cerca del ojo (a 9,7 unidades) que los
+  // edificios (a 23-34), y desde una vista cenital sus copas se proyectan
+  // justo encima de las fachadas y las tapan enteras. Con arbolado en los dos
+  // lados el barrio no se veía; con uno solo, la izquierda da vegetación y la
+  // derecha enseña los edificios.
   const arboles: { x: number; z: number; e: number; fase: number }[] = [];
-  const xArbol = MEDIA_CALZADA + ANCHO_ACERA * 0.68;
-  for (const lado of [-1, 1]) {
-    for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
-      arboles.push({
-        x: lado * xArbol,
-        z,
-        e: 0.9 + rnd() * 0.4,
-        fase: rnd() * Math.PI * 2,
-      });
-    }
+  const xArbol = -(MEDIA_CALZADA + ANCHO_ACERA * 0.68);
+  for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
+    arboles.push({
+      x: xArbol,
+      z,
+      e: 0.9 + rnd() * 0.4,
+      fase: rnd() * Math.PI * 2,
+    });
   }
 
   // Arboleda LEJANA, por detrás de los edificios: da textura al horizonte.
   // Está fuera de todo lo jugable y la neblina se la va comiendo con la
-  // distancia. Empieza a 36 unidades para no brotar dentro de un edificio.
+  // distancia. Empieza a 45 unidades, no a 36: la hilera de edificios llega a
+  // 34, y un árbol a 36 quedaba prácticamente a su altura, disputándoles la
+  // silueta en vez de quedar claramente por detrás.
   for (let i = 0; i < 46; i++) {
     arboles.push({
-      x: (rnd() > 0.5 ? 1 : -1) * (36 + rnd() * 56),
+      x: (rnd() > 0.5 ? 1 : -1) * (45 + rnd() * 50),
       z: (rnd() - 0.5) * 180,
       e: 1.2 + rnd() * 1.2,
       fase: rnd() * Math.PI * 2,
