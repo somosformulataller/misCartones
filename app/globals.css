@@ -1,14 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
 body {
   height: 100%;
-  background: #14171a;
-  color: #e6eae9;
+  /* Cielo de mediodía degradando a prado: es también lo que se ve en los
+     bordes cuando la pantalla no tiene la proporción exacta del escenario,
+     así que tiene que verse como parte del campo, no como un marco negro. */
+  background: linear-gradient(180deg, #8fd3f4 0%, #b9e6c0 45%, #86c765 100%);
+  background-attachment: fixed;
+  color: #23361d;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Nada de rebote elástico ni zoom por doble toque: es un juego, no una
      página. Sin esto, arrastrar el dedo mueve la página en vez del muñeco. */

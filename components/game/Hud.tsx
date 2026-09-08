@@ -63,13 +63,13 @@ export default function Hud({
         <div className="flex items-center gap-2">
           <button
             onClick={onSalir}
-            className="pointer-events-auto rounded-lg border border-white/15 bg-black/45 px-3 py-2 text-sm font-semibold text-white/85 backdrop-blur transition hover:bg-black/65"
+            className="pointer-events-auto rounded-xl border-2 border-white/70 bg-white/70 px-3 py-2 text-sm font-bold text-emerald-900 shadow-sm backdrop-blur transition hover:bg-white/90"
           >
             ← Salir
           </button>
           {demo && (
-            <span className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-2.5 py-2 text-[11px] font-bold uppercase tracking-wider text-amber-200 backdrop-blur">
-              Demo · sin Supabase
+            <span className="rounded-xl border-2 border-amber-500/50 bg-amber-300/85 px-2.5 py-2 text-[11px] font-black uppercase tracking-wider text-amber-950 shadow-sm backdrop-blur">
+              Demo
             </span>
           )}
         </div>
@@ -78,7 +78,7 @@ export default function Hud({
           <button
             onClick={onToggleMute}
             aria-label={muted ? 'Activar sonido' : 'Silenciar'}
-            className="pointer-events-auto rounded-lg border border-white/15 bg-black/45 px-3 py-2 text-sm text-white/85 backdrop-blur transition hover:bg-black/65"
+            className="pointer-events-auto rounded-xl border-2 border-white/70 bg-white/70 px-3 py-2 text-sm shadow-sm backdrop-blur transition hover:bg-white/90"
           >
             {muted ? '🔇' : '🔊'}
           </button>
@@ -87,12 +87,12 @@ export default function Hud({
               encender y apagar un estado con un temporizador. */}
           <div
             key={bolsasEntregadas}
-            className="pulso-contador rounded-lg border border-amber-300/25 bg-black/55 px-3.5 py-2 text-right backdrop-blur"
+            className="pulso-contador rounded-xl border-2 border-amber-500/60 bg-amber-300/90 px-3.5 py-1.5 text-right shadow-md backdrop-blur"
           >
-            <div className="text-[10px] font-bold uppercase tracking-widest text-amber-200/70">
+            <div className="text-[10px] font-black uppercase tracking-widest text-amber-900/80">
               Recogido
             </div>
-            <div className="font-mono text-2xl font-black leading-none text-amber-200 tabular-nums">
+            <div className="font-mono text-2xl font-black leading-none tabular-nums text-amber-950">
               ${mostrado.toFixed(2)}
             </div>
           </div>
@@ -100,22 +100,22 @@ export default function Hud({
       </div>
 
       {/* Bolsas restantes: puntos, no un número. Se lee de un vistazo. */}
-      <div className="absolute left-1/2 top-3 flex -translate-x-1/2 gap-1.5">
+      <div className="absolute left-1/2 top-4 flex -translate-x-1/2 gap-2 rounded-full border-2 border-white/60 bg-white/45 px-3 py-2 shadow-sm backdrop-blur">
         {Array.from({ length: totalBolsas }, (_, i) => (
           <span
             key={i}
-            className={`h-2.5 w-2.5 rounded-full border transition-all duration-300 ${
+            className={`h-3 w-3 rounded-full border-2 transition-all duration-300 ${
               i < bolsasEntregadas
-                ? 'border-amber-300 bg-amber-300'
-                : 'border-white/35 bg-white/10'
+                ? 'scale-110 border-amber-600 bg-amber-400'
+                : 'border-emerald-900/30 bg-white/60'
             }`}
           />
         ))}
       </div>
 
       {cargando && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full border border-amber-300/25 bg-black/55 px-4 py-2 text-sm font-semibold text-amber-100 backdrop-blur">
-          Llévala a la carretilla
+        <div className="absolute bottom-7 left-1/2 -translate-x-1/2 rounded-full border-2 border-amber-500/50 bg-amber-300/90 px-5 py-2 text-sm font-black text-amber-950 shadow-md backdrop-blur">
+          Llévala a la carretilla 🛒
         </div>
       )}
     </div>

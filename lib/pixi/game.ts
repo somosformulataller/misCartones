@@ -23,13 +23,15 @@ import {
   WorldObstacle,
 } from '@/lib/game/world';
 import {
-  COLORS,
-  drawBackground,
+  drawFence,
+  drawField,
   drawObstacle,
   makeBag,
   makeCart,
   makeCartonTexture,
   makeCitizen,
+  makeCloudShadows,
+  makeDecor,
   makeDustTexture,
   paintCartFill,
 } from './art';
@@ -101,7 +103,9 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   const app = new Application();
   await app.init({
     resizeTo: parent,
-    background: 0x14171a,
+    // Cielo de mediodía: es también el color de los bordes cuando la pantalla
+    // del teléfono no tiene la proporción exacta del escenario.
+    background: 0x8fd3f4,
     antialias: true,
     // Tope de densidad 2: en pantallas de 3× se dibuja a 2× y se estira.
     // Ahorra el 44 % de los píxeles y no se nota.
@@ -120,13 +124,32 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   app.stage.addChild(root);
 
   const rndArte = mulberry32((opts.seed ^ 0x5bf03635) >>> 0);
-  camara.addChild(drawBackground(rndArte));
+  camara.addChild(drawField(rndArte));
+
+  // Sombras de nube: van justo encima del prado y por debajo de todo lo
+  // demás, así cruzan el suelo sin oscurecer al ciudadano.
+  const nubes = makeCloudShadows(rndArte);
+  camara.addChild(nubes.capa);
 
   // Capa de juego: aquí SÍ se ordena por Y en cada fotograma, que es lo que
   // hace que el ciudadano pase por detrás de lo que está más abajo.
   const capaJuego = new Container();
   capaJuego.sortableChildren = true;
   camara.addChild(capaJuego);
+
+  // Cerca del fondo
+  const cerca = drawFence();
+  cerca.zIndex = PLAY.y - 20;
+  capaJuego.addChild(cerca);
+
+  // Árboles y arbustos: decorado puro, no estorban. Se mecen con el viento.
+  // Van a la MISMA capa que el juego para que el orden por Y los resuelva
+  // solo: los de arriba quedan detrás de la cerca y del ciudadano, y los de
+  // abajo — que están fuera de pantalla — asoman por delante encuadrando la
+  // escena. Si vivieran en su propia capa habría que decidir a mano quién
+  // tapa a quién, y siempre se acaba equivocando.
+  const decor = makeDecor(rndArte);
+  for (const hijo of [...decor.capa.children]) capaJuego.addChild(hijo);
 
   // Obstáculos (estáticos: se crean una vez y no se tocan nunca más)
   for (const o of world.obstacles) {
@@ -525,6 +548,19 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       sim.fasePaso += dt * 0.6;
     }
 
+    // Sombras de nube cruzando el prado. Va aquí, en el paso fijo, y no en el
+    // render: si dependiera de los fotogramas, en un teléfono lento las nubes
+    // irían al ralentí.
+    for (const n of nubes.nubes) {
+      n.x += 13 * dt;
+      if (n.x > STAGE_W + 380) {
+        n.x = -380;
+        // Altura nueva a partir del reloj de la simulación, no de Math.random:
+        // así dos partidas con la misma semilla se ven igual.
+        n.y = PLAY.y + ((sim.tiempo * 0.37) % PLAY.h);
+      }
+    }
+
     if (sim.finLento > 0) sim.finLento -= PASO_MS;
     if (sim.zoomPulso > 0) sim.zoomPulso = Math.max(0, sim.zoomPulso - PASO_MS / 220);
   }
@@ -589,6 +625,13 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       const late = 1 + cerca * 0.09 * (0.6 + Math.sin(sim.tiempo / 190) * 0.4);
       b.body.scale.set(late);
       b.view.zIndex = b.y;
+    }
+
+    // Viento: las copas se mecen, cada una con su fase, así el campo respira.
+    // Es una rotación por árbol y nada más — a este número de árboles ni se
+    // nota en el presupuesto de fotograma.
+    for (const it of decor.items) {
+      it.copa.rotation = Math.sin(sim.tiempo / 900 + it.fase) * it.amp;
     }
 
     // La carretilla se enciende mientras llevas una bolsa: te dice adónde ir
@@ -693,7 +736,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Silencia el aviso de "variable no usada" y deja el hitArea listo por si
   // más adelante se usan eventos de Pixi en vez de los del DOM.
   app.stage.hitArea = new Rectangle(0, 0, STAGE_W, STAGE_H);
-  void COLORS;
 
   return {
     destroy,

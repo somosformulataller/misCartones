@@ -122,7 +122,7 @@ export default function JuegoPage() {
   }, []);
 
   return (
-    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#14171a]">
+    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#8fd3f4]">
       {estado === 'jugando' && seed !== null && (
         <>
           <GameCanvas
@@ -145,26 +145,26 @@ export default function JuegoPage() {
       )}
 
       {(estado === 'idle' || estado === 'cargando') && (
-        <div className="flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-300 via-emerald-200 to-lime-400 px-6 text-center">
           <div>
-            <div className="text-6xl">🗑️</div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-white">
+            <div className="text-6xl drop-shadow-sm">🌾</div>
+            <h1 className="mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-sm">
               Recoge las 5 bolsas
             </h1>
-            <p className="mx-auto mt-2 max-w-sm text-white/60">
+            <p className="mx-auto mt-3 max-w-sm font-medium leading-relaxed text-emerald-900/80">
               Mantén el dedo en la pantalla y el ciudadano caminará hacia ahí. Agarra una bolsa
               y llévala a la carretilla para vaciarla.
             </p>
           </div>
           {error && (
-            <p className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm text-red-200">
+            <p className="rounded-xl border border-red-500/30 bg-red-100/90 px-4 py-2 text-sm font-semibold text-red-800">
               {error}
             </p>
           )}
           <button
             onClick={empezar}
             disabled={estado === 'cargando'}
-            className="rounded-2xl bg-amber-400 px-10 py-4 text-lg font-black text-[#14171a] shadow-lg shadow-amber-400/20 transition active:scale-95 disabled:opacity-60"
+            className="rounded-3xl border-b-4 border-amber-600 bg-amber-400 px-12 py-4 text-xl font-black tracking-wide text-emerald-950 shadow-xl shadow-emerald-900/20 transition active:translate-y-1 active:border-b-0 disabled:opacity-60"
           >
             {estado === 'cargando' ? 'Preparando…' : 'JUGAR'}
           </button>
@@ -172,17 +172,17 @@ export default function JuegoPage() {
       )}
 
       {estado === 'fin' && (
-        <div className="flex h-full flex-col items-center justify-center gap-6 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-300 via-emerald-200 to-lime-400 px-6 text-center">
           <div>
-            <div className="text-5xl">🎉</div>
-            <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-amber-200/70">
+            <div className="text-6xl drop-shadow-sm">🎉</div>
+            <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-emerald-800">
               Carretilla llena
             </p>
-            <p className="font-mono text-6xl font-black tabular-nums text-amber-200">
+            <p className="font-mono text-7xl font-black tabular-nums text-emerald-950 drop-shadow-sm">
               ${(premio ?? saldo).toFixed(2)}
             </p>
             {demo && (
-              <p className="mt-3 text-sm text-white/45">
+              <p className="mx-auto mt-3 max-w-xs text-sm font-medium text-emerald-900/60">
                 Partida demo: el reparto y el RTP son los de producción, pero no hay dinero real.
               </p>
             )}
@@ -190,13 +190,13 @@ export default function JuegoPage() {
           <div className="flex gap-3">
             <button
               onClick={empezar}
-              className="rounded-2xl bg-amber-400 px-8 py-3.5 font-black text-[#14171a] transition active:scale-95"
+              className="rounded-3xl border-b-4 border-amber-600 bg-amber-400 px-9 py-3.5 font-black text-emerald-950 shadow-lg shadow-emerald-900/20 transition active:translate-y-1 active:border-b-0"
             >
               Otra vez
             </button>
             <button
               onClick={() => router.push('/')}
-              className="rounded-2xl border border-white/15 px-8 py-3.5 font-bold text-white/80 transition active:scale-95"
+              className="rounded-3xl border-2 border-emerald-800/25 bg-white/60 px-9 py-3.5 font-bold text-emerald-900 transition active:scale-95"
             >
               Salir
             </button>

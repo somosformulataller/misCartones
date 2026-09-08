@@ -39,7 +39,9 @@ const BAG_CLEARANCE = 34;
 
 export const TOTAL_BAGS = 5;
 
-export type ObstacleKind = 'cono' | 'escombros' | 'hueco' | 'alcantarilla' | 'charco' | 'moto';
+/** Lo que se encuentra uno en un terreno: piedras, troncos caídos, tocones,
+ *  arbustos, pacas de heno y charcos de barro. */
+export type ObstacleKind = 'piedra' | 'tronco' | 'tocon' | 'arbusto' | 'heno' | 'barro';
 
 export interface WorldObstacle {
   x: number;
@@ -86,16 +88,17 @@ function distToRect(px: number, py: number, r: { x: number; y: number; w: number
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+// `solid: false` = se puede pisar, solo frena. Hoy solo el barro.
 const OBSTACLE_SIZES: Record<ObstacleKind, { w: number; h: number; solid: boolean }> = {
-  cono: { w: 34, h: 34, solid: true },
-  escombros: { w: 74, h: 46, solid: true },
-  hueco: { w: 58, h: 44, solid: true },
-  alcantarilla: { w: 46, h: 46, solid: true },
-  charco: { w: 96, h: 58, solid: false },
-  moto: { w: 52, h: 96, solid: true },
+  piedra: { w: 56, h: 42, solid: true },
+  tronco: { w: 98, h: 38, solid: true },
+  tocon: { w: 46, h: 40, solid: true },
+  arbusto: { w: 64, h: 54, solid: true },
+  heno: { w: 72, h: 64, solid: true },
+  barro: { w: 104, h: 64, solid: false },
 };
 
-const KINDS: ObstacleKind[] = ['cono', 'escombros', 'hueco', 'alcantarilla', 'charco', 'moto'];
+const KINDS: ObstacleKind[] = ['piedra', 'tronco', 'tocon', 'arbusto', 'heno', 'barro'];
 
 // ── Rejilla de ocupación e inundación ──────────────────────────────────────
 // Se comprueba que exista camino con una rejilla gruesa: cada celda queda
