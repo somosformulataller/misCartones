@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: #14171a;
+  color: #e6eae9;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Nada de rebote elástico ni zoom por doble toque: es un juego, no una
+     página. Sin esto, arrastrar el dedo mueve la página en vez del muñeco. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+canvas {
+  touch-action: none;
+}
+
+/* Pulso del contador cuando llega el dinero de una bolsa. Se dispara
+   remontando el nodo (key en React), no con un temporizador en estado. */
+@keyframes pulso-contador {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.pulso-contador {
+  animation: pulso-contador 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Quien pidió menos movimiento no ve temblores ni pulsos. El juego sigue
+   siendo jugable y sigue pagando exactamente igual. */
+@media (prefers-reduced-motion: reduce) {
+  .pulso-contador {
+    animation: none;
+  }
+}
