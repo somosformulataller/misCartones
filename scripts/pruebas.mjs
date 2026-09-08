@@ -276,6 +276,25 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
 //
 // `lib/three/encuadre.ts` es puro (sin DOM) justamente para poder comprobarlo
 // aqui, en 14 proporciones reales, sin abrir un navegador.
+// Las pantallas reales contra las que se comprueba el encuadre. Vive en el
+// ámbito del módulo porque la sección 6 mide sobre las mismas.
+const PANTALLAS = [
+  ['iPhone SE', 375, 667],
+  ['iPhone 14', 390, 844],
+  ['iPhone 14 Pro Max', 430, 932],
+  ['Galaxy S8 (muy estrecho)', 360, 740],
+  ['Android gama baja', 360, 640],
+  ['Pixel 7', 412, 915],
+  ['iPad vertical', 810, 1080],
+  ['iPad horizontal', 1080, 810],
+  ['Portátil 16:9', 1366, 768],
+  ['Escritorio 1080p', 1920, 1080],
+  ['Ultrapanorámico 21:9', 2560, 1080],
+  ['Ventana casi cuadrada', 800, 780],
+  ['Ventana muy baja', 1200, 380],
+  ['Móvil girado', 844, 390],
+];
+
 console.log('\n5. Encuadre de la cámara en pantallas reales');
 {
   const { PerspectiveCamera } = require('three');
@@ -287,28 +306,11 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
     distanciaMaximaAlTerreno,
   } = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js'));
 
-  const pantallas = [
-    ['iPhone SE', 375, 667],
-    ['iPhone 14', 390, 844],
-    ['iPhone 14 Pro Max', 430, 932],
-    ['Galaxy S8 (muy estrecho)', 360, 740],
-    ['Android gama baja', 360, 640],
-    ['Pixel 7', 412, 915],
-    ['iPad vertical', 810, 1080],
-    ['iPad horizontal', 1080, 810],
-    ['Portátil 16:9', 1366, 768],
-    ['Escritorio 1080p', 1920, 1080],
-    ['Ultrapanorámico 21:9', 2560, 1080],
-    ['Ventana casi cuadrada', 800, 780],
-    ['Ventana muy baja', 1200, 380],
-    ['Móvil girado', 844, 390],
-  ];
-
   let malos = 0;
   let distMin = Infinity;
   let distMax = 0;
 
-  for (const [nombre, w, h] of pantallas) {
+  for (const [nombre, w, h] of PANTALLAS) {
     const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
     const d = distanciaQueEncuadra(cam);
     distMin = Math.min(distMin, d);
@@ -331,7 +333,7 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
   }
 
   console.log(`     Distancia de cámara entre ${distMin.toFixed(1)} y ${distMax.toFixed(1)} unidades`);
-  ok(malos === 0, `El terreno cabe entero en las ${pantallas.length} pantallas`, `${malos} fallan`);
+  ok(malos === 0, `El terreno cabe entero en las ${PANTALLAS.length} pantallas`, `${malos} fallan`);
 
   // ── Que NO se vea cielo ──
   // El suelo tiene que llenar la pantalla entera. Se lanza un rayo por las
@@ -344,7 +346,7 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
   let conCielo = 0;
   let peorAlcance = 0;
 
-  for (const [nombre, w, h] of pantallas) {
+  for (const [nombre, w, h] of PANTALLAS) {
     const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
     colocarCamara(cam, distanciaQueEncuadra(cam));
 
@@ -378,7 +380,7 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
 
   // ── Que la niebla no emborrone lo jugable ──
   let nieblaMal = 0;
-  for (const [nombre, w, h] of pantallas) {
+  for (const [nombre, w, h] of PANTALLAS) {
     const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
     colocarCamara(cam, distanciaQueEncuadra(cam));
     const lejos = distanciaMaximaAlTerreno(cam);
@@ -409,6 +411,10 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
 console.log('\n6. La escena en 3D');
 {
   const THREE = require('three');
+  const { PerspectiveCamera } = THREE;
+  const { distanciaQueEncuadra } = require(
+    path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js')
+  );
   const esc = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'escena.js'));
   const { mulberry32 } = require(path.join(salida, 'world.js'));
 
@@ -566,6 +572,44 @@ console.log('\n6. La escena en 3D');
     }
   }
   ok(alturaDerecha > 6 && alturaIzquierda > 6, 'Hay edificios altos a los dos lados de la calle');
+
+  // ── La fachada entra en cámara ──
+  // Este es el fallo que se escapó a producción: los edificios estaban bien
+  // construidos y bien colocados, pero la cámara encuadraba solo la calzada,
+  // así que en un teléfono se veía hasta |x|=7,9 en el borde cercano y las
+  // fachadas (a 23) no aparecían JAMÁS. Acercarlos no bastaba; el problema
+  // era el encuadre. Se mide por bisección hasta dónde llega el encuadre a
+  // cada profundidad, y se exige que la fachada quepa.
+  const hastaDondeSeVe = (cam, z) => {
+    let lo = 0;
+    let hi = 60;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < 40; i++) {
+      const m = (lo + hi) / 2;
+      v.set(m, 0, z).project(cam);
+      if (Math.abs(v.x) <= 0.999) lo = m;
+      else hi = m;
+    }
+    return lo;
+  };
+  const zCerca = (PLAY.y + PLAY.h - (PLAY.y + PLAY.h / 2)) / 40;
+  let sinFachada = 0;
+  let peorCerca = Infinity;
+  for (const [nombre, w, h] of PANTALLAS) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    distanciaQueEncuadra(cam);
+    const cerca = hastaDondeSeVe(cam, zCerca);
+    const medio = hastaDondeSeVe(cam, 0);
+    peorCerca = Math.min(peorCerca, cerca);
+    // A media calle tiene que verse una franja de fachada de verdad, no un
+    // píxel de esquina.
+    if (medio < esc.LINEA_CASAS + 1.2) {
+      sinFachada++;
+      console.log(`     ✗ ${nombre}: a media calle solo se ve hasta ${medio.toFixed(1)}`);
+    }
+  }
+  console.log(`     En el borde cercano se ve hasta |x|=${peorCerca.toFixed(1)} (la fachada empieza en ${esc.LINEA_CASAS.toFixed(1)})`);
+  ok(sinFachada === 0, 'Los edificios entran en cámara en las 14 pantallas', `${sinFachada} pantallas sin fachada`);
 
   // ── El suelo llega a todas partes ──
   caja.setFromObject(suelo).getSize(tam);

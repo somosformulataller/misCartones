@@ -25,6 +25,23 @@ export const PITCH = (52 * Math.PI) / 180;
 /** Margen: 0,97 deja un respiro para que nada roce el borde exacto. */
 const MARGEN = 0.97;
 
+/**
+ * Cuánto encuadre de MÁS se pide a lo ancho, por encima de la calzada.
+ *
+ * Sin esto la cámara ajustaba el encuadre a la calzada y nada más, y el
+ * resultado medido en un teléfono era: se ve hasta |x|=7,9 en el borde
+ * cercano y 10,5 en el lejano. O sea que las aceras apenas asomaban y las
+ * fachadas NO ENTRABAN EN CÁMARA — daba igual lo cerca que se pusieran los
+ * edificios, porque el problema no era la distancia sino el encuadre.
+ *
+ * Con 1,28 se ve hasta |x|≈10 en el borde cercano y ≈13 en el lejano, así que
+ * la fachada aparece a los dos lados y se va abriendo hacia el horizonte, que
+ * es la perspectiva de la referencia. Cuesta que todo se vea un 28 % más
+ * pequeño EN MÓVIL; en escritorio no cuesta nada, porque ahí quien manda en
+ * el encuadre es el fondo de la calle, no su anchura.
+ */
+export const MARGEN_LATERAL = 1.28;
+
 const U = 1 / 40;
 const CX = PLAY.x + PLAY.w / 2;
 const CZ = PLAY.y + PLAY.h / 2;
@@ -45,6 +62,10 @@ export const PUNTOS_A_ENCUADRAR: Vector3[] = [
   new Vector3(wx(PLAY.x), 0, wz(PLAY.y + PLAY.h)),
   new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y + PLAY.h)),
   new Vector3(wx(PLAY.x), 3.4, wz(PLAY.y)),
+  // Los dos de la acera, en el borde CERCANO: es el que manda, porque es
+  // donde el encuadre es más estrecho. Sin ellos la calle no tiene lados.
+  new Vector3(wx(PLAY.x) * MARGEN_LATERAL, 0, wz(PLAY.y + PLAY.h)),
+  new Vector3(wx(PLAY.x + PLAY.w) * MARGEN_LATERAL, 0, wz(PLAY.y + PLAY.h)),
 ];
 
 /** Coloca la cámara a `dist` del centro, con la inclinación del juego. */

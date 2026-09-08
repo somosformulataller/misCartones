@@ -74,9 +74,13 @@ export const FONDO = PLAY.h * U;
 // Las aceras empiezan justo donde acaba lo jugable, así el borde del juego
 // tiene una razón visible en la escena en vez de ser una pared invisible.
 const MEDIA_CALZADA = ANCHO / 2 + 0.2;
-const ANCHO_ACERA = 2.7;
-/** Donde acaba la acera y empiezan las casas. */
-const LINEA_CASAS = MEDIA_CALZADA + ANCHO_ACERA;
+// La acera es estrecha a propósito. Cada unidad que mide es una unidad que
+// aleja la fachada del ojo, y el encuadre a lo ancho es el recurso más caro
+// que hay: ensancharlo empequeñece el juego entero.
+const ANCHO_ACERA = 1.7;
+/** Donde acaba la acera y empiezan las casas. Se exporta porque las pruebas
+ *  comprueban que esta línea entre en cámara en todas las pantallas. */
+export const LINEA_CASAS = MEDIA_CALZADA + ANCHO_ACERA;
 /** La calle sigue mucho más allá de lo jugable: se pierde en la neblina. */
 const LARGO_CALLE = 220;
 
@@ -368,7 +372,22 @@ export function crearSuelo(rnd: () => number): Group {
 export function crearCiudad(rnd: () => number): Group {
   const g = new Group();
 
-  interface Casa {
+  // ── La fachada de la calle ──
+  // Una SOLA hilera pegada al borde de la acera, mezclando casas bajas y
+  // edificios de varias plantas. Antes eran dos filas —casas delante,
+  // edificios a 12,5 unidades por detrás— y el resultado era que los
+  // edificios no se veían: quedaban demasiado lejos y demasiado atrás.
+  //
+  // Una calle real tampoco separa por altura: el edificio de cinco plantas
+  // está pegado a la casa de una, y ese contraste es justo lo que da carácter
+  // urbano. Todos arrancan en LINEA_CASAS, o sea que su fachada cae exacta
+  // sobre el borde de la acera.
+  //
+  // Que un edificio de 11 unidades esté tan cerca no tapa la zona de juego: la
+  // cámara está en x=0 y a 42 de altura, así que el rayo hacia la esquina más
+  // lejana de la calzada nunca pasa de |x|=7,7. Todo esto vive a partir de
+  // 10,6.
+  interface Lote {
     x: number;
     z: number;
     ancho: number;
@@ -376,38 +395,79 @@ export function crearCiudad(rnd: () => number): Group {
     alto: number;
     lado: number;
     pared: number;
+    /** Casa: tejado a cuatro aguas. Edificio: azotea y rejilla de ventanas. */
+    esEdificio: boolean;
     teja: number;
     altoTejado: number;
+    plantas: number;
   }
 
   const paredes = [COL.paredA, COL.paredB, COL.paredC, COL.paredD, COL.paredE];
   const tejas = [COL.tejaA, COL.tejaB, COL.tejaC];
+  const lotes: Lote[] = [];
 
-  const casas: Casa[] = [];
+  const nuevoLote = (lado: number, z: number, ancho: number, retranqueo: number): Lote => {
+    const esEdificio = rnd() > 0.45;
+    const plantas = esEdificio ? 3 + Math.floor(rnd() * 5) : 1 + Math.floor(rnd() * 2);
+    const fondo = esEdificio ? 8 + rnd() * 5 : 7 + rnd() * 4.5;
+    return {
+      x: lado * (LINEA_CASAS + retranqueo + fondo / 2),
+      z: z + ancho / 2,
+      ancho,
+      fondo,
+      alto: esEdificio ? plantas * 1.55 : 3.1 + rnd() * 1.6,
+      lado,
+      pared: paredes[Math.floor(rnd() * paredes.length)],
+      esEdificio,
+      teja: tejas[Math.floor(rnd() * tejas.length)],
+      altoTejado: 1 + rnd() * 0.8,
+      plantas,
+    };
+  };
+
   for (const lado of [-1, 1]) {
     // Se empieza desplazado en cada lado para que las dos hileras no queden
-    // enfrentadas casa a casa, que se ve artificial desde arriba.
-    let z = -66 + rnd() * 4 + (lado > 0 ? 3.5 : 0);
+    // enfrentadas edificio contra edificio, que se ve artificial desde arriba.
+    let z = -66 + rnd() * 4 + (lado > 0 ? 4.5 : 0);
     while (z < 66) {
-      const ancho = 5 + rnd() * 4; // a lo largo de la calle
-      const fondo = 7 + rnd() * 4.5; // hacia dentro de la manzana
-      casas.push({
-        x: lado * (LINEA_CASAS + fondo / 2),
-        z: z + ancho / 2,
-        ancho,
-        fondo,
-        alto: 3.1 + rnd() * 2.9,
-        lado,
-        pared: paredes[Math.floor(rnd() * paredes.length)],
-        teja: tejas[Math.floor(rnd() * tejas.length)],
-        altoTejado: 1 + rnd() * 0.8,
-      });
-      z += ancho + 0.35 + rnd() * 0.5;
+      const ancho = 6 + rnd() * 6;
+      // Retranqueo de 0 a 1,2: una hilera perfectamente alineada canta a
+      // decorado. Con un poco de juego, la fachada respira.
+      lotes.push(nuevoLote(lado, z, ancho, rnd() * 1.2));
+      z += ancho + 0.4 + rnd() * 0.8;
     }
   }
 
-  // Muros. Una caja por casa, todas en una llamada de dibujo.
-  const muros = new InstancedMesh(new BoxGeometry(1, 1, 1), mat(COL.paredA), casas.length);
+  // Segunda hilera, MÁS ATRÁS y solo de edificios: asoma por encima de la
+  // primera y da fondo a la manzana sin quitarle sitio a la fachada.
+  const fondoManzana: Lote[] = [];
+  for (const lado of [-1, 1]) {
+    let z = -60 + rnd() * 8;
+    while (z < 60) {
+      const ancho = 9 + rnd() * 7;
+      const l = nuevoLote(lado, z, ancho, 15 + rnd() * 6);
+      l.esEdificio = true;
+      l.plantas = 5 + Math.floor(rnd() * 5);
+      l.alto = l.plantas * 1.55;
+      fondoManzana.push(l);
+      z += ancho + 2 + rnd() * 4;
+    }
+  }
+  lotes.push(...fondoManzana);
+
+  const casas = lotes.filter((l) => !l.esEdificio);
+  const edificios = lotes.filter((l) => l.esEdificio);
+
+  // Muros: una caja por lote, todos en una llamada de dibujo.
+  const muros = new InstancedMesh(new BoxGeometry(1, 1, 1), mat(COL.paredA), lotes.length);
+  lotes.forEach((l, i) => {
+    poner(muros, i, l.x, l.alto / 2, l.z, l.fondo, l.alto, l.ancho);
+    muros.setColorAt(i, _c.set(l.pared));
+  });
+  muros.instanceMatrix.needsUpdate = true;
+  if (muros.instanceColor) muros.instanceColor.needsUpdate = true;
+  g.add(muros);
+
   // Tejado a cuatro aguas: un cono de 4 lados es una pirámide de base cuadrada
   // girada 45°. Al girarla otros 45° queda alineada con la casa. La base de esa
   // pirámide tiene medio lado = radio/√2, así que para cubrir un fondo D con
@@ -417,141 +477,64 @@ export function crearCiudad(rnd: () => number): Group {
     mat(COL.tejaA),
     casas.length
   );
-
-  casas.forEach((c, i) => {
-    poner(muros, i, c.x, c.alto / 2, c.z, c.fondo, c.alto, c.ancho);
-    muros.setColorAt(i, _c.set(c.pared));
-    poner(
-      tejados,
-      i,
-      c.x,
-      c.alto + c.altoTejado / 2,
-      c.z,
-      c.fondo * 0.813,
-      c.altoTejado,
-      c.ancho * 0.813
-    );
-    tejados.setColorAt(i, _c.set(c.teja));
+  casas.forEach((l, i) => {
+    poner(tejados, i, l.x, l.alto + l.altoTejado / 2, l.z, l.fondo * 0.813, l.altoTejado, l.ancho * 0.813);
+    tejados.setColorAt(i, _c.set(l.teja));
   });
-  muros.instanceMatrix.needsUpdate = true;
   tejados.instanceMatrix.needsUpdate = true;
-  if (muros.instanceColor) muros.instanceColor.needsUpdate = true;
   if (tejados.instanceColor) tejados.instanceColor.needsUpdate = true;
-  g.add(muros, tejados);
+  g.add(tejados);
 
-  // Ventanas y puertas en la fachada que da a la calle. Van por FUERA del muro
-  // (medio grosor más allá de la cara), no empotradas: empotrarlas provoca
-  // z-fighting con la pared y hace que parpadeen al girar la cámara.
-  const huecos: { x: number; y: number; z: number; alto: number; ancho: number }[] = [];
-  for (const c of casas) {
-    const cara = c.lado * (LINEA_CASAS + 0.05);
-    const n = 1 + Math.floor(rnd() * 3);
-    for (let k = 0; k < n; k++) {
-      huecos.push({
-        x: cara,
-        y: 1.1 + rnd() * Math.max(0.2, c.alto - 2.1),
-        z: c.z + (k - (n - 1) / 2) * (c.ancho / (n + 0.4)),
-        alto: 0.75,
-        ancho: 0.85,
-      });
-    }
-  }
-  const ventanas = new InstancedMesh(new BoxGeometry(0.1, 1, 1), mat(COL.ventana), huecos.length);
-  huecos.forEach((h, i) => poner(ventanas, i, h.x, h.y, h.z, 1, h.alto, h.ancho));
-  ventanas.instanceMatrix.needsUpdate = true;
-  g.add(ventanas);
-
-  // ── Edificios ──
-  // Una segunda hilera, justo detrás de las casas bajas y bastante más alta:
-  // 3 a 8 plantas. Es lo que convierte dos filas de casitas en una CALLE de
-  // ciudad — encajona el encuadre por los lados y da altura al horizonte.
-  //
-  // Van detrás y no pegados a la acera a propósito: desde la cámara (a 42
-  // unidades de altura y 33 de distancia) un edificio en primera línea no
-  // llega a tapar la calzada, pero sí se comería la acera y los árboles, que
-  // son los que dan la lectura de "calle de barrio".
-  interface Edificio {
-    x: number;
-    z: number;
-    ancho: number;
-    fondo: number;
-    alto: number;
-    lado: number;
-    pared: number;
-    plantas: number;
-  }
-
-  const edificios: Edificio[] = [];
-  for (const lado of [-1, 1]) {
-    let z = -64 + rnd() * 6 + (lado > 0 ? 7 : 0);
-    while (z < 64) {
-      const ancho = 8 + rnd() * 6;
-      const fondo = 9 + rnd() * 6;
-      const plantas = 3 + Math.floor(rnd() * 6);
-      edificios.push({
-        x: lado * (LINEA_CASAS + 12.5 + rnd() * 5 + fondo / 2),
-        z: z + ancho / 2,
-        ancho,
-        fondo,
-        alto: plantas * 1.55,
-        lado,
-        pared: paredes[Math.floor(rnd() * paredes.length)],
-        plantas,
-      });
-      z += ancho + 1.2 + rnd() * 3;
-    }
-  }
-
-  const bloquesAltos = new InstancedMesh(
-    new BoxGeometry(1, 1, 1),
-    mat(COL.paredE),
-    edificios.length
-  );
   // Azotea: un pretil un poco más ancho que el edificio. Desde arriba, que es
   // como se ve todo aquí, un edificio sin pretil parece una caja cortada.
-  const azoteas = new InstancedMesh(
-    new BoxGeometry(1, 0.42, 1),
-    mat(COL.azotea),
-    edificios.length
+  const azoteas = new InstancedMesh(new BoxGeometry(1, 0.42, 1), mat(COL.azotea), edificios.length);
+  edificios.forEach((l, i) =>
+    poner(azoteas, i, l.x, l.alto + 0.16, l.z, l.fondo + 0.35, 1, l.ancho + 0.35)
   );
-  edificios.forEach((e, i) => {
-    poner(bloquesAltos, i, e.x, e.alto / 2, e.z, e.fondo, e.alto, e.ancho);
-    bloquesAltos.setColorAt(i, _c.set(e.pared));
-    poner(azoteas, i, e.x, e.alto + 0.16, e.z, e.fondo + 0.35, 1, e.ancho + 0.35);
-  });
-  bloquesAltos.instanceMatrix.needsUpdate = true;
   azoteas.instanceMatrix.needsUpdate = true;
-  if (bloquesAltos.instanceColor) bloquesAltos.instanceColor.needsUpdate = true;
-  g.add(bloquesAltos, azoteas);
+  g.add(azoteas);
 
-  // Ventanas de los edificios: una rejilla por fachada. Es lo que da la
-  // escala — sin ellas un bloque de 12 unidades podría ser de 3 o de 30.
-  const rejilla: { x: number; y: number; z: number }[] = [];
-  for (const e of edificios) {
-    // La fachada que da a la calle es la más cercana a x=0. Como `e.x` ya
-    // lleva el signo del lado, restarle `lado * fondo/2` cae siempre en ella.
-    // Las ventanas van un pelo POR FUERA del muro: empotrarlas provoca
-    // z-fighting con la pared y las hace parpadear al girar la cámara.
-    const xCara = e.x - e.lado * (e.fondo / 2 + 0.06);
-    const cols = Math.max(2, Math.round(e.ancho / 2.6));
-    for (let f = 0; f < e.plantas; f++) {
-      for (let c = 0; c < cols; c++) {
-        rejilla.push({
+  // Ventanas de la fachada que da a la calle: una rejilla en los edificios y
+  // unos pocos huecos sueltos en las casas. Es lo que da la ESCALA — sin ellas
+  // un bloque de 12 unidades podría ser de 3 plantas o de 30.
+  //
+  // Van un pelo POR FUERA del muro, no empotradas: empotrarlas provoca
+  // z-fighting con la pared y las hace parpadear al girar la cámara. La
+  // fachada a la calle es la más cercana a x=0, y como `l.x` ya lleva el signo
+  // del lado, restarle `lado * fondo/2` cae siempre en ella.
+  const huecos: { x: number; y: number; z: number; alto: number; ancho: number }[] = [];
+  for (const l of lotes) {
+    const xCara = l.x - l.lado * (l.fondo / 2 + 0.06);
+    if (l.esEdificio) {
+      const cols = Math.max(2, Math.round(l.ancho / 2.6));
+      for (let f = 0; f < l.plantas; f++) {
+        for (let c = 0; c < cols; c++) {
+          huecos.push({
+            x: xCara,
+            y: 0.95 + f * 1.55,
+            z: l.z + (c - (cols - 1) / 2) * (l.ancho / (cols + 0.5)),
+            alto: 0.85,
+            ancho: 0.95,
+          });
+        }
+      }
+    } else {
+      const n = 1 + Math.floor(rnd() * 3);
+      for (let k = 0; k < n; k++) {
+        huecos.push({
           x: xCara,
-          y: 0.95 + f * 1.55,
-          z: e.z + (c - (cols - 1) / 2) * (e.ancho / (cols + 0.5)),
+          y: 1.1 + rnd() * Math.max(0.2, l.alto - 2.1),
+          z: l.z + (k - (n - 1) / 2) * (l.ancho / (n + 0.4)),
+          alto: 0.75,
+          ancho: 0.85,
         });
       }
     }
   }
-  const ventanasAltas = new InstancedMesh(
-    new BoxGeometry(0.12, 0.85, 0.95),
-    mat(COL.ventana),
-    rejilla.length
-  );
-  rejilla.forEach((v, i) => poner(ventanasAltas, i, v.x, v.y, v.z, 1, 1, 1));
-  ventanasAltas.instanceMatrix.needsUpdate = true;
-  g.add(ventanasAltas);
+  const ventanas = new InstancedMesh(new BoxGeometry(0.12, 1, 1), mat(COL.ventana), huecos.length);
+  huecos.forEach((h, i) => poner(ventanas, i, h.x, h.y, h.z, 1, h.alto, h.ancho));
+  ventanas.instanceMatrix.needsUpdate = true;
+  g.add(ventanas);
 
   // ── Postes de la luz ──
   // Solo en un lado, como en la calle de la referencia.
@@ -873,10 +856,11 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   // Los árboles van pegados al borde EXTERIOR de la acera, y con la escala
   // acotada, por un motivo que no es estético: la copa vuela alrededor del
   // tronco, y desde una cámara cenital una copa que asome sobre el asfalto
-  // puede esconder una bolsa. Con el tronco a 9,74 y la copa como mucho a
-  // 1,79 de radio, el borde interior queda en 7,95 — por fuera de la calzada,
-  // que acaba en 7,7. Hay una prueba que lo comprueba, y falló con el tronco
-  // a 9,3: la copa entraba 13 centésimas sobre el asfalto.
+  // puede esconder una bolsa. Con el tronco a 9,29 y la copa como mucho a
+  // 1,52 de radio, el borde interior queda en 7,77 — por fuera de la calzada,
+  // que acaba en 7,7. Hay una prueba que lo comprueba, y ya falló una vez.
+  // Al estrechar la acera hubo que encoger también la copa: la acera es la
+  // que decide cuánto sitio hay para un árbol.
   //
   // Y van SOLO en la acera izquierda. La cámara mira desde +Z sin ladear, así
   // que el eje +X del mundo es el lado derecho de la pantalla: una hilera de
@@ -886,12 +870,12 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   // lados el barrio no se veía; con uno solo, la izquierda da vegetación y la
   // derecha enseña los edificios.
   const arboles: { x: number; z: number; e: number; fase: number }[] = [];
-  const xArbol = -(MEDIA_CALZADA + ANCHO_ACERA * 0.68);
+  const xArbol = -(MEDIA_CALZADA + ANCHO_ACERA * 0.82);
   for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
     arboles.push({
       x: xArbol,
       z,
-      e: 0.9 + rnd() * 0.4,
+      e: 0.85 + rnd() * 0.25,
       fase: rnd() * Math.PI * 2,
     });
   }
