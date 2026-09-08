@@ -52,7 +52,12 @@ import {
   wx,
   wz,
 } from './escena';
-import { CENTRO, colocarCamara, distanciaQueEncuadra } from './encuadre';
+import {
+  CENTRO,
+  colocarCamara,
+  distanciaMaximaAlTerreno,
+  distanciaQueEncuadra,
+} from './encuadre';
 import { Fx } from './fx';
 import { Audio } from './audio';
 
@@ -139,10 +144,16 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   parent.appendChild(renderer.domElement);
 
   const scene = new Scene();
-  scene.background = new Color(0x4fc3f7);
-  // Niebla del color del cielo: funde el borde del terreno con el horizonte,
-  // así no se ve dónde se acaba el mundo. Cuesta prácticamente nada.
-  scene.fog = new Fog(0x7fd4fa, 34, 74);
+  // Este fondo casi no se ve: con la inclinación de 52° y un campo visual de
+  // 42°, hasta el rayo más alto de la cámara apunta 31° POR DEBAJO del
+  // horizonte, así que todo lo que se ve es suelo. Queda como respaldo.
+  scene.background = new Color(0x9fe0a0);
+  // Niebla en verde claro, no azul. Es lo que funde el borde del prado con la
+  // lejanía: como termina (78) antes de donde acaba la losa lejana, ese borde
+  // NUNCA llega a verse. Y al ser verde, el horizonte se lee como campo que
+  // sigue, no como cielo metiéndose en la escena.
+  const niebla = new Fog(0xbfe8a8, 60, 90);
+  scene.fog = niebla;
 
   const camera = new PerspectiveCamera(42, 1, 0.5, 120);
 
@@ -282,6 +293,17 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     camera.aspect = w / h;
 
     distCamara = distanciaQueEncuadra(camera);
+
+    // La niebla arranca DESPUÉS del punto más lejano del terreno jugable, así
+    // que no emborrona nada con lo que se juega, y termina antes de donde
+    // acaba la losa lejana, así que su borde nunca llega a verse. Se calcula
+    // aquí porque la cámara se aleja más en unas pantallas que en otras: unos
+    // valores fijos que quedaran bien en el móvil emborronarían media zona de
+    // juego en el escritorio.
+    const lejos = distanciaMaximaAlTerreno(camera);
+    niebla.near = lejos * 1.04;
+    niebla.far = lejos * 1.55;
+
     calcularDestinoHud();
   }
 

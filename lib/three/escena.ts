@@ -150,11 +150,31 @@ function poner(
  * textura y en UNA llamada de dibujo. Pintar el camino en los vértices, en vez
  * de ponerlo como una malla encima, evita además el parpadeo por z-fighting.
  */
-export function crearSuelo(rnd: () => number): Mesh {
-  const margen = 6; // el prado se extiende más allá del área jugable
+export function crearSuelo(rnd: () => number): Group {
+  const g = new Group();
+
+  // ── Prado LEJANO ──
+  // Una losa enorme y lisa por debajo de todo. Existe por un motivo muy
+  // concreto: cuando la cámara se aleja para encuadrar el terreno en una
+  // pantalla ancha, ve MÁS ALLÁ del borde del prado, y detrás no hay nada —
+  // se veía el cielo de fondo ocupando media pantalla. Con esta losa el suelo
+  // no se acaba nunca dentro de lo que la cámara alcanza a ver, y la niebla
+  // se encarga de que su borde real quede fuera de alcance.
+  // Cuesta 128 triángulos y una llamada de dibujo.
+  const lejano = new Mesh(
+    new PlaneGeometry(320, 320, 8, 8).rotateX(-Math.PI / 2),
+    new MeshLambertMaterial({ color: COL.pasto, flatShading: true })
+  );
+  lejano.position.y = -0.08;
+  g.add(lejano);
+
+  // ── Prado CERCANO, con detalle ──
+  // El margen es generoso (26 unidades a cada lado) para que la zona con
+  // manchas, camino y relieve cubra de sobra lo que se ve de cerca.
+  const margen = 26;
   const w = ANCHO + margen * 2;
   const d = FONDO + margen * 2;
-  const geo = new PlaneGeometry(w, d, 48, 72);
+  const geo = new PlaneGeometry(w, d, 60, 84);
   geo.rotateX(-Math.PI / 2);
 
   const pos = geo.attributes.position;
@@ -196,12 +216,23 @@ export function crearSuelo(rnd: () => number): Mesh {
       _c.lerp(tierra, 1 - Math.pow(dc / ancho, 4) * 0.55);
     }
 
-    // Ondulación suave del terreno: un prado plano como una mesa se ve falso.
-    // Fuera del área jugable se levanta más, para insinuar colinas.
+    // Ondulación suave: un prado plano como una mesa se ve falso. Fuera del
+    // área jugable el terreno se levanta en colinas.
+    //
+    // La curva sube y VUELVE A BAJAR a cero en el borde exterior (por eso el
+    // seno de 0 a π): esta losa detallada tiene que encontrarse con la losa
+    // lejana, que está plana. Si las colinas siguieran subiendo hasta el
+    // borde, quedaría un escalón de tres unidades justo ahí, bien visible.
     const fuera = Math.max(0, Math.abs(z) - FONDO / 2, Math.abs(x) - ANCHO / 2);
-    const alto =
-      Math.sin(x * 0.35) * 0.05 + Math.cos(z * 0.28) * 0.05 + fuera * fuera * 0.06;
+    const t = Math.min(1, fuera / margen);
+    const colina =
+      Math.sin(t * Math.PI) * 2.6 * (0.55 + Math.sin(x * 0.09 + z * 0.07) * 0.45);
+    const alto = Math.sin(x * 0.35) * 0.05 + Math.cos(z * 0.28) * 0.05 + colina;
     pos.setY(i, alto);
+
+    // Y por el mismo motivo, el color se funde con el de la losa lejana
+    // conforme se acerca al borde: si no, se vería la costura.
+    if (t > 0.55) _c.lerp(verde, (t - 0.55) / 0.45);
 
     colores.push(_c.r, _c.g, _c.b);
   }
@@ -209,7 +240,8 @@ export function crearSuelo(rnd: () => number): Mesh {
   geo.setAttribute('color', new Float32BufferAttribute(colores, 3));
   geo.computeVertexNormals();
 
-  return new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  g.add(new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+  return g;
 }
 
 // ── Vegetación ──────────────────────────────────────────────────────────────
@@ -241,6 +273,21 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
     }
     if (Math.abs(x) <= bordeX + 0.7 && Math.abs(z) <= bordeZ + 0.7) continue;
     arboles.push({ x, z, e: 0.8 + rnd() * 0.6, fase: rnd() * Math.PI * 2 });
+  }
+
+  // Arboleda LEJANA: un anillo ancho de árboles más allá del terreno, para
+  // que el horizonte tenga contenido en vez de ser una franja verde lisa.
+  // Están fuera de todo lo jugable y la niebla se los va comiendo con la
+  // distancia. Instanciados: dos llamadas de dibujo para 90 árboles.
+  for (let i = 0; i < 90; i++) {
+    const ang = rnd() * Math.PI * 2;
+    const rad = Math.max(ANCHO, FONDO) * (0.62 + rnd() * 0.75);
+    arboles.push({
+      x: Math.cos(ang) * rad * 1.15,
+      z: Math.sin(ang) * rad,
+      e: 1.1 + rnd() * 1.3,
+      fase: rnd() * Math.PI * 2,
+    });
   }
 
   const geoTronco = new CylinderGeometry(0.16, 0.24, 1.5, 6);

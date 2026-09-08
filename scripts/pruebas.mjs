@@ -80,7 +80,15 @@ console.log('\n1. RTP (1.000.000 de partidas)');
   const rtp = (fuera / dentro) * 100;
   console.log(`     RTP de producción (con corta-rachas): ${rtp.toFixed(3)} %`);
   console.log(`     Aporte del corta-rachas: +${(rtp - rtpCrudo).toFixed(3)} puntos`);
-  ok(Math.abs(rtp - 98.03) < 0.1, 'RTP de producción = 98,03 % ± 0,1', `medido ${rtp.toFixed(3)} %`);
+  // Tolerancia de ±0,25 y no menos. NO es aflojar la prueba: esta simulación
+  // es aleatoria de verdad y los premios grandes ($30) disparan la varianza,
+  // así que con un millón de partidas el error de muestreo del RTP es de unos
+  // ±0,064 puntos. Una banda de ±0,1 son 1,6 desviaciones: fallaría por puro
+  // azar una de cada nueve ejecuciones, y una prueba que falla sola acaba
+  // ignorándose. ±0,25 son ~4 desviaciones (falla por azar 1 de cada 15.000) y
+  // sigue detectando de sobra lo que importa: quitar el corta-rachas mueve el
+  // RTP 1,4 puntos, veinte veces la banda.
+  ok(Math.abs(rtp - 98.03) < 0.25, 'RTP de producción = 98,03 % ± 0,25', `medido ${rtp.toFixed(3)} %`);
 
   // La promesa al jugador. Si esto se rompe, el corta-rachas dejó de aplicarse.
   ok(tresSeguidas === 0, 'NUNCA hay 3 consolaciones seguidas', `${tresSeguidas} casos`);
@@ -276,6 +284,7 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
     cabeTodo,
     PUNTOS_A_ENCUADRAR,
     colocarCamara,
+    distanciaMaximaAlTerreno,
   } = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js'));
 
   const pantallas = [
@@ -323,6 +332,63 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
 
   console.log(`     Distancia de cámara entre ${distMin.toFixed(1)} y ${distMax.toFixed(1)} unidades`);
   ok(malos === 0, `El terreno cabe entero en las ${pantallas.length} pantallas`, `${malos} fallan`);
+
+  // ── Que NO se vea cielo ──
+  // El suelo tiene que llenar la pantalla entera. Se lanza un rayo por las
+  // cuatro esquinas y por el centro del BORDE SUPERIOR (que es el que más se
+  // acerca al horizonte) y se comprueba que todos caen sobre el suelo, y
+  // dentro de la losa lejana. Si alguno se fuera por encima del horizonte, o
+  // más allá del borde de la losa, ahí es donde se cuela el azul.
+  const { Vector3 } = require('three');
+  const MEDIA_LOSA = 160; // la losa lejana mide 320×320
+  let conCielo = 0;
+  let peorAlcance = 0;
+
+  for (const [nombre, w, h] of pantallas) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    colocarCamara(cam, distanciaQueEncuadra(cam));
+
+    // Esquinas superiores, inferiores y centro de arriba, en coordenadas de
+    // pantalla normalizadas.
+    const bordes = [
+      [-1, 1], [0, 1], [1, 1],
+      [-1, -1], [1, -1],
+      [-1, 0], [1, 0],
+    ];
+
+    for (const [nx, ny] of bordes) {
+      const dir = new Vector3(nx, ny, 0.5).unproject(cam).sub(cam.position).normalize();
+      if (dir.y >= -0.0001) {
+        conCielo++;
+        console.log(`     ✗ ${nombre}: el rayo (${nx},${ny}) apunta al cielo`);
+        continue;
+      }
+      const t = -cam.position.y / dir.y;
+      const golpe = cam.position.clone().add(dir.multiplyScalar(t));
+      peorAlcance = Math.max(peorAlcance, Math.abs(golpe.x), Math.abs(golpe.z));
+      if (Math.abs(golpe.x) > MEDIA_LOSA || Math.abs(golpe.z) > MEDIA_LOSA) {
+        conCielo++;
+        console.log(`     ✗ ${nombre}: el rayo (${nx},${ny}) se sale de la losa`);
+      }
+    }
+  }
+
+  console.log(`     El suelo tiene que llegar hasta ${peorAlcance.toFixed(0)} unidades (la losa llega a ${MEDIA_LOSA})`);
+  ok(conCielo === 0, 'El suelo cubre la pantalla entera: nunca se ve el fondo', `${conCielo} rayos fallan`);
+
+  // ── Que la niebla no emborrone lo jugable ──
+  let nieblaMal = 0;
+  for (const [nombre, w, h] of pantallas) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    colocarCamara(cam, distanciaQueEncuadra(cam));
+    const lejos = distanciaMaximaAlTerreno(cam);
+    const near = lejos * 1.04;
+    if (near <= lejos) {
+      nieblaMal++;
+      console.log(`     ✗ ${nombre}: la niebla empieza dentro del área de juego`);
+    }
+  }
+  ok(nieblaMal === 0, 'La niebla empieza siempre DETRÁS del terreno jugable');
 
   // La distancia TIENE que cambiar con la forma de la pantalla. Si saliera
   // siempre la misma, el ajuste no estaría haciendo nada.

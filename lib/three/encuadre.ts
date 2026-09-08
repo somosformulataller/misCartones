@@ -61,6 +61,22 @@ export function colocarCamara(camera: PerspectiveCamera, dist: number) {
 
 const _v = new Vector3();
 
+/**
+ * Distancia de la cámara al punto MÁS LEJANO del terreno jugable.
+ *
+ * La niebla se ajusta a partir de esto en vez de con números fijos, y es
+ * imprescindible: la cámara se aleja más en unas pantallas que en otras (de 32
+ * a 53 unidades), así que una niebla fija que quede bien en el móvil emborrona
+ * media zona de juego en el escritorio.
+ */
+export function distanciaMaximaAlTerreno(camera: PerspectiveCamera): number {
+  let max = 0;
+  for (const p of PUNTOS_A_ENCUADRAR) {
+    max = Math.max(max, camera.position.distanceTo(p));
+  }
+  return max;
+}
+
 /** ¿Cabe el terreno entero con la cámara a esta distancia? */
 export function cabeTodo(camera: PerspectiveCamera, dist: number): boolean {
   colocarCamara(camera, dist);
