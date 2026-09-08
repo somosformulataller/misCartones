@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { GameCallbacks, GameHandle } from '@/lib/pixi/game';
+import type { GameCallbacks, GameHandle } from '@/lib/three/game';
 
 interface Props {
   seed: number;
@@ -12,7 +12,7 @@ interface Props {
 
 /**
  * LA ÚNICA FRONTERA entre React y el motor. Hace exactamente cuatro cosas:
- * crea el contenedor, monta la Application de Pixi, le pasa los callbacks y
+ * crea el contenedor, monta el motor 3D, le pasa los callbacks y
  * LA DESTRUYE en la limpieza del efecto.
  *
  * Lo último es lo importante. Si la Application no se destruye, cambiar de
@@ -43,9 +43,9 @@ export default function GameCanvas({ seed, alreadyDeposited, muted, callbacks }:
 
     let cancelado = false;
 
-    // El import dinámico deja Pixi (~130 KB gz) fuera del bundle inicial:
+    // El import dinámico deja three.js (~100 KB gz) fuera del bundle inicial:
     // solo se descarga al entrar a la pantalla de juego.
-    import('@/lib/pixi/game')
+    import('@/lib/three/game')
       .then(({ createGame }) =>
         createGame(el, {
           seed,

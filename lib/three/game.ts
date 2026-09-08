@@ -1,0 +1,812 @@
+// ============================================================================
+// El motor, en 3D. TypeScript puro: ni una importación de React.
+//
+// ⚠️ LA SIMULACIÓN NO CAMBIÓ AL PASAR DE 2D A 3D. Sigue corriendo en píxeles
+// lógicos X/Y con paso fijo de 60 Hz, exactamente igual que en la versión de
+// Pixi: aceleración, frenado, colisión con deslizamiento por los bordes,
+// recogida, entrega y tropiezo son el mismo código. Lo único que cambió es
+// cómo se DIBUJA: la Y de la simulación pasa a ser la Z del mundo.
+//
+// Por eso `lib/game/` (RNG, bagSplit, world), el servidor, el reclamo atómico
+// y las pruebas siguen valiendo sin tocar una línea.
+// ============================================================================
+
+import {
+  ACESFilmicToneMapping,
+  AmbientLight,
+  Color,
+  DirectionalLight,
+  Fog,
+  Group,
+  Matrix4,
+  HemisphereLight,
+  Object3D,
+  PerspectiveCamera,
+  Plane,
+  Raycaster,
+  Scene,
+  Vector2,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
+import {
+  buildWorld,
+  mulberry32,
+  CITIZEN_RADIUS,
+  BAG_RADIUS,
+  CART_RADIUS,
+  PLAY,
+  World,
+  WorldObstacle,
+} from '@/lib/game/world';
+import {
+  BolsaVista,
+  crearBolsa,
+  crearCarretilla,
+  crearCerca,
+  crearCiudadano,
+  crearObstaculos,
+  crearSuelo,
+  crearVegetacion,
+  sx,
+  sy,
+  wx,
+  wz,
+} from './escena';
+import { Fx } from './fx';
+import { Audio } from './audio';
+
+// ── Ajustes de movimiento: IDÉNTICOS a la versión 2D. Estos números SON el
+// juego, y no tienen nada que ver con cómo se dibuje. ────────────────────────
+const PASO_MS = 1000 / 60;
+const VEL_BASE = 320;
+const MUL_CARGA = 0.85;
+const MUL_CHARCO = 0.55;
+const ACEL = 2600;
+const FRENO = 3200;
+const RADIO_LLEGADA = 10;
+const TROPIEZO_MS = 800;
+const VEL_TROPIEZO = 150;
+const BOOST_POR_ENTREGA = 0.04;
+
+/** Inclinación de la cámara sobre el horizonte. 52° deja ver el volumen de
+ *  los objetos sin perder la lectura cenital que necesita el juego. */
+const PITCH = (52 * Math.PI) / 180;
+
+export interface ResultadoEntrega {
+  monto: number;
+  finished: boolean;
+  error?: string;
+}
+
+export interface GameCallbacks {
+  onDeposit: (bagId: number) => Promise<ResultadoEntrega>;
+  onPickup?: (bagId: number) => void;
+  onState?: (s: { bagsLeft: number; carrying: boolean; deposited: number }) => void;
+  onCredit?: (monto: number, total: number) => void;
+  onFinished?: () => void;
+  onError?: (msg: string) => void;
+}
+
+export interface GameOptions {
+  seed: number;
+  alreadyDeposited?: number[];
+  reducedMotion?: boolean;
+  callbacks: GameCallbacks;
+}
+
+export interface GameHandle {
+  destroy: () => void;
+  setMuted: (v: boolean) => void;
+  isMuted: () => boolean;
+}
+
+type EstadoBolsa = 'suelo' | 'cargada' | 'entregada';
+
+interface Bolsa {
+  id: number;
+  x: number;
+  y: number;
+  estado: EstadoBolsa;
+  vista: BolsaVista;
+}
+
+export async function createGame(parent: HTMLElement, opts: GameOptions): Promise<GameHandle> {
+  const world: World = buildWorld(opts.seed);
+  const reduced = !!opts.reducedMotion;
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const renderer = new WebGLRenderer({
+    // Sin suavizado de bordes: en móvil cuesta bastante y el estilo low-poly
+    // con caras planas casi no lo necesita. El tope de densidad de píxeles
+    // hace más por la nitidez que el antialias, y cuesta menos.
+    antialias: false,
+    powerPreference: 'high-performance',
+    stencil: false,
+  });
+  // Tope de densidad 2: en pantallas de 3× se dibuja a 2× y se estira. Ahorra
+  // el 44 % de los píxeles y no se nota. Es de las mayores ganancias en móvil.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  // Sin mapas de sombra: cada luz con sombra redibuja la escena entera. Cada
+  // objeto lleva su mancha oscura plana debajo, que cuesta un círculo.
+  renderer.shadowMap.enabled = false;
+  renderer.domElement.style.display = 'block';
+  renderer.domElement.style.touchAction = 'none';
+  parent.appendChild(renderer.domElement);
+
+  const scene = new Scene();
+  scene.background = new Color(0x8fd3f4);
+  // Niebla del color del cielo: funde el borde del terreno con el horizonte,
+  // así no se ve dónde se acaba el mundo. Cuesta prácticamente nada.
+  scene.fog = new Fog(0x9ad8f6, 28, 62);
+
+  const camera = new PerspectiveCamera(42, 1, 0.5, 120);
+
+  // Luz: una hemisférica (cielo/suelo) y una direccional. Dos, y ya.
+  scene.add(new HemisphereLight(0xcfeaff, 0x6a9a52, 1.05));
+  const sol = new DirectionalLight(0xfff3d6, 1.5);
+  sol.position.set(-8, 14, 6);
+  scene.add(sol);
+  scene.add(new AmbientLight(0xffffff, 0.25));
+
+  // ── Escena ────────────────────────────────────────────────────────────────
+  const rndArte = mulberry32((opts.seed ^ 0x5bf03635) >>> 0);
+  const mundo = new Group();
+  scene.add(mundo);
+
+  mundo.add(crearSuelo(rndArte));
+  const veg = crearVegetacion(rndArte, world);
+  mundo.add(veg.grupo);
+  mundo.add(crearCerca());
+  mundo.add(crearObstaculos(world.obstacles));
+
+  const cart = crearCarretilla();
+  cart.grupo.position.set(wx(world.cart.x), 0, wz(world.cart.y));
+  mundo.add(cart.grupo);
+
+  const yaEntregadas = new Set(opts.alreadyDeposited ?? []);
+  const bolsas: Bolsa[] = world.bags.map((b) => {
+    const vista = crearBolsa();
+    vista.grupo.position.set(wx(b.x), 0, wz(b.y));
+    mundo.add(vista.grupo);
+    const entregada = yaEntregadas.has(b.id);
+    if (entregada) vista.grupo.visible = false;
+    return { id: b.id, x: b.x, y: b.y, estado: entregada ? 'entregada' : 'suelo', vista };
+  });
+
+  let entregadas = yaEntregadas.size;
+  const pintarCarretilla = () => {
+    cart.capas.forEach((c, i) => (c.visible = i < entregadas));
+  };
+  pintarCarretilla();
+
+  const ciu = crearCiudadano();
+  mundo.add(ciu.grupo);
+
+  const fx = new Fx();
+  mundo.add(fx.grupo);
+
+  // Destello de pantalla completa: en DOM, no en la escena 3D. Un cuadrado a
+  // pantalla completa dentro del render cuesta relleno; una capa CSS es gratis.
+  const destello = document.createElement('div');
+  destello.style.cssText =
+    'position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;';
+  parent.appendChild(destello);
+
+  const audio = new Audio();
+
+  // ── Estado de la simulación (en píxeles lógicos, como en 2D) ──────────────
+  const sim = {
+    x: world.cart.x,
+    y: world.cart.y + CART_RADIUS + 40,
+    prevX: 0,
+    prevY: 0,
+    vx: 0,
+    vy: 0,
+    rumbo: 0,
+    cargando: null as number | null,
+    tropiezo: 0,
+    fasePaso: 0,
+    pasoAlterno: false,
+    inactivo: 0,
+    entregando: false,
+    finLento: 0,
+    zoomPulso: 0,
+    hitstop: 0,
+    tiempo: 0,
+  };
+  sim.prevX = sim.x;
+  sim.prevY = sim.y;
+
+  function circuloVsRect(cx: number, cy: number, r: number, o: WorldObstacle) {
+    const nx = Math.max(o.x, Math.min(cx, o.x + o.w));
+    const ny = Math.max(o.y, Math.min(cy, o.y + o.h));
+    const dx = cx - nx;
+    const dy = cy - ny;
+    return dx * dx + dy * dy < r * r;
+  }
+  function chocaSolido(x: number, y: number): boolean {
+    for (const o of world.obstacles) {
+      if (o.solid && circuloVsRect(x, y, CITIZEN_RADIUS, o)) return true;
+    }
+    return false;
+  }
+  function enCharco(x: number, y: number): boolean {
+    for (const o of world.obstacles) {
+      if (!o.solid && circuloVsRect(x, y, CITIZEN_RADIUS * 0.6, o)) return true;
+    }
+    return false;
+  }
+
+  while (chocaSolido(sim.x, sim.y) && sim.y < PLAY.y + PLAY.h - 10) sim.y += 8;
+
+  let destino: { x: number; y: number } | null = null;
+  let presionando = false;
+  const teclas = new Set<string>();
+
+  // ── Cámara: se coloca sola para que el terreno QUEPA ──────────────────────
+  // En vez de fijar una distancia a ojo (que se rompe en cuanto cambia la
+  // proporción del teléfono), se busca la distancia mínima a la que las cuatro
+  // esquinas del área jugable caen dentro de la pantalla. Funciona igual en un
+  // móvil estrecho que en una tablet.
+  const centro = new Vector3(wx(CX_CENTRO()), 0, wz(CZ_CENTRO()));
+  function CX_CENTRO() {
+    return PLAY.x + PLAY.w / 2;
+  }
+  function CZ_CENTRO() {
+    return PLAY.y + PLAY.h / 2;
+  }
+
+  const esquinas = [
+    new Vector3(wx(PLAY.x), 0, wz(PLAY.y)),
+    new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y)),
+    new Vector3(wx(PLAY.x), 0, wz(PLAY.y + PLAY.h)),
+    new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y + PLAY.h)),
+    // Y un punto alto en el borde de arriba: si no, los árboles del fondo
+    // asoman por encima del encuadre y se ve el vacío.
+    new Vector3(wx(PLAY.x), 3.4, wz(PLAY.y)),
+  ];
+
+  let distCamara = 26;
+  const _v = new Vector3();
+
+  function colocarCamara(dist: number) {
+    camera.position.set(
+      centro.x,
+      centro.y + Math.sin(PITCH) * dist,
+      centro.z + Math.cos(PITCH) * dist
+    );
+    camera.lookAt(centro);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+  }
+
+  function cabeTodo(dist: number): boolean {
+    colocarCamara(dist);
+    for (const e of esquinas) {
+      _v.copy(e).project(camera);
+      // 0.97 deja un margen para que nada roce el borde exacto
+      if (Math.abs(_v.x) > 0.97 || Math.abs(_v.y) > 0.97) return false;
+    }
+    return true;
+  }
+
+  function ajustarCamara() {
+    const w = parent.clientWidth || 1;
+    const h = parent.clientHeight || 1;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+
+    // Búsqueda binaria de la distancia mínima que encuadra el terreno.
+    let lo = 8;
+    let hi = 90;
+    if (!cabeTodo(hi)) {
+      distCamara = hi;
+    } else {
+      for (let i = 0; i < 24; i++) {
+        const mid = (lo + hi) / 2;
+        if (cabeTodo(mid)) hi = mid;
+        else lo = mid;
+      }
+      distCamara = hi;
+    }
+    colocarCamara(distCamara);
+    calcularDestinoHud();
+  }
+
+  // ── Destino de los cartones: donde está el contador del HUD ───────────────
+  // El HUD es DOM y vive fuera de la escena, así que se proyecta ese punto de
+  // la pantalla a una posición del mundo delante de la cámara.
+  const destinoHud = new Vector3();
+  function calcularDestinoHud() {
+    // Esquina superior derecha, que es donde está el contador.
+    destinoHud.set(0.72, 0.86, 0.5).unproject(camera);
+    // Se acerca a la cámara para que el cartón "salga" de la escena al llegar.
+    destinoHud.lerp(camera.position, 0.55);
+  }
+
+  ajustarCamara();
+  const onResize = () => ajustarCamara();
+  window.addEventListener('resize', onResize);
+
+  // ── Entrada: presionar y caminar ──────────────────────────────────────────
+  // Se lanza un rayo desde el puntero contra el plano del suelo. Es exacto con
+  // cámara en perspectiva, donde una regla de tres no valdría.
+  const rayo = new Raycaster();
+  const planoSuelo = new Plane(new Vector3(0, 1, 0), 0);
+  const ndc = new Vector2();
+  const golpe = new Vector3();
+
+  function aSimulacion(clientX: number, clientY: number): { x: number; y: number } | null {
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
+    rayo.setFromCamera(ndc, camera);
+    if (!rayo.ray.intersectPlane(planoSuelo, golpe)) return null;
+    return { x: sx(golpe.x), y: sy(golpe.z) };
+  }
+
+  function onDown(e: PointerEvent) {
+    audio.despertar();
+    presionando = true;
+    const p = aSimulacion(e.clientX, e.clientY);
+    if (p) destino = p;
+    renderer.domElement.setPointerCapture?.(e.pointerId);
+  }
+  function onMove(e: PointerEvent) {
+    if (!presionando) return;
+    const p = aSimulacion(e.clientX, e.clientY);
+    if (p) destino = p;
+  }
+  function onUp() {
+    // El destino SE MANTIENE: un toque corto camina hasta ahí y se detiene
+    // solo. Soltar el dedo no frena en seco.
+    presionando = false;
+  }
+  function onKeyDown(e: KeyboardEvent) {
+    teclas.add(e.key.toLowerCase());
+  }
+  function onKeyUp(e: KeyboardEvent) {
+    teclas.delete(e.key.toLowerCase());
+  }
+
+  const lienzo = renderer.domElement;
+  lienzo.addEventListener('pointerdown', onDown);
+  lienzo.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+
+  // ── Entrega ───────────────────────────────────────────────────────────────
+  async function entregar(bolsa: Bolsa) {
+    sim.entregando = true;
+    const n = entregadas;
+
+    if (!reduced) {
+      sim.hitstop = 70;
+      fx.destello(0.35);
+      fx.sacudir(0.16);
+      sim.zoomPulso = 1;
+      navigator.vibrate?.(25);
+    }
+    audio.entrega(n);
+
+    bolsa.estado = 'entregada';
+    ciu.bolsaHombro.visible = false;
+    sim.cargando = null;
+    entregadas++;
+    pintarCarretilla();
+
+    const ultima = entregadas >= bolsas.length;
+    const origen = new Vector3(wx(world.cart.x), 1.5, wz(world.cart.y));
+    fx.burstCartones(
+      origen,
+      ultima ? 60 : 20 + Math.floor(Math.random() * 10),
+      ultima ? 1.35 : 1,
+      destinoHud,
+      ultima
+    );
+
+    if (ultima && !reduced) sim.finLento = 600;
+
+    opts.callbacks.onState?.({
+      bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+      carrying: false,
+      deposited: entregadas,
+    });
+
+    let res: ResultadoEntrega;
+    try {
+      res = await opts.callbacks.onDeposit(bolsa.id);
+    } catch {
+      res = { monto: 0, finished: false, error: 'No se pudo conectar' };
+    }
+
+    if (res.error) {
+      // El servidor no aceptó la entrega: se DESHACE. Es preferible a que el
+      // jugador crea que cobró algo que no cobró.
+      bolsa.estado = 'suelo';
+      bolsa.vista.grupo.visible = true;
+      entregadas--;
+      pintarCarretilla();
+      opts.callbacks.onError?.(res.error);
+      opts.callbacks.onState?.({
+        bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+        carrying: false,
+        deposited: entregadas,
+      });
+    } else {
+      bolsa.vista.grupo.visible = false;
+      opts.callbacks.onCredit?.(res.monto, entregadas);
+      if (res.finished) {
+        audio.victoria();
+        opts.callbacks.onFinished?.();
+      }
+    }
+
+    sim.entregando = false;
+  }
+
+  // ── Un paso de simulación (siempre PASO_MS) ───────────────────────────────
+  function paso() {
+    const dt = PASO_MS / 1000;
+    sim.tiempo += PASO_MS;
+    sim.prevX = sim.x;
+    sim.prevY = sim.y;
+
+    let kx = 0;
+    let ky = 0;
+    if (teclas.has('arrowleft') || teclas.has('a')) kx -= 1;
+    if (teclas.has('arrowright') || teclas.has('d')) kx += 1;
+    if (teclas.has('arrowup') || teclas.has('w')) ky -= 1;
+    if (teclas.has('arrowdown') || teclas.has('s')) ky += 1;
+    if (kx || ky) destino = null;
+
+    const cargando = sim.cargando !== null;
+    let velMax = VEL_BASE * (1 + entregadas * BOOST_POR_ENTREGA);
+    if (cargando) velMax *= MUL_CARGA;
+    if (enCharco(sim.x, sim.y)) velMax *= MUL_CHARCO;
+
+    if (sim.tropiezo > 0) {
+      sim.tropiezo -= PASO_MS;
+      sim.vx -= sim.vx * Math.min(1, 6 * dt);
+      sim.vy -= sim.vy * Math.min(1, 6 * dt);
+    } else if (kx || ky) {
+      const l = Math.hypot(kx, ky) || 1;
+      sim.vx += ((kx / l) * velMax - sim.vx) * Math.min(1, (ACEL / velMax) * dt);
+      sim.vy += ((ky / l) * velMax - sim.vy) * Math.min(1, (ACEL / velMax) * dt);
+    } else if (destino) {
+      const dx = destino.x - sim.x;
+      const dy = destino.y - sim.y;
+      const d = Math.hypot(dx, dy);
+      if (d > RADIO_LLEGADA) {
+        const deseada = Math.min(velMax, d * 5);
+        const k = Math.min(1, (ACEL / Math.max(60, velMax)) * dt);
+        sim.vx += ((dx / d) * deseada - sim.vx) * k;
+        sim.vy += ((dy / d) * deseada - sim.vy) * k;
+      } else {
+        destino = null;
+      }
+    } else {
+      const k = Math.min(1, (FRENO / Math.max(60, velMax)) * dt);
+      sim.vx -= sim.vx * k;
+      sim.vy -= sim.vy * k;
+    }
+
+    // Movimiento con DESLIZAMIENTO: los ejes se resuelven por separado, así
+    // rozar una piedra no deja clavado al ciudadano.
+    const velAntes = Math.hypot(sim.vx, sim.vy);
+    let chocó = false;
+    const nx = sim.x + sim.vx * dt;
+    if (!chocaSolido(nx, sim.y)) sim.x = nx;
+    else {
+      sim.vx = 0;
+      chocó = true;
+    }
+    const ny = sim.y + sim.vy * dt;
+    if (!chocaSolido(sim.x, ny)) sim.y = ny;
+    else {
+      sim.vy = 0;
+      chocó = true;
+    }
+
+    sim.x = Math.max(PLAY.x + CITIZEN_RADIUS, Math.min(PLAY.x + PLAY.w - CITIZEN_RADIUS, sim.x));
+    sim.y = Math.max(PLAY.y + CITIZEN_RADIUS, Math.min(PLAY.y + PLAY.h - CITIZEN_RADIUS, sim.y));
+
+    // Tropiezo: solo cargando y con velocidad. NO se pierde ni dinero ni la
+    // bolsa: se pierde TIEMPO.
+    if (chocó && cargando && velAntes > VEL_TROPIEZO && sim.tropiezo <= 0 && !sim.entregando) {
+      sim.tropiezo = TROPIEZO_MS;
+      const b = bolsas.find((x) => x.id === sim.cargando);
+      if (b) {
+        b.estado = 'suelo';
+        b.x = sim.x;
+        b.y = sim.y + 6;
+        b.vista.grupo.position.set(wx(b.x), 0, wz(b.y));
+        b.vista.grupo.visible = true;
+      }
+      sim.cargando = null;
+      ciu.bolsaHombro.visible = false;
+      if (!reduced) {
+        fx.sacudir(0.13);
+        navigator.vibrate?.(18);
+      }
+      fx.puffPolvo(wx(sim.x), wz(sim.y), 10, 1.4);
+      audio.tropiezo();
+      opts.callbacks.onState?.({
+        bagsLeft: bolsas.filter((x) => x.estado !== 'entregada').length,
+        carrying: false,
+        deposited: entregadas,
+      });
+    }
+
+    // Recoger
+    if (sim.cargando === null && sim.tropiezo <= 0 && !sim.entregando) {
+      for (const b of bolsas) {
+        if (b.estado !== 'suelo') continue;
+        if (Math.hypot(b.x - sim.x, b.y - sim.y) < CITIZEN_RADIUS + BAG_RADIUS) {
+          b.estado = 'cargada';
+          b.vista.grupo.visible = false;
+          sim.cargando = b.id;
+          ciu.bolsaHombro.visible = true;
+          ciu.bolsaHombro.scale.setScalar(0.4);
+          if (!reduced) {
+            sim.hitstop = 35; // la mitad que al vaciar: este no es EL momento
+            navigator.vibrate?.(12);
+          }
+          audio.agarrar();
+          opts.callbacks.onPickup?.(b.id);
+          opts.callbacks.onState?.({
+            bagsLeft: bolsas.filter((x) => x.estado !== 'entregada').length,
+            carrying: true,
+            deposited: entregadas,
+          });
+          break;
+        }
+      }
+    }
+
+    // Entregar
+    if (sim.cargando !== null && !sim.entregando && sim.tropiezo <= 0) {
+      if (Math.hypot(world.cart.x - sim.x, world.cart.y - sim.y) < CART_RADIUS) {
+        const b = bolsas.find((x) => x.id === sim.cargando);
+        if (b) void entregar(b);
+      }
+    }
+
+    // Animación
+    const vel = Math.hypot(sim.vx, sim.vy);
+    if (vel > 12) {
+      sim.inactivo = 0;
+      const antes = sim.fasePaso;
+      sim.fasePaso += (vel / 46) * dt * 6;
+      if (Math.floor(antes / Math.PI) !== Math.floor(sim.fasePaso / Math.PI)) {
+        sim.pasoAlterno = !sim.pasoAlterno;
+        audio.paso(sim.pasoAlterno);
+        if (vel > 150) fx.puffPolvo(wx(sim.x), wz(sim.y), 1, 0.6);
+        if (cargando) audio.tintineo();
+      }
+      // Rumbo: gira hacia donde camina, por el camino corto.
+      const objetivo = Math.atan2(sim.vx, sim.vy);
+      let d = objetivo - sim.rumbo;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      sim.rumbo += d * Math.min(1, 12 * dt);
+    } else {
+      sim.inactivo += PASO_MS;
+      sim.fasePaso += dt * 0.6;
+    }
+
+    if (sim.finLento > 0) sim.finLento -= PASO_MS;
+    if (sim.zoomPulso > 0) sim.zoomPulso = Math.max(0, sim.zoomPulso - PASO_MS / 220);
+  }
+
+  // ── Render (interpolado) ──────────────────────────────────────────────────
+  function render(alpha: number) {
+    const px = sim.prevX + (sim.x - sim.prevX) * alpha;
+    const py = sim.prevY + (sim.y - sim.prevY) * alpha;
+
+    ciu.grupo.position.set(wx(px), 0, wz(py));
+    ciu.grupo.rotation.y = sim.rumbo;
+
+    const vel = Math.hypot(sim.vx, sim.vy);
+    const andando = vel > 12 && sim.tropiezo <= 0;
+
+    // Piernas y brazos: el braceo contrario al paso es lo que hace que
+    // caminar se lea como caminar y no como deslizarse.
+    const swing = andando ? Math.sin(sim.fasePaso) * 0.55 : 0;
+    ciu.piernaIzq.rotation.x = swing;
+    ciu.piernaDer.rotation.x = -swing;
+    ciu.brazoIzq.rotation.x = -swing * 0.8;
+    ciu.brazoDer.rotation.x = sim.cargando !== null ? -0.9 : swing * 0.8;
+
+    // Squash al pisar: casi invisible, imprescindible.
+    const bob = andando ? Math.abs(Math.sin(sim.fasePaso)) : 0;
+    ciu.cuerpo.scale.y = 1 - bob * 0.05;
+    ciu.cuerpo.position.y = -bob * 0.04;
+
+    // Inclinación hacia el lado de la carga: el PESO se ve.
+    const objetivoRot = sim.tropiezo > 0 ? Math.sin(sim.tropiezo / 40) * 0.45 : sim.cargando !== null ? 0.12 : 0;
+    ciu.cuerpo.rotation.z += (objetivoRot - ciu.cuerpo.rotation.z) * 0.2;
+
+    if (ciu.bolsaHombro.visible) {
+      const s = ciu.bolsaHombro.scale.x;
+      ciu.bolsaHombro.scale.setScalar(s + (1 - s) * 0.18);
+      ciu.bolsaHombro.rotation.z = andando ? Math.sin(sim.fasePaso) * 0.14 : 0;
+    }
+
+    // Reposo: tras 4 s quieto se estira y mira alrededor. Cuesta poco y
+    // cambia por completo si el muñeco se siente vivo o es un adorno.
+    if (sim.inactivo > 4000) {
+      const t = (sim.inactivo - 4000) / 1000;
+      ciu.cuerpo.scale.y *= 1 + Math.sin(t * 2.2) * 0.045;
+      ciu.cabeza.rotation.y = Math.sin(t * 1.1) * 0.5;
+    } else {
+      ciu.cabeza.rotation.y *= 0.9;
+    }
+
+    // Bolsas: giran despacio, y laten y brillan al acercarse el ciudadano.
+    for (const b of bolsas) {
+      if (b.estado !== 'suelo') continue;
+      const d = Math.hypot(b.x - px, b.y - py);
+      const cerca = Math.max(0, 1 - d / 190);
+      const material = b.vista.brillo.material as { opacity: number };
+      material.opacity = cerca * (0.45 + Math.sin(sim.tiempo / 160) * 0.22);
+      const late = 1 + cerca * 0.1 * (0.6 + Math.sin(sim.tiempo / 190) * 0.4);
+      b.vista.cuerpo.scale.setScalar(late);
+      b.vista.cuerpo.rotation.y = sim.tiempo / 2200;
+      b.vista.cuerpo.position.y = Math.sin(sim.tiempo / 520 + b.id) * 0.04;
+    }
+
+    // La carretilla se enciende mientras llevas una bolsa: te dice adónde ir
+    // sin una flecha ni un texto.
+    const auraMat = cart.aura.material as { opacity: number };
+    const objetivoAura = sim.cargando !== null ? 0.45 + Math.sin(sim.tiempo / 200) * 0.2 : 0;
+    auraMat.opacity += (objetivoAura - auraMat.opacity) * 0.12;
+
+    // Viento: las copas se mecen. Son ~26 matrices por fotograma, nada.
+    const copas = veg.copas.malla;
+    veg.copas.datos.forEach((a, i) => {
+      const bal = Math.sin(sim.tiempo / 900 + a.fase) * 0.035;
+      for (const k of [0, 1]) {
+        copas.getMatrixAt(i * 2 + k, _mat4);
+        _pos.setFromMatrixPosition(_mat4);
+        _esc.setFromMatrixScale(_mat4);
+        _obj.position.copy(_pos);
+        _obj.scale.copy(_esc);
+        _obj.rotation.set(bal, a.fase, bal * 0.6);
+        _obj.updateMatrix();
+        copas.setMatrixAt(i * 2 + k, _obj.matrix);
+      }
+    });
+    copas.instanceMatrix.needsUpdate = true;
+
+    // ── Cámara ──
+    // No sigue al ciudadano (la pantalla es fija) pero RESPIRA: se desplaza
+    // muy poco tras él. Una cámara clavada se siente muerta.
+    const sh = reduced ? 0 : fx.shake;
+    const zoom = 1 - Math.sin(sim.zoomPulso * Math.PI) * 0.035;
+    colocarCamara(distCamara * zoom);
+    camera.position.x += (wx(px) - centro.x) * 0.05 + (Math.random() - 0.5) * 2 * sh;
+    camera.position.z += (wz(py) - centro.z) * 0.03 + (Math.random() - 0.5) * 2 * sh;
+    camera.updateMatrixWorld();
+
+    destello.style.opacity = String(reduced ? 0 : fx.flash);
+
+    renderer.render(scene, camera);
+  }
+
+  // Objetos reutilizables del bucle: crear vectores por fotograma es basura
+  // para el recolector, y una pausa del recolector es un tirón visible.
+  const _mat4 = new Matrix4();
+  const _pos = new Vector3();
+  const _esc = new Vector3();
+  const _obj = new Object3D();
+
+  // ── Bucle ─────────────────────────────────────────────────────────────────
+  let acumulador = 0;
+  let ultimo = performance.now();
+  let rafId = 0;
+  let corriendo = true;
+
+  const tick = () => {
+    if (!corriendo) return;
+    rafId = requestAnimationFrame(tick);
+    const ahora = performance.now();
+    // Se acota a 100 ms: si la pestaña estuvo en segundo plano, no se simulan
+    // cinco minutos de golpe (la "espiral de la muerte").
+    let dtMs = Math.min(100, ahora - ultimo);
+    ultimo = ahora;
+
+    if (sim.finLento > 0) dtMs *= 0.35;
+
+    // Hitstop: el mundo se congela. Los efectos siguen (el destello tiene que
+    // verse) pero la simulación no avanza.
+    if (sim.hitstop > 0) {
+      sim.hitstop -= dtMs;
+      fx.update(dtMs);
+      render(1);
+      return;
+    }
+
+    acumulador += dtMs;
+    let vueltas = 0;
+    while (acumulador >= PASO_MS && vueltas < 6) {
+      paso();
+      acumulador -= PASO_MS;
+      vueltas++;
+    }
+    fx.update(dtMs);
+    render(acumulador / PASO_MS);
+  };
+  rafId = requestAnimationFrame(tick);
+
+  // Pausa REAL en segundo plano: se para el bucle Y el audio.
+  const onVis = () => {
+    if (document.hidden) {
+      corriendo = false;
+      cancelAnimationFrame(rafId);
+      audio.pausar();
+    } else if (!corriendo) {
+      corriendo = true;
+      ultimo = performance.now();
+      acumulador = 0;
+      rafId = requestAnimationFrame(tick);
+      audio.reanudar();
+    }
+  };
+  document.addEventListener('visibilitychange', onVis);
+
+  opts.callbacks.onState?.({
+    bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+    carrying: false,
+    deposited: entregadas,
+  });
+
+  // ── Destrucción ───────────────────────────────────────────────────────────
+  // Si esto falla, cambiar de pantalla y volver deja el contexto WebGL vivo y
+  // crea otro: a la tercera partida el teléfono se muere. Es el bug número uno
+  // de meter un motor 3D dentro de React.
+  let destruido = false;
+  function destroy() {
+    if (destruido) return;
+    destruido = true;
+    corriendo = false;
+    cancelAnimationFrame(rafId);
+    document.removeEventListener('visibilitychange', onVis);
+    window.removeEventListener('resize', onResize);
+    lienzo.removeEventListener('pointerdown', onDown);
+    lienzo.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    window.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('keyup', onKeyUp);
+    audio.destroy();
+
+    // Liberar TODA la memoria de la GPU: geometrías, materiales y el contexto.
+    scene.traverse((o) => {
+      const m = o as unknown as {
+        geometry?: { dispose(): void };
+        material?: { dispose(): void } | { dispose(): void }[];
+      };
+      m.geometry?.dispose?.();
+      if (Array.isArray(m.material)) m.material.forEach((x) => x.dispose?.());
+      else m.material?.dispose?.();
+    });
+    fx.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss?.();
+    destello.remove();
+    lienzo.remove();
+  }
+
+
+  return {
+    destroy,
+    setMuted: (v: boolean) => audio.setSilencio(v),
+    isMuted: () => audio.mudo,
+  };
+}

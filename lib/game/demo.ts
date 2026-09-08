@@ -1,7 +1,7 @@
 import { drawPayoutTier, drawWorldSeed } from './rng';
 import { bagSplit } from './bagSplit';
 import { TOTAL_BAGS } from './constants';
-import type { ResultadoEntrega } from '@/lib/pixi/game';
+import type { ResultadoEntrega } from '@/lib/three/game';
 
 /**
  * Partida LOCAL para cuando todavía no hay Supabase conectado.

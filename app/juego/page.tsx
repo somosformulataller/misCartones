@@ -6,7 +6,7 @@ import GameCanvas from '@/components/game/GameCanvas';
 import Hud from '@/components/game/Hud';
 import { createDemoRun } from '@/lib/game/demo';
 import { TOTAL_BAGS } from '@/lib/game/constants';
-import type { ResultadoEntrega } from '@/lib/pixi/game';
+import type { ResultadoEntrega } from '@/lib/three/game';
 import type { DepositBagResponse, StartRunResponse } from '@/types/game';
 
 type Estado = 'idle' | 'cargando' | 'jugando' | 'fin';
