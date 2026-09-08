@@ -122,7 +122,7 @@ export default function JuegoPage() {
   }, []);
 
   return (
-    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#8fd3f4]">
+    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#4fc3f7]">
       {estado === 'jugando' && seed !== null && (
         <>
           <GameCanvas
@@ -145,7 +145,7 @@ export default function JuegoPage() {
       )}
 
       {(estado === 'idle' || estado === 'cargando') && (
-        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-300 via-emerald-200 to-lime-400 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-400 via-lime-200 to-lime-500 px-6 text-center">
           <div>
             <div className="text-6xl drop-shadow-sm">🌾</div>
             <h1 className="mt-4 text-4xl font-black tracking-tight text-emerald-950 drop-shadow-sm">
@@ -172,7 +172,7 @@ export default function JuegoPage() {
       )}
 
       {estado === 'fin' && (
-        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-300 via-emerald-200 to-lime-400 px-6 text-center">
+        <div className="flex h-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-sky-400 via-lime-200 to-lime-500 px-6 text-center">
           <div>
             <div className="text-6xl drop-shadow-sm">🎉</div>
             <p className="mt-4 text-xs font-black uppercase tracking-[0.25em] text-emerald-800">

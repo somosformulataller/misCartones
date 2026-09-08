@@ -10,7 +10,7 @@ body {
   /* Cielo de mediodía degradando a prado: es también lo que se ve en los
      bordes cuando la pantalla no tiene la proporción exacta del escenario,
      así que tiene que verse como parte del campo, no como un marco negro. */
-  background: linear-gradient(180deg, #8fd3f4 0%, #b9e6c0 45%, #86c765 100%);
+  background: linear-gradient(180deg, #4fc3f7 0%, #a9ea8f 48%, #62d13a 100%);
   background-attachment: fixed;
   color: #23361d;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

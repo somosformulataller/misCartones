@@ -56,35 +56,52 @@ export const sy = (z: number) => z / U + CZ;
 export const ANCHO = PLAY.w * U;
 export const FONDO = PLAY.h * U;
 
+/**
+ * Paleta VIVA. Los colores están deliberadamente sobresaturados respecto a lo
+ * que sería "realista": con la iluminación por debajo de 1 (ver las luces en
+ * game.ts) el material se ve casi tal cual, así que la saturación tiene que
+ * venir de aquí. Subirla con las luces en vez de con la paleta hace lo
+ * contrario de lo que parece: lava los colores hacia el blanco.
+ */
 export const COL = {
-  pasto: 0x7dbf5c,
-  pastoClaro: 0x96d472,
-  pastoOscuro: 0x69ab4c,
-  pastoSeco: 0xbcc46a,
-  tierra: 0xcaa068,
-  tierraOscura: 0xb08a55,
-  copa: 0x4ea34a,
-  copaClara: 0x6ec267,
-  tronco: 0x8a5a33,
-  arbusto: 0x57ab52,
-  piedra: 0xb2aea4,
-  heno: 0xe2c05c,
-  barro: 0x8a6740,
-  cerca: 0xc9a173,
-  florA: 0xffd84a,
-  florB: 0xff8ec4,
-  florC: 0xfdfdf5,
-  florD: 0xb083ec,
-  camisa: 0x3f8fe0,
-  pantalon: 0x46536b,
-  piel: 0xf0bc8c,
-  sombrero: 0xe8c65e,
-  bolsa: 0x33403f,
-  lazo: 0xffd84a,
-  carton: 0xd9a768,
-  cartonDorado: 0xffd77a,
-  metal: 0xbcc3c9,
-  tolva: 0xe0722c,
+  // Prado
+  pasto: 0x62d13a,
+  pastoClaro: 0x86ec4f,
+  pastoOscuro: 0x3fae23,
+  pastoSeco: 0xd9d92e,
+  tierra: 0xeda54a,
+  tierraOscura: 0xc9762a,
+  // Vegetación
+  copa: 0x2fbe3a,
+  copaClara: 0x64e657,
+  tronco: 0xa25f22,
+  arbusto: 0x35c94a,
+  // Objetos del campo
+  piedra: 0xaab6c4,
+  heno: 0xffd21e,
+  barro: 0xa8632a,
+  cerca: 0xf0ad55,
+  // Flores: aquí no hay sutileza, son los puntos de color del prado
+  florA: 0xffe816,
+  florB: 0xff4fa8,
+  florC: 0xffffff,
+  florD: 0xa855f7,
+  // Ciudadano
+  camisa: 0x0aa2ff,
+  pantalon: 0x3b4ee0,
+  piel: 0xffc48f,
+  sombrero: 0xffd12e,
+  // Bolsa: verde saneamiento saturado en vez de gris. Sigue leyéndose como
+  // bolsa de basura y por fin destaca sobre el prado.
+  bolsa: 0x18795c,
+  bolsaClara: 0x25a87c,
+  lazo: 0xffe816,
+  // Cartones
+  carton: 0xffab33,
+  cartonDorado: 0xffd60a,
+  // Carretilla
+  metal: 0xd8e0e8,
+  tolva: 0xff6a10,
 } as const;
 
 /** Material low-poly: una sola luz por píxel y caras planas. Es lo más barato
@@ -95,9 +112,9 @@ const mat = (color: number, opts: { plano?: boolean } = {}) =>
 /** Mancha de sombra: sustituye a las sombras en tiempo real, que en móvil
  *  cuestan redibujar la escena entera por cada luz. */
 const MAT_SOMBRA = new MeshBasicMaterial({
-  color: 0x2a4a2e,
+  color: 0x1f6b1a,
   transparent: true,
-  opacity: 0.26,
+  opacity: 0.2,
   depthWrite: false,
 });
 
@@ -472,6 +489,11 @@ export function crearBolsa(): BolsaVista {
   bulto.scale.set(1, 0.92, 1);
   bulto.position.y = 0.52;
   cuerpo.add(bulto);
+  // Brillo: una segunda pieza más clara arriba. Sin ella la bolsa es una
+  // mancha plana; con ella se le ve el bulto.
+  const luz = new Mesh(new IcosahedronGeometry(0.3, 0), mat(COL.bolsaClara));
+  luz.position.set(-0.2, 0.78, 0.2);
+  cuerpo.add(luz);
   const cuello = new Mesh(new CylinderGeometry(0.14, 0.24, 0.3, 6), mat(COL.bolsa));
   cuello.position.y = 1.02;
   cuerpo.add(cuello);

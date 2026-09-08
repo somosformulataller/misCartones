@@ -12,8 +12,7 @@
 // ============================================================================
 
 import {
-  ACESFilmicToneMapping,
-  AmbientLight,
+  NoToneMapping,
   Color,
   DirectionalLight,
   Fog,
@@ -127,8 +126,10 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Tope de densidad 2: en pantallas de 3× se dibuja a 2× y se estira. Ahorra
   // el 44 % de los píxeles y no se nota. Es de las mayores ganancias en móvil.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // SIN mapeo de tonos. ACESFilmic es una curva de cine: comprime los brillos
+  // y DESATURA a propósito, que es justo lo contrario de lo que pide un juego
+  // de colores vivos. Sin ella los colores salen tal cual se pintaron.
+  renderer.toneMapping = NoToneMapping;
   // Sin mapas de sombra: cada luz con sombra redibuja la escena entera. Cada
   // objeto lleva su mancha oscura plana debajo, que cuesta un círculo.
   renderer.shadowMap.enabled = false;
@@ -137,19 +138,27 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   parent.appendChild(renderer.domElement);
 
   const scene = new Scene();
-  scene.background = new Color(0x8fd3f4);
+  scene.background = new Color(0x4fc3f7);
   // Niebla del color del cielo: funde el borde del terreno con el horizonte,
   // así no se ve dónde se acaba el mundo. Cuesta prácticamente nada.
-  scene.fog = new Fog(0x9ad8f6, 28, 62);
+  scene.fog = new Fog(0x7fd4fa, 34, 74);
 
   const camera = new PerspectiveCamera(42, 1, 0.5, 120);
 
-  // Luz: una hemisférica (cielo/suelo) y una direccional. Dos, y ya.
-  scene.add(new HemisphereLight(0xcfeaff, 0x6a9a52, 1.05));
-  const sol = new DirectionalLight(0xfff3d6, 1.5);
+  // ── Luz ──
+  // La suma de TODAS las luces se queda por debajo de ~1,15. Es lo que
+  // decide si los colores se ven vivos o lavados: en cuanto la iluminación
+  // pasa de 1, el resultado se satura hacia el BLANCO y se come el color del
+  // material. Antes sumaban 2,8 y por eso todo se veía desteñido.
+  // La saturación se consigue en la PALETA (ver COL en escena.ts), no
+  // subiendo las luces.
+  const hemi = new HemisphereLight(0xdff1ff, 0x74c24a, 0.42);
+  scene.add(hemi);
+  // Luz casi blanca, apenas cálida: una direccional muy amarilla desplaza los
+  // verdes hacia el oliva y apaga el prado.
+  const sol = new DirectionalLight(0xfffdf4, 0.72);
   sol.position.set(-8, 14, 6);
   scene.add(sol);
-  scene.add(new AmbientLight(0xffffff, 0.25));
 
   // ── Escena ────────────────────────────────────────────────────────────────
   const rndArte = mulberry32((opts.seed ^ 0x5bf03635) >>> 0);
