@@ -24,7 +24,8 @@
 export const STAGE_W = 720;
 export const STAGE_H = 1280;
 
-/** Rectángulo por el que el ciudadano puede caminar (dentro de las aceras). */
+/** Rectángulo por el que el ciudadano puede caminar: el asfalto, de bordillo
+ *  a bordillo. Las aceras quedan justo fuera. */
 export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 
 export const CITIZEN_RADIUS = 22;
@@ -39,9 +40,9 @@ const BAG_CLEARANCE = 34;
 
 export const TOTAL_BAGS = 5;
 
-/** Lo que se encuentra uno en un terreno: piedras, troncos caídos, tocones,
- *  arbustos, pacas de heno y charcos de barro. */
-export type ObstacleKind = 'piedra' | 'tronco' | 'tocon' | 'arbusto' | 'heno' | 'barro';
+/** Lo que estorba en una calle descuidada: escombros, palés tirados, ruedas
+ *  viejas, cajas de cartón, conos de obra y charcos. */
+export type ObstacleKind = 'escombro' | 'palet' | 'rueda' | 'caja' | 'cono' | 'charco';
 
 export interface WorldObstacle {
   x: number;
@@ -88,17 +89,17 @@ function distToRect(px: number, py: number, r: { x: number; y: number; w: number
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// `solid: false` = se puede pisar, solo frena. Hoy solo el barro.
+// `solid: false` = se puede pisar, solo frena. Hoy solo el charco.
 const OBSTACLE_SIZES: Record<ObstacleKind, { w: number; h: number; solid: boolean }> = {
-  piedra: { w: 56, h: 42, solid: true },
-  tronco: { w: 98, h: 38, solid: true },
-  tocon: { w: 46, h: 40, solid: true },
-  arbusto: { w: 64, h: 54, solid: true },
-  heno: { w: 72, h: 64, solid: true },
-  barro: { w: 104, h: 64, solid: false },
+  escombro: { w: 56, h: 42, solid: true },
+  palet: { w: 98, h: 38, solid: true },
+  rueda: { w: 46, h: 40, solid: true },
+  caja: { w: 64, h: 54, solid: true },
+  cono: { w: 72, h: 64, solid: true },
+  charco: { w: 104, h: 64, solid: false },
 };
 
-const KINDS: ObstacleKind[] = ['piedra', 'tronco', 'tocon', 'arbusto', 'heno', 'barro'];
+const KINDS: ObstacleKind[] = ['escombro', 'palet', 'rueda', 'caja', 'cono', 'charco'];
 
 // ── Rejilla de ocupación e inundación ──────────────────────────────────────
 // Se comprueba que exista camino con una rejilla gruesa: cada celda queda

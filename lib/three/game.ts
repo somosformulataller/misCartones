@@ -42,7 +42,7 @@ import {
   BolsaVista,
   crearBolsa,
   crearCarretilla,
-  crearCerca,
+  crearCiudad,
   crearCiudadano,
   crearObstaculos,
   crearSuelo,
@@ -147,12 +147,14 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Este fondo casi no se ve: con la inclinación de 52° y un campo visual de
   // 42°, hasta el rayo más alto de la cámara apunta 31° POR DEBAJO del
   // horizonte, así que todo lo que se ve es suelo. Queda como respaldo.
-  scene.background = new Color(0x9fe0a0);
-  // Niebla en verde claro, no azul. Es lo que funde el borde del prado con la
-  // lejanía: como termina (78) antes de donde acaba la losa lejana, ese borde
-  // NUNCA llega a verse. Y al ser verde, el horizonte se lee como campo que
-  // sigue, no como cielo metiéndose en la escena.
-  const niebla = new Fog(0xbfe8a8, 60, 90);
+  scene.background = new Color(0xb9c2d0);
+  // Neblina de mediodía, del mismo tono que la losa lejana. Es lo que funde el
+  // borde de la escena con la lejanía: como termina antes de donde acaba esa
+  // losa, ese borde NUNCA llega a verse. Y al ser del color del suelo urbano,
+  // el horizonte se lee como barrio que sigue, no como cielo metiéndose en la
+  // escena. Los valores de aquí son solo el arranque: se recalculan por
+  // pantalla más abajo.
+  const niebla = new Fog(0xb9c2d0, 60, 90);
   scene.fog = niebla;
 
   const camera = new PerspectiveCamera(42, 1, 0.5, 120);
@@ -164,10 +166,12 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // material. Antes sumaban 2,8 y por eso todo se veía desteñido.
   // La saturación se consigue en la PALETA (ver COL en escena.ts), no
   // subiendo las luces.
-  const hemi = new HemisphereLight(0xdff1ff, 0x74c24a, 0.42);
+  // El color de abajo es el rebote del suelo: sobre asfalto es un gris cálido,
+  // no el verde de pasto que había cuando esto era un prado.
+  const hemi = new HemisphereLight(0xdff1ff, 0x9a9382, 0.42);
   scene.add(hemi);
-  // Luz casi blanca, apenas cálida: una direccional muy amarilla desplaza los
-  // verdes hacia el oliva y apaga el prado.
+  // Luz casi blanca, apenas cálida: una direccional muy amarilla ensucia el
+  // asfalto hacia el marrón y apaga las fachadas.
   const sol = new DirectionalLight(0xfffdf4, 0.72);
   sol.position.set(-8, 14, 6);
   scene.add(sol);
@@ -180,7 +184,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   mundo.add(crearSuelo(rndArte));
   const veg = crearVegetacion(rndArte, world);
   mundo.add(veg.grupo);
-  mundo.add(crearCerca());
+  mundo.add(crearCiudad(rndArte));
   mundo.add(crearObstaculos(world.obstacles));
 
   const cart = crearCarretilla();
@@ -506,7 +510,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     }
 
     // Movimiento con DESLIZAMIENTO: los ejes se resuelven por separado, así
-    // rozar una piedra no deja clavado al ciudadano.
+    // rozar un cono no deja clavado al ciudadano.
     const velAntes = Math.hypot(sim.vx, sim.vy);
     let chocó = false;
     const nx = sim.x + sim.vx * dt;

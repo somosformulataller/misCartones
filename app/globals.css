@@ -7,12 +7,12 @@
 html,
 body {
   height: 100%;
-  /* Cielo de mediodía degradando a prado: es también lo que se ve en los
+  /* Cielo de mediodía degradando a asfalto: es también lo que se ve en los
      bordes cuando la pantalla no tiene la proporción exacta del escenario,
-     así que tiene que verse como parte del campo, no como un marco negro. */
-  background: linear-gradient(180deg, #4fc3f7 0%, #a9ea8f 48%, #62d13a 100%);
+     así que tiene que verse como parte de la calle, no como un marco negro. */
+  background: linear-gradient(180deg, #8fd6f5 0%, #b9c2d0 44%, #767c8b 100%);
   background-attachment: fixed;
-  color: #23361d;
+  color: #1e2433;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   /* Nada de rebote elástico ni zoom por doble toque: es un juego, no una
      página. Sin esto, arrastrar el dedo mueve la página en vez del muñeco. */
