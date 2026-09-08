@@ -20,7 +20,7 @@ import path from 'node:path';
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.join(aqui, '..');
 
-console.log('Compilando lib/game…');
+console.log('Compilando lib/game y lib/three…');
 execSync(`npx tsc -p "${path.join(aqui, 'tsconfig.pruebas.json')}"`, {
   cwd: raiz,
   stdio: 'inherit',
@@ -399,6 +399,148 @@ console.log('\n5. Encuadre de la cámara en pantallas reales');
   const estrecha = distanciaQueEncuadra(new PerspectiveCamera(42, 360 / 800, 0.5, 120));
   const ancha = distanciaQueEncuadra(new PerspectiveCamera(42, 900 / 800, 0.5, 120));
   ok(estrecha >= ancha, 'Una pantalla estrecha aleja la cámara, no la acerca');
+}
+
+// ── 6. La escena en 3D ─────────────────────────────────────────────────────
+// Estas pruebas existen porque la escena es lo ÚNICO del proyecto que no se
+// puede revisar leyendo: hay que verla. Así que se comprueba por medición todo
+// lo que un vistazo detectaría — que nada tape la zona de juego, que lo que se
+// ve mida lo que colisiona, y que el coste siga siendo de teléfono flojo.
+console.log('\n6. La escena en 3D');
+{
+  const THREE = require('three');
+  const esc = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'escena.js'));
+  const { mulberry32 } = require(path.join(salida, 'world.js'));
+
+  const world = buildWorld(987654321);
+  const rnd = mulberry32(4242);
+  const escena = new THREE.Group();
+  const suelo = esc.crearSuelo(rnd);
+  const ciudad = esc.crearCiudad(rnd);
+  const veg = esc.crearVegetacion(rnd, world);
+  escena.add(suelo, ciudad, veg.grupo, esc.crearObstaculos(world.obstacles));
+  // CINCO bolsas, como en una partida de verdad. Con una sola, el recuento de
+  // llamadas de dibujo miente por 48 y el presupuesto no vale para nada.
+  let bolsa;
+  for (const _ of world.bags) {
+    bolsa = esc.crearBolsa();
+    escena.add(bolsa.grupo);
+  }
+  const ciudadano = esc.crearCiudadano();
+  const carretilla = esc.crearCarretilla();
+  escena.add(ciudadano.grupo, carretilla.grupo);
+  escena.updateMatrixWorld(true);
+
+  // ── Nada roto ──
+  // Un NaN en un vértice no revienta: hace desaparecer la malla entera en
+  // silencio, que es la peor forma posible de fallar.
+  let malos = 0;
+  let sinColor = 0;
+  let triangulos = 0;
+  let llamadas = 0;
+  escena.traverse((o) => {
+    if (!o.isMesh) return;
+    llamadas++;
+    const g = o.geometry;
+    const p = g.attributes.position;
+    triangulos += (p.count / 3) * (o.isInstancedMesh ? o.count : 1);
+    for (let i = 0; i < p.count * 3; i++) {
+      if (!Number.isFinite(p.array[i])) { malos++; break; }
+    }
+    // Un material con vertexColors y una geometría sin atributo `color` se
+    // dibuja NEGRA. Es un fallo mudo y muy fácil de introducir.
+    const usaColorVertice = Array.isArray(o.material)
+      ? o.material.some((m) => m.vertexColors)
+      : o.material.vertexColors;
+    if (usaColorVertice) {
+      const c = g.attributes.color;
+      if (!c || c.count !== p.count) sinColor++;
+    }
+  });
+  ok(malos === 0, 'Ninguna geometría tiene vértices NaN o infinitos', `${malos} mallas`);
+  ok(sinColor === 0, 'Toda malla con color por vértice trae su atributo color', `${sinColor} mallas`);
+
+  // ── Presupuesto de un teléfono flojo ──
+  console.log(`     ${llamadas} llamadas de dibujo, ${Math.round(triangulos / 1000)}k triángulos`);
+  ok(llamadas <= 70, 'La escena cabe en 70 llamadas de dibujo', `son ${llamadas}`);
+  ok(triangulos <= 120_000, 'La escena cabe en 120k triángulos', `son ${Math.round(triangulos)}`);
+
+  // ── Lo que se ve es lo que choca ──
+  // Si el dibujo fuera más grande que el radio de la simulación, el jugador
+  // vería atravesar cosas; si fuera más pequeño, recogería bolsas "desde
+  // lejos". Las dos sensaciones se leen como que el juego está roto.
+  const caja = new THREE.Box3();
+  const tam = new THREE.Vector3();
+
+  caja.setFromObject(bolsa.cuerpo).getSize(tam);
+  const radioBolsa = Math.max(tam.x, tam.z) / 2;
+  console.log(`     Bolsa: ${radioBolsa.toFixed(2)} de radio y ${tam.y.toFixed(2)} de alto`);
+  ok(
+    Math.abs(radioBolsa - BAG_RADIUS / 40) < 0.14,
+    'La bolsa se dibuja del tamaño con el que colisiona',
+    `dibujada ${radioBolsa.toFixed(2)}, colisiona ${(BAG_RADIUS / 40).toFixed(2)}`
+  );
+  ok(tam.y > 1.7, 'La bolsa es alta: se ve como una bolsa, no como un bulto', `${tam.y.toFixed(2)}`);
+
+  // Sin la bolsa al hombro: cuelga por fuera del cuerpo y arranca OCULTA, pero
+  // Box3 no mira la visibilidad, así que falsearía el ancho en un 40 %.
+  ciudadano.bolsaHombro.removeFromParent();
+  caja.setFromObject(ciudadano.grupo).getSize(tam);
+  console.log(`     Ciudadano: ${tam.x.toFixed(2)} de ancho y ${tam.y.toFixed(2)} de alto`);
+  ok(
+    Math.abs(tam.x / 2 - CITIZEN_RADIUS / 40) < 0.12,
+    'El ciudadano se dibuja del tamaño con el que colisiona',
+    `dibujado ${(tam.x / 2).toFixed(2)}, colisiona ${(CITIZEN_RADIUS / 40).toFixed(2)}`
+  );
+  ok(tam.y > 2.1, 'El ciudadano es lo bastante grande para leerse desde la cámara');
+
+  // ── Nada tapa la zona de juego ──
+  // La cámara mira desde arriba: cualquier cosa que asome sobre la calzada
+  // puede esconder una bolsa. Las copas de los árboles son la trampa clásica,
+  // porque el tronco está en la acera pero la copa vuela sobre el asfalto.
+  // OJO: hay que mirar cada INSTANCIA por separado. Un InstancedMesh reparte
+  // copias por los dos lados de la calle, así que su caja envolvente global
+  // cruza la calzada SIEMPRE y daría un falso positivo en todo.
+  const MEDIA = PLAY.w / 40 / 2;
+  const cajaInst = new THREE.Box3();
+  const matriz = new THREE.Matrix4();
+  let invaden = 0;
+  // Se mide transformando los VÉRTICES de verdad, uno a uno. La vía cómoda
+  // —rotar la caja envolvente— no sirve: la caja de una caja girada se infla
+  // hasta su diagonal, y un árbol de 1,15 de radio girado 45° aparenta 1,63.
+  // Eso son 0,48 unidades de invasión imaginaria, más que el margen que se
+  // está midiendo. La prueba diría que hay un problema donde no lo hay.
+  const vert = new THREE.Vector3();
+  const revisar = (m) => {
+    // La basura suelta SÍ está en la calzada: es su sitio, y se distingue por
+    // llevar color por vértice.
+    if (!m.material || m.material.vertexColors) return;
+    const pos = m.geometry.attributes.position;
+    const n = m.isInstancedMesh ? m.count : 1;
+    for (let i = 0; i < n; i++) {
+      matriz.identity();
+      if (m.isInstancedMesh) m.getMatrixAt(i, matriz);
+      matriz.premultiply(m.matrixWorld);
+      cajaInst.makeEmpty();
+      for (let v = 0; v < pos.count; v++) {
+        cajaInst.expandByPoint(vert.fromBufferAttribute(pos, v).applyMatrix4(matriz));
+      }
+      // Los cables cruzan la calle, pero van a 5 unidades de altura: por
+      // encima de todo y demasiado finos para tapar nada.
+      if (cajaInst.min.y > 3.4) continue;
+      // Las instancias aparcadas bajo tierra no cuentan.
+      if (cajaInst.max.y < -1) continue;
+      if (cajaInst.min.x < MEDIA && cajaInst.max.x > -MEDIA) invaden++;
+    }
+  };
+  for (const grupo of [ciudad, veg.grupo]) {
+    for (const hijo of grupo.children) if (hijo.isMesh) revisar(hijo);
+  }
+  ok(invaden === 0, 'Ni casas ni árboles asoman sobre la calzada', `${invaden} instancias invaden`);
+
+  // ── El suelo llega a todas partes ──
+  caja.setFromObject(suelo).getSize(tam);
+  ok(tam.x >= 300 && tam.z >= 300, 'El suelo sigue midiendo 320 unidades', `${tam.x} × ${tam.z}`);
 }
 
 console.log(

@@ -14,17 +14,19 @@
 // ── Cómo se mantiene barato en un teléfono flojo ──
 // Lo que hunde los fps en 3D móvil no son los polígonos: son las LLAMADAS DE
 // DIBUJO, las sombras en tiempo real y el relleno de transparencias. Aquí:
-//   · Todo lo repetido (casas, ventanas, árboles, postes, basura, obstáculos,
-//     cartones) va en InstancedMesh: 48 casas cuestan DOS llamadas.
+//   · Todo lo repetido (casas, edificios, ventanas, árboles, postes, basura,
+//     obstáculos, cartones) va en InstancedMesh: las ~48 casas cuestan DOS
+//     llamadas y sus ~350 ventanas, una.
 //   · Cero sombras en tiempo real. Cada objeto lleva una mancha oscura plana
 //     debajo, que cuesta un círculo diminuto en vez de redibujar la escena.
 //   · MeshLambertMaterial con caras planas. Nada de PBR.
 //   · Una luz direccional y una hemisférica. Ni post-procesado.
-// La escena entera queda en unas 45 llamadas y ~14.000 triángulos.
+// La escena entera queda en unas 50 llamadas y ~18.000 triángulos.
 // ============================================================================
 
 import {
   BoxGeometry,
+  BufferGeometry,
   CircleGeometry,
   Color,
   ConeGeometry,
@@ -44,7 +46,11 @@ import {
   TorusGeometry,
   Vector3,
 } from 'three';
-import { PLAY, World, WorldObstacle } from '@/lib/game/world';
+// Ruta relativa, no el alias '@/': el banco de pruebas compila este módulo con
+// tsc a secas y tsc NO reescribe los alias de rutas al emitir. Con '@/' las
+// pruebas no podrían cargar la escena, que es justo donde más falta hacen
+// porque es lo único que no puedo comprobar mirando.
+import { PLAY, World, WorldObstacle } from '../game/world';
 
 // ── Conversión de coordenadas ───────────────────────────────────────────────
 // La simulación NO cambia: sigue en píxeles lógicos X/Y, igual que en 2D. Aquí
@@ -75,6 +81,17 @@ const LINEA_CASAS = MEDIA_CALZADA + ANCHO_ACERA;
 const LARGO_CALLE = 220;
 
 /**
+ * Cuánto se agranda el ciudadano sobre su tamaño modelado.
+ *
+ * Con 1,0 el muñeco medía 1,63 unidades: correcto contra las casas, pero
+ * diminuto en la pantalla, porque la cámara se aleja hasta 53 unidades para
+ * encuadrar una calle de 24 de largo. En un juego el personaje tiene que
+ * LEERSE, no estar a escala arquitectónica, así que se agranda hasta que su
+ * ancho coincide con CITIZEN_RADIUS, el radio con el que choca de verdad.
+ */
+const ESCALA_CIUDADANO = 1.45;
+
+/**
  * Paleta ANIME. Los colores están deliberadamente sobresaturados respecto a lo
  * que sería "realista": con la iluminación por debajo de 1 (ver las luces en
  * game.ts) el material se ve casi tal cual, así que la saturación tiene que
@@ -101,6 +118,7 @@ export const COL = {
   tejaA: 0xd8543a,
   tejaB: 0xb8452f,
   tejaC: 0x8f97a6,
+  azotea: 0xb9b2a2,
   ventana: 0xa9e2f7,
   // Vegetación
   copa: 0x35c23f,
@@ -109,14 +127,34 @@ export const COL = {
   // Poste y cables
   poste: 0x8d8074,
   cable: 0x33363f,
-  // Basura suelta: los puntos de color sobre el gris del asfalto
+  // Basura suelta: los puntos de color sobre el gris del asfalto. Estos tonos
+  // van a la INSTANCIA y multiplican al multiplicador de brillo guardado en el
+  // vértice, así que son prácticamente el color final: conviene que sean
+  // saturados, porque cada pieza ocupa pocos píxeles y el color es casi toda
+  // la información que llega.
   papel: 0xffffff,
   papelCrema: 0xf0dfae,
-  botellaVerde: 0x3ddc84,
+  cartonSuelto: 0xd99b52,
+  botellaVerde: 0x2fd46f,
+  botellaAmbar: 0xd98a2b,
   botellaAzul: 0x4fb8ff,
+  botellaRoja: 0xf0402f,
+  botellaClara: 0xdff3f7,
   lataRoja: 0xff3b30,
   lataAzul: 0x2f6df0,
-  cartonSuelto: 0xd99b52,
+  lataPlata: 0xdfe4ea,
+  brikNaranja: 0xff8a2b,
+  brikAmarillo: 0xffd52e,
+  brikRojo: 0xe03a52,
+  brikVerde: 0x46c94f,
+  plato: 0xfbfbf6,
+  platoCrema: 0xf3e6c8,
+  bandeja: 0xe8f0f5,
+  comidaTomate: 0xe8452f,
+  comidaMaiz: 0xffc53d,
+  comidaVerde: 0x74c93a,
+  comidaPan: 0xd9a45c,
+  comidaCarne: 0xa8552f,
   // Obstáculos de calle
   escombro: 0xa8b0bc,
   palet: 0xc8944e,
@@ -134,8 +172,12 @@ export const COL = {
   // Bolsa: negra como una bolsa de basura de verdad. Lo que impide que se
   // pierda sobre el asfalto gris no es su color, es el LAZO amarillo y el
   // halo que se enciende al acercarse.
-  bolsa: 0x24262d,
-  bolsaClara: 0x565d6d,
+  // Tres tonos, no uno: el plástico negro solo se lee como plástico si tiene
+  // un degradado de la panza (en sombra) al hombro (a la luz) y un reflejo
+  // duro arriba. Con un único negro la bolsa sale como una silueta plana.
+  bolsa: 0x22242b,
+  bolsaMedia: 0x3a3f4a,
+  bolsaClara: 0x6a7182,
   lazo: 0xffe816,
   // Cartones
   carton: 0xffab33,
@@ -262,21 +304,23 @@ export function crearSuelo(rnd: () => number): Group {
   geo.computeVertexNormals();
   g.add(new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true })));
 
-  // ── Aceras ──
+  // ── Aceras y líneas de borde ──
   // Un cajón elevado por lado, con el bordillo (la cara superior del filo) en
-  // un tono más claro para que el escalón se lea desde arriba.
-  const geoAcera = new BoxGeometry(ANCHO_ACERA, 0.18, LARGO_CALLE);
-  const matAcera = mat(COL.acera);
-  const geoBordillo = new BoxGeometry(0.34, 0.2, LARGO_CALLE);
-  const matBordillo = mat(COL.bordillo);
-  for (const lado of [-1, 1]) {
-    const a = new Mesh(geoAcera, matAcera);
-    a.position.set(lado * (MEDIA_CALZADA + ANCHO_ACERA / 2), 0.09, 0);
-    g.add(a);
-    const b = new Mesh(geoBordillo, matBordillo);
-    b.position.set(lado * (MEDIA_CALZADA + 0.17), 0.1, 0);
-    g.add(b);
-  }
+  // un tono más claro para que el escalón se lea desde arriba, y la línea
+  // continua pintada junto a él. Seis piezas fijas, una sola malla.
+  g.add(
+    new Mesh(
+      fundir([
+        { geo: new BoxGeometry(ANCHO_ACERA, 0.18, LARGO_CALLE).translate(-(MEDIA_CALZADA + ANCHO_ACERA / 2), 0.09, 0), color: COL.acera },
+        { geo: new BoxGeometry(ANCHO_ACERA, 0.18, LARGO_CALLE).translate(MEDIA_CALZADA + ANCHO_ACERA / 2, 0.09, 0), color: COL.acera },
+        { geo: new BoxGeometry(0.34, 0.2, LARGO_CALLE).translate(-(MEDIA_CALZADA + 0.17), 0.1, 0), color: COL.bordillo },
+        { geo: new BoxGeometry(0.34, 0.2, LARGO_CALLE).translate(MEDIA_CALZADA + 0.17, 0.1, 0), color: COL.bordillo },
+        { geo: new BoxGeometry(0.14, 0.02, LARGO_CALLE).translate(-(MEDIA_CALZADA - 0.6), 0.02, 0), color: COL.linea },
+        { geo: new BoxGeometry(0.14, 0.02, LARGO_CALLE).translate(MEDIA_CALZADA - 0.6, 0.02, 0), color: COL.linea },
+      ]),
+      MAT_FUNDIDO
+    )
+  );
 
   // Juntas de las losetas de la acera: rayas transversales instanciadas. Una
   // llamada de dibujo, y es lo que impide que la acera parezca una cinta lisa.
@@ -307,13 +351,6 @@ export function crearSuelo(rnd: () => number): Group {
   }
   rayas.instanceMatrix.needsUpdate = true;
   g.add(rayas);
-
-  // Líneas continuas de borde
-  for (const lado of [-1, 1]) {
-    const l = new Mesh(new BoxGeometry(0.14, 0.02, LARGO_CALLE), matLinea);
-    l.position.set(lado * (MEDIA_CALZADA - 0.6), 0.02, 0);
-    g.add(l);
-  }
 
   return g;
 }
@@ -424,6 +461,98 @@ export function crearCiudad(rnd: () => number): Group {
   ventanas.instanceMatrix.needsUpdate = true;
   g.add(ventanas);
 
+  // ── Edificios ──
+  // Una segunda hilera, justo detrás de las casas bajas y bastante más alta:
+  // 3 a 8 plantas. Es lo que convierte dos filas de casitas en una CALLE de
+  // ciudad — encajona el encuadre por los lados y da altura al horizonte.
+  //
+  // Van detrás y no pegados a la acera a propósito: desde la cámara (a 42
+  // unidades de altura y 33 de distancia) un edificio en primera línea no
+  // llega a tapar la calzada, pero sí se comería la acera y los árboles, que
+  // son los que dan la lectura de "calle de barrio".
+  interface Edificio {
+    x: number;
+    z: number;
+    ancho: number;
+    fondo: number;
+    alto: number;
+    lado: number;
+    pared: number;
+    plantas: number;
+  }
+
+  const edificios: Edificio[] = [];
+  for (const lado of [-1, 1]) {
+    let z = -64 + rnd() * 6 + (lado > 0 ? 7 : 0);
+    while (z < 64) {
+      const ancho = 8 + rnd() * 6;
+      const fondo = 9 + rnd() * 6;
+      const plantas = 3 + Math.floor(rnd() * 6);
+      edificios.push({
+        x: lado * (LINEA_CASAS + 12.5 + rnd() * 5 + fondo / 2),
+        z: z + ancho / 2,
+        ancho,
+        fondo,
+        alto: plantas * 1.55,
+        lado,
+        pared: paredes[Math.floor(rnd() * paredes.length)],
+        plantas,
+      });
+      z += ancho + 1.2 + rnd() * 3;
+    }
+  }
+
+  const bloquesAltos = new InstancedMesh(
+    new BoxGeometry(1, 1, 1),
+    mat(COL.paredE),
+    edificios.length
+  );
+  // Azotea: un pretil un poco más ancho que el edificio. Desde arriba, que es
+  // como se ve todo aquí, un edificio sin pretil parece una caja cortada.
+  const azoteas = new InstancedMesh(
+    new BoxGeometry(1, 0.42, 1),
+    mat(COL.azotea),
+    edificios.length
+  );
+  edificios.forEach((e, i) => {
+    poner(bloquesAltos, i, e.x, e.alto / 2, e.z, e.fondo, e.alto, e.ancho);
+    bloquesAltos.setColorAt(i, _c.set(e.pared));
+    poner(azoteas, i, e.x, e.alto + 0.16, e.z, e.fondo + 0.35, 1, e.ancho + 0.35);
+  });
+  bloquesAltos.instanceMatrix.needsUpdate = true;
+  azoteas.instanceMatrix.needsUpdate = true;
+  if (bloquesAltos.instanceColor) bloquesAltos.instanceColor.needsUpdate = true;
+  g.add(bloquesAltos, azoteas);
+
+  // Ventanas de los edificios: una rejilla por fachada. Es lo que da la
+  // escala — sin ellas un bloque de 12 unidades podría ser de 3 o de 30.
+  const rejilla: { x: number; y: number; z: number }[] = [];
+  for (const e of edificios) {
+    // La fachada que da a la calle es la más cercana a x=0. Como `e.x` ya
+    // lleva el signo del lado, restarle `lado * fondo/2` cae siempre en ella.
+    // Las ventanas van un pelo POR FUERA del muro: empotrarlas provoca
+    // z-fighting con la pared y las hace parpadear al girar la cámara.
+    const xCara = e.x - e.lado * (e.fondo / 2 + 0.06);
+    const cols = Math.max(2, Math.round(e.ancho / 2.6));
+    for (let f = 0; f < e.plantas; f++) {
+      for (let c = 0; c < cols; c++) {
+        rejilla.push({
+          x: xCara,
+          y: 0.95 + f * 1.55,
+          z: e.z + (c - (cols - 1) / 2) * (e.ancho / (cols + 0.5)),
+        });
+      }
+    }
+  }
+  const ventanasAltas = new InstancedMesh(
+    new BoxGeometry(0.12, 0.85, 0.95),
+    mat(COL.ventana),
+    rejilla.length
+  );
+  rejilla.forEach((v, i) => poner(ventanasAltas, i, v.x, v.y, v.z, 1, 1, 1));
+  ventanasAltas.instanceMatrix.needsUpdate = true;
+  g.add(ventanasAltas);
+
   // ── Postes de la luz ──
   // Solo en un lado, como en la calle de la referencia.
   const zPostes: number[] = [];
@@ -453,32 +582,35 @@ export function crearCiudad(rnd: () => number): Group {
   // Cajas larguísimas y finísimas. Cruzan por encima de la escena y, vistos
   // desde la cámara cenital, dibujan líneas sobre la calle: es una de las
   // señas de identidad del encuadre de la referencia y cuesta 5 cajas.
-  const matCable = mat(COL.cable, { plano: false });
   const largoCable = LARGO_CALLE * 0.7;
+  const tendido: { geo: BufferGeometry; color: number }[] = [];
   for (const [dx, y] of [
     [-0.55, 5.08],
     [0, 5.12],
     [0.55, 5.06],
     [-0.3, 4.62],
   ] as const) {
-    const cable = new Mesh(new BoxGeometry(0.05, 0.05, largoCable), matCable);
-    cable.position.set(xPoste + dx, y, 0);
-    g.add(cable);
+    tendido.push({
+      geo: new BoxGeometry(0.05, 0.05, largoCable).translate(xPoste + dx, y, 0),
+      color: COL.cable,
+    });
   }
   // Dos cables cruzando la calle hacia el otro lado: rompen la simetría y
   // dan profundidad al encuadre.
   for (const z of [-14, 21]) {
-    const cruce = new Mesh(new BoxGeometry(0.05, 0.05, LINEA_CASAS * 2.1), matCable);
-    cruce.rotation.y = Math.PI / 2;
-    cruce.position.set(0, 4.9, z);
-    cruce.rotation.z = 0.02;
-    g.add(cruce);
+    tendido.push({
+      geo: new BoxGeometry(0.05, 0.05, LINEA_CASAS * 2.1).rotateY(Math.PI / 2).translate(0, 4.9, z),
+      color: COL.cable,
+    });
   }
+  g.add(new Mesh(fundir(tendido), MAT_FUNDIDO));
 
   // ── Bloques lejanos ──
   // A los lados, nunca dentro del corredor de la calle: el fondo de la calle
   // tiene que quedar abierto para que se pierda en la neblina, que es lo que
   // da la sensación de que el barrio sigue.
+  // Arrancan a 40 unidades, más allá de donde acaba la hilera de edificios
+  // (que llega a ~34): si empezaran antes se meterían DENTRO de ellos.
   const nBloques = 70;
   const bloques = new InstancedMesh(new BoxGeometry(1, 1, 1), mat(COL.paredE), nBloques);
   const techos = new InstancedMesh(
@@ -487,7 +619,7 @@ export function crearCiudad(rnd: () => number): Group {
     nBloques
   );
   for (let i = 0; i < nBloques; i++) {
-    const x = (rnd() > 0.5 ? 1 : -1) * (22 + rnd() * 72);
+    const x = (rnd() > 0.5 ? 1 : -1) * (40 + rnd() * 58);
     const z = (rnd() - 0.5) * 190;
     const alto = 3 + rnd() * 6;
     const ancho = 5 + rnd() * 7;
@@ -505,6 +637,216 @@ export function crearCiudad(rnd: () => number): Group {
 
   return g;
 }
+
+// ── Modelos de basura ───────────────────────────────────────────────────────
+// Una calle sucia no se lee por tener manchas de color en el suelo: se lee por
+// tener OBJETOS reconocibles. Una botella de refresco tumbada, un brik de jugo,
+// un plato con restos. Con rectángulos planos lo único que se entiende es
+// "papeles", que es justo el problema que esto resuelve.
+//
+// Cada modelo se funde en UNA geometría, así que las 34 botellas siguen
+// costando una sola llamada de dibujo pese a tener cuerpo, etiqueta, hombro,
+// cuello y tapón.
+
+/**
+ * Funde varias piezas en una geometría, guardando en el color de cada vértice
+ * un MULTIPLICADOR de brillo (1 = tal cual, 0,3 = casi negro).
+ *
+ * Es un multiplicador y no un color por un motivo concreto: el color de verdad
+ * lo pone la instancia, y three multiplica los dos. Así una única geometría de
+ * botella —con la etiqueta a 0,95 y el tapón a 0,32— sale verde, ámbar o azul
+ * según la copia, conservando siempre la etiqueta clara y el tapón oscuro.
+ * Guardar colores absolutos aquí los teñiría también, y adiós contraste.
+ *
+ * Y va en multiplicadores crudos, no en hexadecimales, para no pisar la
+ * gestión de color de three: un 0x484848 pasado por `Color.set` se convierte
+ * de sRGB a lineal y acaba valiendo 0,065, no el 0,28 que uno esperaba.
+ */
+function fundir(partes: { geo: BufferGeometry; tono?: number; color?: number }[]): BufferGeometry {
+  const pos: number[] = [];
+  const nor: number[] = [];
+  const col: number[] = [];
+  for (const parte of partes) {
+    const g = parte.geo.index ? parte.geo.toNonIndexed() : parte.geo;
+    const gp = g.attributes.position;
+    const gn = g.attributes.normal;
+    // Con `color` se pasa por Color.set, que convierte de sRGB a lineal — que
+    // es exactamente lo que espera un atributo de color de vértice. Con
+    // `tono` NO se convierte, porque ahí el número no es un color sino un
+    // multiplicador y convertirlo lo oscurecería sin sentido.
+    let r = 1;
+    let v = 1;
+    let a = 1;
+    if (parte.color !== undefined) {
+      _c.set(parte.color);
+      r = _c.r;
+      v = _c.g;
+      a = _c.b;
+    } else {
+      r = v = a = parte.tono ?? 1;
+    }
+    for (let i = 0; i < gp.count; i++) {
+      pos.push(gp.getX(i), gp.getY(i), gp.getZ(i));
+      nor.push(gn.getX(i), gn.getY(i), gn.getZ(i));
+      col.push(r, v, a);
+    }
+  }
+  const out = new BufferGeometry();
+  out.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new Float32BufferAttribute(nor, 3));
+  out.setAttribute('color', new Float32BufferAttribute(col, 3));
+  return out;
+}
+
+/** Material único de toda la basura: el color viene del vértice y de la
+ *  instancia, así que una sola llamada sirve para todos los tonos. */
+const MAT_BASURA = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+
+/**
+ * Material de las piezas FUNDIDAS con colores absolutos (bolsa, carretilla,
+ * mobiliario de la calle). Es el que permite que una bolsa de basura con trece
+ * piezas de cuatro colores distintos cueste UNA llamada de dibujo en vez de
+ * trece — que con cinco bolsas en pantalla son 60 llamadas de diferencia, la
+ * mayor economía de toda la escena en un teléfono flojo.
+ */
+const MAT_FUNDIDO = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+
+/** Botella de refresco TUMBADA, con su etiqueta y su tapón. El eje va en X, así
+ *  que la instancia solo tiene que girar sobre Y para tirarla en cualquier
+ *  dirección. Centrada en el origen para que ese giro no la desplace. */
+const GEO_BOTELLA = fundir([
+  { geo: new CylinderGeometry(0.115, 0.115, 0.4, 9).rotateZ(Math.PI / 2).translate(-0.13, 0, 0), tono: 1 },
+  // Etiqueta: la banda clara del centro. Es lo que hace que a 40 unidades de
+  // cámara se distinga una botella de un palo.
+  { geo: new CylinderGeometry(0.128, 0.128, 0.18, 9).rotateZ(Math.PI / 2).translate(-0.15, 0, 0), tono: 0.95 },
+  { geo: new ConeGeometry(0.115, 0.09, 9).rotateZ(Math.PI / 2).translate(-0.375, 0, 0), tono: 0.9 },
+  { geo: new ConeGeometry(0.115, 0.17, 9).rotateZ(-Math.PI / 2).translate(0.155, 0, 0), tono: 1 },
+  { geo: new CylinderGeometry(0.05, 0.05, 0.12, 7).rotateZ(Math.PI / 2).translate(0.3, 0, 0), tono: 0.85 },
+  { geo: new CylinderGeometry(0.063, 0.063, 0.07, 8).rotateZ(Math.PI / 2).translate(0.39, 0, 0), tono: 0.32 },
+]);
+
+/** Brik de jugo tumbado, con su tapita y la pajita puesta. */
+const GEO_BRIK = fundir([
+  { geo: new BoxGeometry(0.36, 0.2, 0.17).translate(0, 0.1, 0), tono: 1 },
+  { geo: new BoxGeometry(0.37, 0.075, 0.18).translate(0, 0.13, 0), tono: 0.62 },
+  { geo: new CylinderGeometry(0.032, 0.032, 0.05, 6).rotateZ(Math.PI / 2).translate(0.2, 0.15, 0), tono: 0.35 },
+  { geo: new CylinderGeometry(0.015, 0.015, 0.24, 4).rotateZ(0.6).translate(0.29, 0.22, 0.03), tono: 0.95 },
+]);
+
+/** Lata de refresco tumbada: cuerpo, banda oscura y los dos bordes de aluminio. */
+const GEO_LATA = fundir([
+  { geo: new CylinderGeometry(0.1, 0.1, 0.27, 9).rotateZ(Math.PI / 2), tono: 1 },
+  { geo: new CylinderGeometry(0.104, 0.104, 0.1, 9).rotateZ(Math.PI / 2), tono: 0.55 },
+  { geo: new CylinderGeometry(0.086, 0.086, 0.035, 9).rotateZ(Math.PI / 2).translate(0.15, 0, 0), tono: 0.88 },
+  { geo: new CylinderGeometry(0.086, 0.086, 0.035, 9).rotateZ(Math.PI / 2).translate(-0.15, 0, 0), tono: 0.88 },
+]);
+
+/** Plato o bandeja de comida para llevar, con su borde. Desde la cámara
+ *  cenital un disco claro con reborde se lee al instante. */
+const GEO_PLATO = fundir([
+  { geo: new CylinderGeometry(0.21, 0.17, 0.045, 14).translate(0, 0.022, 0), tono: 1 },
+  { geo: new TorusGeometry(0.21, 0.028, 4, 14).rotateX(-Math.PI / 2).translate(0, 0.045, 0), tono: 0.82 },
+  { geo: new CylinderGeometry(0.13, 0.13, 0.015, 12).translate(0, 0.05, 0), tono: 0.7 },
+]);
+
+/** Restos de comida: tres bultos sobre una mancha. */
+const GEO_COMIDA = fundir([
+  { geo: new CylinderGeometry(0.15, 0.15, 0.014, 9).translate(0, 0.007, 0), tono: 0.72 },
+  { geo: new IcosahedronGeometry(0.08, 0).translate(0.04, 0.07, 0.02), tono: 1 },
+  { geo: new IcosahedronGeometry(0.062, 0).translate(-0.07, 0.055, 0.05), tono: 0.85 },
+  { geo: new IcosahedronGeometry(0.05, 0).translate(0.02, 0.05, -0.08), tono: 0.93 },
+]);
+
+/** Papel o cartón ARRUGADO, no una lámina plana: un icosaedro aplastado con una
+ *  esquina asomando. La lámina plana era exactamente lo que se leía como
+ *  "papelito" y no como basura. */
+const GEO_PAPEL = fundir([
+  { geo: new IcosahedronGeometry(0.12, 0).scale(1.5, 0.5, 1.2).translate(0, 0.06, 0), tono: 1 },
+  { geo: new BoxGeometry(0.26, 0.014, 0.2).rotateZ(0.22).rotateY(0.5).translate(0.14, 0.04, 0.06), tono: 0.88 },
+]);
+
+/**
+ * La bolsa de basura, entera, en una geometría.
+ *
+ * La versión anterior era una bola oscura con un cuello: leía como "objeto",
+ * no como bolsa. Lo que hace que una bolsa parezca una bolsa son cuatro cosas,
+ * y todas están aquí:
+ *
+ *   1. NO es esférica. Se desparrama: la panza es ancha y achatada porque
+ *      apoya en el suelo, y se estrecha hacia arriba.
+ *   2. Tiene BULTOS. El plástico va tenso sobre lo que hay dentro, y esos
+ *      picos irregulares son la señal más reconocible de todas.
+ *   3. Se estrangula en un CUELLO y termina en un NUDO con dos orejas — el
+ *      remate de haber atado el plástico.
+ *   4. El negro no es plano: la panza en sombra, el hombro a media luz y un
+ *      reflejo duro arriba. Un negro único la deja como una silueta recortada.
+ *
+ * Y es GRANDE: 0,86 unidades de radio, que es exactamente el BAG_RADIUS de la
+ * simulación, así que lo que se ve es lo que colisiona.
+ */
+const GEO_BOLSA = fundir([
+  // Panza: achatada y ancha, como una bolsa que apoya en el suelo.
+  { geo: new SphereGeometry(0.86, 10, 7).scale(1, 0.66, 0.96).translate(0, 0.5, 0), color: COL.bolsa },
+  // Hombro: la parte alta, que recibe la luz. Más estrecha que la panza.
+  { geo: new SphereGeometry(0.63, 9, 6).scale(1, 0.8, 1).translate(0, 0.9, 0), color: COL.bolsaMedia },
+  // Bultos: lo de dentro empujando el plástico. Es lo que más distingue una
+  // bolsa de una pelota negra.
+  { geo: new IcosahedronGeometry(0.3, 0).scale(1.05, 1.05, 1.05).translate(0.66, 0.44, 0.26), color: COL.bolsa },
+  { geo: new IcosahedronGeometry(0.3, 0).scale(1.2, 1.2, 1.2).translate(-0.58, 0.38, -0.4), color: COL.bolsa },
+  { geo: new IcosahedronGeometry(0.3, 0).scale(0.9, 0.9, 0.9).translate(0.12, 0.5, -0.72), color: COL.bolsa },
+  { geo: new IcosahedronGeometry(0.3, 0).scale(0.8, 0.8, 0.8).translate(-0.34, 0.92, 0.5), color: COL.bolsaMedia },
+  { geo: new IcosahedronGeometry(0.3, 0).scale(0.7, 0.7, 0.7).translate(0.46, 0.86, -0.3), color: COL.bolsaMedia },
+  // Reflejo: el brillo duro del plástico. Va medio embebido en el hombro, así
+  // que solo asoma un casquete — que es como se ve un reflejo de verdad.
+  { geo: new SphereGeometry(0.3, 7, 5).scale(1.3, 0.55, 1).rotateZ(0.25).translate(-0.3, 1.06, 0.3), color: COL.bolsaClara },
+  // Cuello: el plástico estrangulado antes del nudo.
+  { geo: new CylinderGeometry(0.17, 0.5, 0.44, 8).translate(0, 1.44, 0), color: COL.bolsaMedia },
+  // Lazo amarillo: es lo que impide que una bolsa negra se pierda sobre el
+  // asfalto. Ya cumplía esa función en la versión 2D.
+  { geo: new CylinderGeometry(0.22, 0.22, 0.13, 10).translate(0, 1.66, 0), color: COL.lazo },
+  // Nudo y sus dos orejas: el remate de haber atado la bolsa. Sin ellas el
+  // cuello parece el gollete de un jarrón.
+  { geo: new IcosahedronGeometry(0.19, 0).translate(0, 1.78, 0), color: COL.bolsa },
+  { geo: new ConeGeometry(0.15, 0.46, 5).scale(1, 1, 0.55).rotateZ(0.95).translate(-0.23, 1.94, -0.06), color: COL.bolsaMedia },
+  { geo: new ConeGeometry(0.15, 0.46, 5).scale(1, 1, 0.55).rotateZ(-0.95).translate(0.23, 1.94, 0.06), color: COL.bolsaMedia },
+]);
+
+/** Torso del barrendero: camisa, chaleco reflectante y su franja. El chaleco
+ *  es un pelo mayor que el torso para que la camisa asome por los hombros. */
+const GEO_TORSO = fundir([
+  { geo: new BoxGeometry(0.6, 0.62, 0.36).translate(0, 0.8, 0), color: COL.camisa },
+  { geo: new BoxGeometry(0.64, 0.46, 0.42).translate(0, 0.78, 0), color: COL.chaleco },
+  { geo: new BoxGeometry(0.66, 0.08, 0.44).translate(0, 0.78, 0), color: COL.reflectante },
+]);
+
+/** Cabeza con gorra. La visera es lo que da la lectura de "hacia dónde mira"
+ *  desde la cámara cenital, que es justo el ángulo del juego. */
+const GEO_CABEZA = fundir([
+  { geo: new SphereGeometry(0.27, 8, 6), color: COL.piel },
+  { geo: new SphereGeometry(0.28, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.06, 0), color: COL.gorra },
+  { geo: new BoxGeometry(0.36, 0.05, 0.26).translate(0, 0.08, 0.26), color: COL.gorra },
+]);
+
+/** La carretilla: tolva, rueda, los dos mangos y las dos patas. El montón de
+ *  cartones NO va aquí, porque cada capa aparece por separado según avanza
+ *  la partida. */
+const GEO_CARRETILLA = fundir([
+  { geo: new CylinderGeometry(1.15, 0.85, 0.8, 4).rotateY(Math.PI / 4).translate(0, 0.72, 0), color: COL.tolva },
+  { geo: new CylinderGeometry(0.32, 0.32, 0.18, 10).rotateZ(Math.PI / 2).translate(0, 0.32, -1.05), color: 0x2c2f36 },
+  { geo: new BoxGeometry(0.11, 0.11, 2.7).translate(-0.72, 0.62, 0.55), color: COL.metal },
+  { geo: new BoxGeometry(0.11, 0.11, 2.7).translate(0.72, 0.62, 0.55), color: COL.metal },
+  { geo: new BoxGeometry(0.11, 0.55, 0.11).translate(-0.72, 0.28, 1.25), color: COL.metal },
+  { geo: new BoxGeometry(0.11, 0.55, 0.11).translate(0.72, 0.28, 1.25), color: COL.metal },
+]);
+
+/** Montoncito acumulado contra el bordillo: varios bultos y una botella
+ *  asomando, que es lo que delata que el montón es de basura. */
+const GEO_MONTON = fundir([
+  { geo: new IcosahedronGeometry(0.34, 0).scale(1.1, 0.75, 1).translate(0, 0.24, 0), tono: 1 },
+  { geo: new IcosahedronGeometry(0.24, 0).translate(0.26, 0.18, 0.14), tono: 0.8 },
+  { geo: new IcosahedronGeometry(0.2, 0).translate(-0.24, 0.16, -0.12), tono: 0.9 },
+  { geo: new CylinderGeometry(0.07, 0.07, 0.34, 7).rotateZ(1.1).translate(0.2, 0.42, -0.16), tono: 0.6 },
+]);
 
 // ── Árboles y basura suelta ─────────────────────────────────────────────────
 
@@ -528,24 +870,32 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   const grupo = new Group();
 
   // ── Árboles de la acera ──
+  // Los árboles van pegados al borde EXTERIOR de la acera, y con la escala
+  // acotada, por un motivo que no es estético: la copa vuela alrededor del
+  // tronco, y desde una cámara cenital una copa que asome sobre el asfalto
+  // puede esconder una bolsa. Con el tronco a 9,74 y la copa como mucho a
+  // 1,79 de radio, el borde interior queda en 7,95 — por fuera de la calzada,
+  // que acaba en 7,7. Hay una prueba que lo comprueba, y falló con el tronco
+  // a 9,3: la copa entraba 13 centésimas sobre el asfalto.
   const arboles: { x: number; z: number; e: number; fase: number }[] = [];
-  const xArbol = MEDIA_CALZADA + ANCHO_ACERA * 0.52;
+  const xArbol = MEDIA_CALZADA + ANCHO_ACERA * 0.68;
   for (const lado of [-1, 1]) {
     for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
       arboles.push({
         x: lado * xArbol,
         z,
-        e: 0.95 + rnd() * 0.5,
+        e: 0.9 + rnd() * 0.4,
         fase: rnd() * Math.PI * 2,
       });
     }
   }
 
-  // Arboleda LEJANA, por detrás de las casas: da textura al horizonte. Está
-  // fuera de todo lo jugable y la neblina se la va comiendo con la distancia.
+  // Arboleda LEJANA, por detrás de los edificios: da textura al horizonte.
+  // Está fuera de todo lo jugable y la neblina se la va comiendo con la
+  // distancia. Empieza a 36 unidades para no brotar dentro de un edificio.
   for (let i = 0; i < 46; i++) {
     arboles.push({
-      x: (rnd() > 0.5 ? 1 : -1) * (18 + rnd() * 70),
+      x: (rnd() > 0.5 ? 1 : -1) * (36 + rnd() * 56),
       z: (rnd() - 0.5) * 180,
       e: 1.2 + rnd() * 1.2,
       fase: rnd() * Math.PI * 2,
@@ -583,6 +933,11 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   grupo.add(sombrasArbol);
 
   // ── Basura suelta ──
+  // Aquí no valen manchas de color: si la basura son rectángulos planos, se
+  // lee como "papeles tirados" y ya. Lo que hace que una calle se vea SUCIA
+  // son objetos RECONOCIBLES — una botella de refresco, un brik de jugo, un
+  // plato con restos. Por eso cada tipo es una silueta de verdad, fundida en
+  // una sola geometría para que siga costando UNA llamada de dibujo.
   const cartX = wx(world.cart.x);
   const cartZ = wz(world.cart.y);
   /** Un punto al azar de la calle, nunca encima de la carretilla. */
@@ -597,59 +952,77 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   /** ¿Está sobre la acera? Sirve para levantar la basura ese escalón. */
   const altura = (x: number) => (Math.abs(x) > MEDIA_CALZADA ? 0.18 : 0);
 
-  // Papeles y cartones: chapas finas tumbadas, giradas al azar.
-  const nPapeles = 130;
-  const papeles = new InstancedMesh(new BoxGeometry(0.34, 0.02, 0.26), mat(COL.papel), nPapeles);
-  const tonosPapel = [COL.papel, COL.papel, COL.papelCrema, COL.cartonSuelto];
-  let iP = 0;
-  for (let i = 0; i < nPapeles; i++) {
-    const p = puntoLibre(1.9);
-    if (!p) continue;
-    const e = 0.7 + rnd() * 1.1;
-    poner(papeles, iP, p[0], altura(p[0]) + 0.012, p[1], e, 1, e, rnd() * 3.14);
-    papeles.setColorAt(iP, _c.set(tonosPapel[Math.floor(rnd() * tonosPapel.length)]));
-    iP++;
-  }
-  for (let i = iP; i < nPapeles; i++) poner(papeles, i, 0, -50, 0, 0, 0, 0);
-  papeles.instanceMatrix.needsUpdate = true;
-  if (papeles.instanceColor) papeles.instanceColor.needsUpdate = true;
-  grupo.add(papeles);
+  /**
+   * Siembra `n` copias de una geometría por la calle.
+   *
+   * El color va por instancia y MULTIPLICA al color de los vértices, que es
+   * justo lo que interesa: la etiqueta se pintó blanca y el tapón oscuro al
+   * fundir la geometría, así que al teñir la instancia de verde sale una
+   * botella verde con la etiqueta clara y el tapón oscuro. Un solo modelo, y
+   * cada copia con su color.
+   */
+  const sembrar = (
+    geo: BufferGeometry,
+    n: number,
+    tonos: readonly number[],
+    y: number,
+    opts: { escalaMin?: number; escalaMax?: number; radio?: number } = {}
+  ) => {
+    const malla = new InstancedMesh(geo, MAT_BASURA, n);
+    let k = 0;
+    for (let i = 0; i < n; i++) {
+      const pt = puntoLibre(opts.radio ?? 2.1);
+      if (!pt) continue;
+      const e =
+        (opts.escalaMin ?? 0.85) + rnd() * ((opts.escalaMax ?? 1.15) - (opts.escalaMin ?? 0.85));
+      poner(malla, k, pt[0], altura(pt[0]) + y * e, pt[1], e, e, e, rnd() * Math.PI * 2);
+      malla.setColorAt(k, _c.set(tonos[Math.floor(rnd() * tonos.length)]));
+      k++;
+    }
+    // Las que no encontraron sitio se mandan bajo tierra: una instancia sin
+    // matriz se dibuja en el origen, encima de la carretilla.
+    for (let i = k; i < n; i++) poner(malla, i, 0, -50, 0, 0, 0, 0);
+    malla.instanceMatrix.needsUpdate = true;
+    if (malla.instanceColor) malla.instanceColor.needsUpdate = true;
+    grupo.add(malla);
+  };
 
-  // Botellas y latas: cilindros TUMBADOS. La geometría se gira una vez al
-  // crearla, así que la instancia solo tiene que rotar sobre Y.
-  const geoTumbado = new CylinderGeometry(0.075, 0.075, 0.3, 6).rotateZ(Math.PI / 2);
-  const nEnvases = 90;
-  const envases = new InstancedMesh(geoTumbado, mat(COL.botellaVerde), nEnvases);
-  const tonosEnvase = [COL.botellaVerde, COL.botellaAzul, COL.lataRoja, COL.lataAzul, COL.papel];
-  let iE = 0;
-  for (let i = 0; i < nEnvases; i++) {
-    const p = puntoLibre(1.9);
-    if (!p) continue;
-    const largo = 0.85 + rnd() * 0.8;
-    poner(envases, iE, p[0], altura(p[0]) + 0.075, p[1], largo, 1, 1, rnd() * 3.14);
-    envases.setColorAt(iE, _c.set(tonosEnvase[Math.floor(rnd() * tonosEnvase.length)]));
-    iE++;
-  }
-  for (let i = iE; i < nEnvases; i++) poner(envases, i, 0, -50, 0, 0, 0, 0);
-  envases.instanceMatrix.needsUpdate = true;
-  if (envases.instanceColor) envases.instanceColor.needsUpdate = true;
-  grupo.add(envases);
+  sembrar(GEO_BOTELLA, 34, [
+    COL.botellaVerde,
+    COL.botellaAmbar,
+    COL.botellaAzul,
+    COL.botellaRoja,
+    COL.botellaClara,
+  ], 0.13);
+  sembrar(GEO_BRIK, 26, [COL.brikNaranja, COL.brikAmarillo, COL.brikRojo, COL.brikVerde], 0.0);
+  sembrar(GEO_LATA, 30, [COL.lataRoja, COL.lataAzul, COL.lataPlata, COL.brikVerde], 0.1);
+  sembrar(GEO_PLATO, 20, [COL.plato, COL.plato, COL.platoCrema, COL.bandeja], 0.0, {
+    escalaMin: 0.9,
+    escalaMax: 1.35,
+  });
+  sembrar(GEO_COMIDA, 34, [
+    COL.comidaTomate,
+    COL.comidaMaiz,
+    COL.comidaVerde,
+    COL.comidaPan,
+    COL.comidaCarne,
+  ], 0.0, { escalaMin: 0.7, escalaMax: 1.25 });
+  sembrar(GEO_PAPEL, 46, [COL.papel, COL.papel, COL.papelCrema, COL.cartonSuelto], 0.0, {
+    escalaMin: 0.75,
+    escalaMax: 1.4,
+  });
 
-  // Montoncitos de basura contra el bordillo: es donde se acumula de verdad,
-  // y colocarlos ahí en vez de al azar es lo que hace que la calle se lea
-  // como una calle y no como un tablero con cosas encima.
-  const nMonton = 22;
-  const montones = new InstancedMesh(
-    new IcosahedronGeometry(0.36, 0),
-    mat(COL.cartonSuelto),
-    nMonton
-  );
-  const tonosMonton = [COL.cartonSuelto, COL.papelCrema, COL.papel, COL.botellaVerde];
+  // Montoncitos contra el bordillo: es donde se acumula de verdad la basura, y
+  // colocarlos ahí en vez de al azar es lo que hace que la calle se lea como
+  // una calle y no como un tablero con cosas encima.
+  const nMonton = 24;
+  const montones = new InstancedMesh(GEO_MONTON, MAT_BASURA, nMonton);
+  const tonosMonton = [COL.cartonSuelto, COL.papelCrema, COL.papel, COL.brikNaranja];
   for (let i = 0; i < nMonton; i++) {
     const lado = rnd() > 0.5 ? 1 : -1;
-    const x = lado * (MEDIA_CALZADA - 0.15 - rnd() * 0.5);
+    const x = lado * (MEDIA_CALZADA - 0.2 - rnd() * 0.6);
     const z = (rnd() - 0.5) * (FONDO + 30);
-    poner(montones, i, x, 0.16, z, 1 + rnd() * 0.8, 0.6 + rnd() * 0.4, 1 + rnd() * 0.8, rnd() * 3);
+    poner(montones, i, x, 0.1, z, 1 + rnd() * 0.7, 0.7 + rnd() * 0.5, 1 + rnd() * 0.7, rnd() * 3);
     montones.setColorAt(i, _c.set(tonosMonton[Math.floor(rnd() * tonosMonton.length)]));
   }
   montones.instanceMatrix.needsUpdate = true;
@@ -779,45 +1152,35 @@ export function crearObstaculos(obstaculos: WorldObstacle[]): Group {
 
 export interface BolsaVista {
   grupo: Group;
-  cuerpo: Group;
+  cuerpo: Mesh;
   brillo: Mesh;
 }
 
+/** La bolsa colocada en el suelo, con su sombra y su halo. La geometría del
+ *  cuerpo está en GEO_BOLSA. */
 export function crearBolsa(): BolsaVista {
   const grupo = new Group();
 
-  const sombra = new Mesh(new CircleGeometry(0.62, 12).rotateX(-Math.PI / 2), MAT_SOMBRA);
+  const sombra = new Mesh(new CircleGeometry(0.95, 14).rotateX(-Math.PI / 2), MAT_SOMBRA);
   sombra.position.y = 0.025;
+  sombra.scale.set(1, 1, 0.88);
   grupo.add(sombra);
 
   // Halo que se enciende al acercarse: la anticipación de la que habla el plan.
   // Sobre asfalto gris hace falta más que sobre pasto, porque la bolsa es
   // oscura y el suelo también.
   const brillo = new Mesh(
-    new CircleGeometry(1.15, 16).rotateX(-Math.PI / 2),
+    new CircleGeometry(1.6, 18).rotateX(-Math.PI / 2),
     new MeshBasicMaterial({ color: 0xfff0a8, transparent: true, opacity: 0, depthWrite: false })
   );
   brillo.position.y = 0.045;
   grupo.add(brillo);
 
-  const cuerpo = new Group();
-  const bulto = new Mesh(new IcosahedronGeometry(0.58, 0), mat(COL.bolsa));
-  bulto.scale.set(1, 0.92, 1);
-  bulto.position.y = 0.52;
-  cuerpo.add(bulto);
-  // Brillo: una segunda pieza más clara arriba. Sin ella la bolsa negra es una
-  // silueta plana contra el asfalto; con ella se le ve el bulto y el plástico.
-  const luz = new Mesh(new IcosahedronGeometry(0.31, 0), mat(COL.bolsaClara));
-  luz.position.set(-0.2, 0.78, 0.2);
-  cuerpo.add(luz);
-  const cuello = new Mesh(new CylinderGeometry(0.14, 0.24, 0.3, 6), mat(COL.bolsa));
-  cuello.position.y = 1.02;
-  cuerpo.add(cuello);
-  // Lazo amarillo: es lo que impide que una bolsa negra se pierda sobre el
-  // asfalto. Ya cumplía esa función en la versión 2D.
-  const lazo = new Mesh(new CylinderGeometry(0.17, 0.17, 0.1, 8), mat(COL.lazo));
-  lazo.position.y = 1.15;
-  cuerpo.add(lazo);
+  // Todo el cuerpo va FUNDIDO en una sola geometría. La bolsa no articula
+  // ninguna pieza —se escala y gira entera—, así que no hay motivo para que
+  // trece mallas cuesten trece llamadas de dibujo. Con cinco bolsas en
+  // pantalla, fundirlas ahorra 60 llamadas.
+  const cuerpo = new Mesh(GEO_BOLSA, MAT_FUNDIDO);
 
   grupo.add(cuerpo);
   return { grupo, cuerpo, brillo };
@@ -846,27 +1209,9 @@ export function crearCarretilla(): CarretillaVista {
   aura.position.y = 0.055;
   grupo.add(aura);
 
-  const matMetal = mat(COL.metal);
-
-  // Tolva: una caja abierta, algo más ancha arriba
-  const tolva = new Mesh(new CylinderGeometry(1.15, 0.85, 0.8, 4), mat(COL.tolva));
-  tolva.rotation.y = Math.PI / 4;
-  tolva.position.y = 0.72;
-  grupo.add(tolva);
-
-  const rueda = new Mesh(new CylinderGeometry(0.32, 0.32, 0.18, 10), mat(0x2c2f36));
-  rueda.rotation.z = Math.PI / 2;
-  rueda.position.set(0, 0.32, -1.05);
-  grupo.add(rueda);
-
-  for (const lado of [-0.72, 0.72]) {
-    const mango = new Mesh(new BoxGeometry(0.11, 0.11, 2.7), matMetal);
-    mango.position.set(lado, 0.62, 0.55);
-    grupo.add(mango);
-    const pata = new Mesh(new BoxGeometry(0.11, 0.55, 0.11), matMetal);
-    pata.position.set(lado, 0.28, 1.25);
-    grupo.add(pata);
-  }
+  // Tolva, rueda, mangos y patas: nada de esto se mueve por separado, así que
+  // va fundido en una sola malla en vez de seis.
+  grupo.add(new Mesh(GEO_CARRETILLA, MAT_FUNDIDO));
 
   // Montón que crece con cada entrega: el marcador de progreso del juego.
   const capas: Mesh[] = [];
@@ -909,10 +1254,19 @@ export interface CiudadanoVista {
 export function crearCiudadano(): CiudadanoVista {
   const grupo = new Group();
 
+  // Grupo de ESCALA intermedio. El muñeco se modela a tamaño 1 y se agranda
+  // aquí, en vez de reescribir cada medida, porque el bucle de animación
+  // escribe `cuerpo.scale.y` y `cuerpo.position.y` ABSOLUTOS cada fotograma
+  // (el squash del paso). Si el aumento viviera en `cuerpo`, el primer
+  // fotograma de animación lo borraría y el muñeco encogería de golpe.
+  const escala = new Group();
+  escala.scale.setScalar(ESCALA_CIUDADANO);
+  grupo.add(escala);
+
   const sombra = new Mesh(new CircleGeometry(0.5, 12).rotateX(-Math.PI / 2), MAT_SOMBRA);
-  sombra.position.y = 0.03;
+  sombra.position.y = 0.03 / ESCALA_CIUDADANO;
   sombra.scale.set(1, 1, 0.75);
-  grupo.add(sombra);
+  escala.add(sombra);
 
   // `cuerpo` es lo que se inclina y hace squash; el grupo exterior solo se
   // mueve y gira. Separarlos evita que la inclinación arrastre la sombra.
@@ -925,18 +1279,9 @@ export function crearCiudadano(): CiudadanoVista {
   piernaDer.position.x = 0.16;
   cuerpo.add(piernaDer);
 
-  const torso = new Mesh(new BoxGeometry(0.6, 0.62, 0.36), mat(COL.camisa));
-  torso.position.y = 0.8;
+  // Torso, chaleco y franja reflectante: tres piezas fijas entre sí, una malla.
+  const torso = new Mesh(GEO_TORSO, MAT_FUNDIDO);
   cuerpo.add(torso);
-
-  // Chaleco: una caja un pelo mayor que el torso, para que la camisa asome por
-  // los hombros y los costados.
-  const chaleco = new Mesh(new BoxGeometry(0.64, 0.46, 0.42), mat(COL.chaleco));
-  chaleco.position.y = 0.78;
-  cuerpo.add(chaleco);
-  const franja = new Mesh(new BoxGeometry(0.66, 0.08, 0.44), mat(COL.reflectante));
-  franja.position.y = 0.78;
-  cuerpo.add(franja);
 
   const brazoIzq = new Mesh(new BoxGeometry(0.16, 0.5, 0.16), mat(COL.piel));
   brazoIzq.position.set(-0.4, 0.82, 0);
@@ -945,17 +1290,11 @@ export function crearCiudadano(): CiudadanoVista {
   brazoDer.position.x = 0.4;
   cuerpo.add(brazoDer);
 
+  // La cabeza sigue siendo un Group porque el bucle de animación la GIRA
+  // (mira alrededor cuando el jugador se queda quieto); lo que va fundido es
+  // su contenido: cráneo, copa de la gorra y visera.
   const cabeza = new Group();
-  const craneo = new Mesh(new SphereGeometry(0.27, 8, 6), mat(COL.piel, { plano: false }));
-  cabeza.add(craneo);
-  // Gorra: copa + visera. Se ve desde arriba, que es justo el ángulo del
-  // juego, así que la visera es la que da la lectura de "hacia dónde mira".
-  const copa = new Mesh(new SphereGeometry(0.28, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), mat(COL.gorra));
-  copa.position.y = 0.06;
-  cabeza.add(copa);
-  const visera = new Mesh(new BoxGeometry(0.36, 0.05, 0.26), mat(COL.gorra));
-  visera.position.set(0, 0.08, 0.26);
-  cabeza.add(visera);
+  cabeza.add(new Mesh(GEO_CABEZA, MAT_FUNDIDO));
   cabeza.position.y = 1.36;
   cuerpo.add(cabeza);
 
@@ -974,7 +1313,7 @@ export function crearCiudadano(): CiudadanoVista {
   bolsaHombro.visible = false;
   cuerpo.add(bolsaHombro);
 
-  grupo.add(cuerpo);
+  escala.add(cuerpo);
 
   return { grupo, cuerpo, torso, cabeza, piernaIzq, piernaDer, brazoIzq, brazoDer, bolsaHombro, sombra };
 }
