@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import FondoCalle from '@/components/auth/FondoCalle';
+import BotonInstalar from '@/components/pwa/BotonInstalar';
 import {
   WHATSAPP_LOCAL_DIGITS,
   WHATSAPP_PREFIXES,
@@ -444,6 +445,10 @@ export default function LoginPage() {
             </p>
           )}
         </form>
+
+        {/* Instalar la app. Va debajo del formulario y no encima: primero
+            se entra, que es a lo que vinieron. */}
+        <BotonInstalar />
 
         {/* Switch mode */}
         <p className="auth-switch">

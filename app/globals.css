@@ -494,6 +494,116 @@ canvas {
   padding: 14px 10px;
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   Instalar la app (PWA), debajo del formulario del login
+   ════════════════════════════════════════════════════════════════════════ */
+
+.instalar-pwa {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  /* Una línea fina lo separa del formulario: no es parte de entrar, es otra
+     cosa que se ofrece. */
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.instalar-pwa__boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* Alto de dedo: 48 px es lo que piden Apple y Google para un blanco táctil. */
+  min-height: 48px;
+  padding: 12px 22px;
+  border: 1px solid var(--border-gold);
+  border-radius: 999px;
+  /* Deliberadamente MÁS callado que «Entrar a jugar»: si compitieran, la
+     mitad de la gente instalaría la app antes de tener cuenta. */
+  background: var(--bg-surface-glass);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.12s;
+}
+
+.instalar-pwa__boton:hover { background: rgba(255, 255, 255, 0.9); }
+.instalar-pwa__boton:active { transform: translateY(1px); }
+
+.instalar-pwa__nota {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── Los pasos a mano (iPhone, y cualquiera que no ofrezca el diálogo) ── */
+
+.instalar-pwa__fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+  background: rgba(12, 46, 36, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.instalar-pwa__hoja {
+  width: min(28rem, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 22px 20px;
+  /* Sube desde abajo, como una hoja del sistema: en el móvil queda al alcance
+     del pulgar, que es la mano con la que se lee esto. */
+  border-radius: 22px 22px 14px 14px;
+  background: #fff;
+  box-shadow: 0 -8px 40px rgba(6, 40, 30, 0.35);
+  /* En pantallas con muesca, el borde de abajo no se mete bajo la barra. */
+  margin-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.instalar-pwa__titulo {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.instalar-pwa__pasos {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 9px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.instalar-pwa__cerrar {
+  min-height: 48px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+  color: #10261f;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Instalada, la app ocupa la pantalla entera: el contenido no puede quedar
+   debajo de la barra de estado ni de la raya de gestos del teléfono. */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
 /* Aviso dentro del formulario (la pausa de retiros al recuperar) */
 .auth-note {
   font-size: 0.8rem;

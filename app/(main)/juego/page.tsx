@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import GameCanvas from '@/components/game/GameCanvas';
 import Hud from '@/components/game/Hud';
 import { usePlayer } from '@/components/providers/PlayerProvider';
-import { createDemoRun } from '@/lib/game/demo';
 import { onGameStart, setGameActive } from '@/lib/game/startSignal';
 import { TOTAL_BAGS } from '@/lib/game/constants';
 import type { ResultadoEntrega } from '@/lib/three/game';
@@ -20,16 +19,12 @@ export default function JuegoPage() {
   const [seed, setSeed] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [yaEntregadas, setYaEntregadas] = useState<number[]>([]);
-  const [demo, setDemo] = useState(false);
   const [saldo, setSaldo] = useState(0);
   const [entregadas, setEntregadas] = useState(0);
   const [cargandoBolsa, setCargandoBolsa] = useState(false);
   const [muted, setMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [premio, setPremio] = useState<number | null>(null);
-
-  // La partida demo vive en una ref: no se re-crea con cada render.
-  const demoRun = useRef<ReturnType<typeof createDemoRun> | null>(null);
 
   const empezar = useCallback(async () => {
     setEstado('cargando');
@@ -38,7 +33,6 @@ export default function JuegoPage() {
     setEntregadas(0);
     setPremio(null);
     setCargandoBolsa(false);
-    demoRun.current = null;
 
     let data: StartRunResponse | null = null;
     let status = 0;
@@ -47,12 +41,11 @@ export default function JuegoPage() {
       status = res.status;
       data = (await res.json()) as StartRunResponse;
     } catch {
-      // Sin red: se cae a demo igual, para no dejar la pantalla en blanco.
+      // Se cae abajo, al aviso de sin conexión.
     }
 
     // Partida activa que se reanuda (no se cobra otro ticket).
     if (status === 409 && data?.session_id) {
-      setDemo(false);
       setSessionId(data.session_id);
       setSeed(data.world_seed);
       const previas = (data as unknown as { bags_deposited?: number[] }).bags_deposited ?? [];
@@ -62,33 +55,24 @@ export default function JuegoPage() {
       return;
     }
 
-    // Sin sesión → a iniciarla. Durante un tiempo esto caía a partida demo,
-    // porque no había pantalla de registro y era eso o dejar el botón muerto.
-    // Ya la hay, así que el apaño se va: meter a alguien con la sesión
-    // caducada en una demo, sin decírselo, sería mucho peor que mandarlo a
-    // entrar de nuevo — creería estar jugando por dinero y no lo estaría.
+    // Sin sesión → a iniciarla.
     if (status === 401 || data?.code === 'SIN_SESION') {
       router.push('/auth/login');
       return;
     }
 
-    // Partida LOCAL con el mismo RNG y el mismo reparto que usa el servidor
-    // (ver lib/game/demo.ts). Quedan dos motivos, los dos de infraestructura:
-    //
-    //   · 503 SIN_CONFIGURAR — no hay Supabase configurado.
-    //   · status 0 — no hay red.
-    //
-    // Ninguno de los dos es culpa del jugador ni tiene arreglo desde aquí, y
-    // en los dos casos la demo enseña su aviso en pantalla: nadie la puede
-    // confundir con dinero real.
-    if (!data || status === 503 || status === 0 || data.code === 'SIN_CONFIGURAR') {
-      const run = createDemoRun();
-      demoRun.current = run;
-      setDemo(true);
-      setSessionId(run.sessionId);
-      setSeed(run.seed);
-      setYaEntregadas([]);
-      setEstado('jugando');
+    // Aquí el juego se PARA y lo dice. Antes arrancaba una partida local de
+    // mentira para no dejar la pantalla en blanco; en un juego de dinero eso
+    // es lo peor que puede pasar: el jugador gasta su rato creyendo que juega
+    // por dinero, gana, y no hay premio que cobrar. Mejor un aviso feo.
+    if (!data || status === 0) {
+      setError('Sin conexión. Revisa tu internet e inténtalo otra vez.');
+      setEstado('idle');
+      return;
+    }
+    if (status === 503 || data.code === 'SIN_CONFIGURAR') {
+      setError('El juego no está disponible en este momento. Inténtalo en unos minutos.');
+      setEstado('idle');
       return;
     }
 
@@ -98,7 +82,6 @@ export default function JuegoPage() {
       return;
     }
 
-    setDemo(false);
     setSessionId(data.session_id);
     setSeed(data.world_seed);
     setYaEntregadas([]);
@@ -107,7 +90,6 @@ export default function JuegoPage() {
 
   const onDeposit = useCallback(
     async (bagId: number): Promise<ResultadoEntrega> => {
-      if (demoRun.current) return demoRun.current.deposit();
       if (!sessionId) return { monto: 0, finished: false, error: 'Partida no iniciada' };
       try {
         const res = await fetch('/api/deposit-bag', {
@@ -136,12 +118,11 @@ export default function JuegoPage() {
   }, []);
 
   const onFinished = useCallback(() => {
-    if (demoRun.current) setPremio(demoRun.current.payout);
     // Se deja ver el clímax antes de sacar el cartel.
     setTimeout(() => setEstado('fin'), 2600);
     // El servidor ya acreditó el premio y gastó el ticket: se vuelve a pedir
     // el perfil para que la billetera y la barra de abajo digan la verdad.
-    if (!demoRun.current) refresh();
+    refresh();
   }, [refresh]);
 
   // La barra amarilla del layout pide arrancar desde cualquier pantalla.
@@ -180,7 +161,6 @@ export default function JuegoPage() {
             totalBolsas={TOTAL_BAGS}
             cargando={cargandoBolsa}
             muted={muted}
-            demo={demo}
             onToggleMute={() => setMuted((m) => !m)}
             onSalir={() => router.push('/billetera')}
           />
@@ -229,11 +209,6 @@ export default function JuegoPage() {
             <p className="font-mono text-7xl font-black tabular-nums text-emerald-950 drop-shadow-sm">
               ${(premio ?? saldo).toFixed(2)}
             </p>
-            {demo && (
-              <p className="mx-auto mt-3 max-w-xs text-sm font-medium text-emerald-900/60">
-                Partida demo: el reparto y el RTP son los de producción, pero no hay dinero real.
-              </p>
-            )}
           </div>
           <div className="flex gap-3">
             <button

@@ -16,8 +16,8 @@ export async function POST() {
   try {
     const supabase = await createClient();
 
-    // Sin base de datos configurada la app sigue siendo jugable: el cliente
-    // recibe este código y arranca una partida DEMO en local, sin dinero.
+    // Sin base de datos no se puede cobrar el ticket ni sellar el premio, así
+    // que no se juega: el cliente recibe este código y lo dice en pantalla.
     if (!supabase || !isAdminClientConfigured()) {
       return NextResponse.json(
         {

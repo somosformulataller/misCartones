@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const supabase = await createClient();
-    // Sin Supabase no hay jugador que devolver, y eso NO es un error: es el
-    // modo demo. Un 503 aquí pintaría la app como rota.
+    // Sin Supabase no hay jugador que devolver. Un 503 aquí pintaría toda la
+    // app como rota; quien decide y avisa es la pantalla que pida jugar.
     if (!supabase) return NextResponse.json({ player: null });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ player: null });

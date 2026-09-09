@@ -6,7 +6,7 @@ import { TOTAL_BAGS } from '@/lib/game/constants';
  *  Nunca devuelve el premio ni el reparto. */
 export async function GET() {
   const supabase = await createClient();
-  if (!supabase) return NextResponse.json({ run: null, demo: true });
+  if (!supabase) return NextResponse.json({ run: null });
 
   const {
     data: { user },

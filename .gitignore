@@ -10,3 +10,12 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 .pruebas-build
+
+# Contraseñas de las cuentas de prueba
+credenciales.md
+
+# Documentos internos: el repositorio es público y estos revelan el margen
+# de la casa y las reglas antifraude. referidos.md sí se sube.
+rtp-propuesta.md
+ocr.md
+nuevoPlanValidacionPagos.md

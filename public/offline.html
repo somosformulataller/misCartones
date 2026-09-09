@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sin conexión · Mis Cartones</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: linear-gradient(180deg, #114a39, #092a20);
+        color: #eafaf3;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        text-align: center;
+      }
+      .caja { max-width: 22rem; display: grid; gap: 14px; justify-items: center; }
+      img { width: 88px; height: 88px; border-radius: 22px; }
+      h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
+      p { margin: 0; line-height: 1.55; color: #a9d6c5; }
+      button {
+        margin-top: 6px;
+        border: 0;
+        border-radius: 999px;
+        padding: 13px 30px;
+        font: inherit;
+        font-weight: 800;
+        color: #0c2e24;
+        background: #f4c542;
+      }
+      button:active { transform: translateY(1px); }
+    </style>
+  </head>
+  <body>
+    <div class="caja">
+      <img src="/icon-192.png" alt="" />
+      <h1>Sin conexión</h1>
+      <!-- Se dice explícitamente que el dinero está a salvo: quien abre la app
+           y ve una pantalla rara piensa primero en su saldo. -->
+      <p>
+        No pudimos conectar con el servidor. Tus tickets y tu saldo están
+        guardados; vuelve a intentarlo cuando tengas señal.
+      </p>
+      <button onclick="location.replace('/juego')">Reintentar</button>
+    </div>
+  </body>
+</html>

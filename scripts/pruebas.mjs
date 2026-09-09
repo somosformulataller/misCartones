@@ -1081,13 +1081,23 @@ console.log('\n7. Cuentas, pagos y billetera');
 
   // ── La puerta de entrada ──
   //
-  // Durante un tiempo, una partida sin sesión caía a demo, porque no había
-  // pantalla de registro. Ya la hay. Si ese apaño volviera, un jugador con la
-  // sesión caducada creería estar jugando por dinero sin estarlo.
+  // Durante un tiempo, si algo fallaba —sin sesión, sin Supabase, sin red— la
+  // pantalla arrancaba una partida LOCAL de mentira para no quedarse en
+  // blanco. En un juego de dinero eso es lo peor que puede pasar: se juega un
+  // rato creyendo que se juega por dinero, se gana, y no hay premio. El modo
+  // demo se quitó entero; estas pruebas están para que no vuelva.
   const juego = fs.readFileSync(path.join(raiz, 'app', '(main)', 'juego', 'page.tsx'), 'utf8');
-  const corte = juego.indexOf('const run = createDemoRun()');
-  const caida = juego.slice(Math.max(0, corte - 900), corte);
-  ok(!caida.includes("data.code === 'SIN_SESION'"), 'Sin sesión ya NO se cae a partida demo');
+  ok(!/demo/i.test(juego), 'La pantalla de juego no tiene NADA de modo demo');
+  ok(
+    /SIN_CONFIGURAR[\s\S]{0,240}setError\(/.test(juego),
+    'Sin Supabase el juego lo dice, no arranca una partida falsa'
+  );
+  ok(
+    !fs.existsSync(path.join(raiz, 'lib', 'game', 'demo.ts')),
+    'lib/game/demo.ts ya no existe'
+  );
+  const hud = fs.readFileSync(path.join(raiz, 'components', 'game', 'Hud.tsx'), 'utf8');
+  ok(!/demo/i.test(hud), 'El HUD ya no lleva la insignia «Demo»');
   ok(/router\.push\('\/auth\/login'\)/.test(juego), 'Sin sesión se manda a iniciarla');
 
   // Las pantallas de dinero se cierran en el proxy, no en cada una: sin
@@ -1466,6 +1476,72 @@ console.log('\n8. Panel de administración');
       `/api/admin/${r} avisa en claro si falta la clave del servidor en vez de dar números cortos`
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 9. La PWA
+// ════════════════════════════════════════════════════════════════════════════
+console.log('\n9. La PWA (instalable en el teléfono)');
+
+{
+  const leer = (...p) => fs.readFileSync(path.join(raiz, ...p), 'utf8');
+  const hay = (...p) => fs.existsSync(path.join(raiz, ...p));
+
+  // ── Las tres piezas sin las cuales el navegador no ofrece instalar ──
+  ok(hay('app', 'manifest.ts'), 'hay manifiesto');
+  ok(hay('public', 'sw.js'), 'hay service worker');
+  for (const icono of ['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']) {
+    ok(hay('public', icono), `el icono ${icono} está generado`);
+  }
+
+  const man = leer('app', 'manifest.ts');
+  ok(/display: 'standalone'/.test(man), 'instalada, la app abre sin la barra del navegador');
+  // Sin un icono «maskable», Android mete el nuestro dentro de un cuadro
+  // blanco y la app se ve como una página guardada, no como una app.
+  ok(/purpose: 'maskable'/.test(man), 'hay un icono que Android puede recortar a su forma');
+  ok(/start_url: '\/juego'/.test(man), 'el icono abre directo en el juego');
+
+  const sw = leer('public', 'sw.js');
+  // ESTA es la prueba que importa de todo el apartado. Este juego mueve
+  // dinero: un saldo servido desde la caché es una cifra vieja presentada
+  // como actual, y el jugador que ve $12 cuando tiene $4 cree que le robaron.
+  ok(
+    /url\.pathname\.startsWith\('\/api\/'\)[\s\S]{0,40}return/.test(sw),
+    'el service worker NUNCA guarda nada de /api/: ni saldos, ni compras, ni sesión'
+  );
+  ok(
+    /req\.method !== 'GET'[\s\S]{0,30}return/.test(sw),
+    'solo se guardan peticiones GET'
+  );
+  ok(
+    /req\.mode === 'navigate'[\s\S]{0,200}fetch\(req\)\.catch/.test(sw),
+    'una pantalla se pide SIEMPRE a la red; la caché solo entra si no hay red'
+  );
+  ok(hay('public', 'offline.html'), 'hay pantalla de sin conexión');
+  ok(
+    /saldo est/.test(leer('public', 'offline.html')),
+    'la pantalla de sin conexión dice que el dinero sigue ahí'
+  );
+
+  // ── El botón, donde el usuario lo pidió ──
+  const login = leer('app', 'auth', 'login', 'page.tsx');
+  ok(/<BotonInstalar \/>/.test(login), 'el login enseña el botón de descargar la app');
+  const boton = leer('components', 'pwa', 'BotonInstalar.tsx');
+  ok(/beforeinstallprompt/.test(boton), 'usa el diálogo del navegador cuando existe');
+  // El iPhone nunca dispara ese evento. Sin los pasos a mano, el botón
+  // sencillamente no aparecería en la mitad de los teléfonos.
+  ok(/Compartir/.test(boton) && /pantalla de inicio/.test(boton),
+     'y en iPhone explica los pasos, que ahí no hay diálogo');
+  ok(/appinstalled/.test(boton), 'el botón se retira solo cuando ya está instalada');
+
+  const layout = leer('app', 'layout.tsx');
+  ok(/<RegistrarSW \/>/.test(layout), 'el service worker se registra desde el layout raíz');
+  ok(/appleWebApp/.test(layout), 'iOS recibe su nombre e icono, que no lee el manifiesto');
+  const reg = leer('components', 'pwa', 'RegistrarSW.tsx');
+  ok(
+    /NODE_ENV !== 'production'[\s\S]{0,30}return/.test(reg),
+    'en desarrollo no se registra: dejaría servidos chunks viejos'
+  );
 }
 
 console.log(

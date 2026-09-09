@@ -13,8 +13,6 @@ export interface StartRunResponse {
   world_seed: number;
   bags_remaining: number;
   tickets?: number;
-  /** true = no hay Supabase configurado y la partida corre en local */
-  demo?: boolean;
   error?: string;
   code?: string;
 }

@@ -6,7 +6,7 @@ import { SUPABASE_URL, SUPABASE_ANON, isSupabaseConfigured } from '@/lib/supabas
 // llama `proxy`. El runtime es siempre nodejs y no se puede configurar.
 export async function proxy(request: NextRequest) {
   // Sin Supabase configurado no hay sesión que refrescar ni ruta que
-  // proteger: la app funciona en modo demo y esto se queda a un lado.
+  // proteger: cada pantalla avisa por su cuenta y esto se queda a un lado.
   if (!isSupabaseConfigured()) return NextResponse.next({ request });
 
   let response = NextResponse.next({ request });

@@ -114,7 +114,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Sin Supabase no hay sesión que sincronizar: se deja de cargar y punto.
-    // El juego sigue funcionando en modo demo.
     if (!supabaseRef.current) {
       setIsLoading(false);
       return;

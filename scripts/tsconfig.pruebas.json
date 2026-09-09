@@ -28,5 +28,4 @@
     "../lib/supabase/env.ts",
     "../types/**/*.ts"
   ],
-  "exclude": ["../lib/game/demo.ts"]
 }

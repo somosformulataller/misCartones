@@ -8,7 +8,6 @@ interface Props {
   totalBolsas: number;
   cargando: boolean;
   muted: boolean;
-  demo: boolean;
   onToggleMute: () => void;
   onSalir: () => void;
 }
@@ -27,7 +26,6 @@ export default function Hud({
   totalBolsas,
   cargando,
   muted,
-  demo,
   onToggleMute,
   onSalir,
 }: Props) {
@@ -67,11 +65,6 @@ export default function Hud({
           >
             ← Salir
           </button>
-          {demo && (
-            <span className="rounded-xl border-2 border-amber-500/50 bg-amber-300/85 px-2.5 py-2 text-[11px] font-black uppercase tracking-wider text-amber-950 shadow-sm backdrop-blur">
-              Demo
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-2">
