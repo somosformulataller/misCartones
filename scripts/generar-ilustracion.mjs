@@ -21,9 +21,9 @@ import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
 
-const ANCHO = 60;
-const ALTO = 42;
-const ESCALA = 10; // 600 × 420 en el archivo
+const ANCHO = 92;
+const ALTO = 58;
+const ESCALA = 10; // 920 × 580 en el archivo
 
 // ── La paleta, sacada de lib/three/escena.ts ──
 const C = {
@@ -47,6 +47,13 @@ const C = {
   mango: '#a45915',
   rueda: '#2a2e38',
   ruedaEje: '#92806f',
+  // El pedestal: un bloque de césped de canto, como los del juego.
+  cesped: '#59a832',
+  cespedLuz: '#7ed36a',
+  cespedSombra: '#3d7d22',
+  tierra: '#8a5c34',
+  tierraLuz: '#a06f42',
+  tierraSombra: '#63421f',
   // La basura y el premio.
   bolsa: '#20232d',
   bolsaLuz: '#3a4050',
@@ -184,18 +191,44 @@ moneda(53, 13);
 moneda(44, 4);
 moneda(56, 7);
 
-// ── 5 · La sombra del suelo ──
+// ── 5 · El pedestal ──
+// El muñeco estaba flotando en el aire. Puesto sobre un bloque de césped
+// —el mismo que pisa dentro del juego— la ilustración deja de ser un recorte
+// y pasa a ser una escena: hay un suelo, y encima hay alguien trabajando.
+
+/** Un bloque visto de canto: la cara de arriba, la de delante y su sombra. */
+const bloque = (x0, x1, yTop, alto, arriba, arribaLuz, frente, frenteLuz, frenteSombra) => {
+  // Cara de arriba, en dos tonos: la franja de luz de la primera fila es lo
+  // que hace que se lea como una superficie y no como una raya de color.
+  caja(x0, yTop, x1, yTop + 1, arribaLuz);
+  caja(x0, yTop + 2, x1, yTop + 4, arriba);
+  caja(x0, yTop + 4, x1, yTop + 4, C.cespedSombra);
+  // Cara de delante, más estrecha: da el canto del bloque.
+  caja(x0 + 2, yTop + 5, x1 - 2, yTop + alto, frente);
+  caja(x0 + 2, yTop + 5, x1 - 2, yTop + 6, frenteLuz);
+  caja(x0 + 2, yTop + alto - 2, x1 - 2, yTop + alto, frenteSombra);
+};
+
+// El bloque grande, donde está el ciudadano.
+bloque(3, 67, 39, 15, C.cesped, C.cespedLuz, C.tierra, C.tierraLuz, C.tierraSombra);
+
+// Un segundo bloque a la derecha, más bajo, con su montón de monedas: es lo
+// que rompe la simetría y hace que la escena tenga profundidad.
+bloque(69, 90, 45, 12, C.cesped, C.cespedLuz, C.tierra, C.tierraLuz, C.tierraSombra);
+moneda(76, 41);
+moneda(84, 43);
+moneda(80, 37);
+
+// ── 6 · La sombra del suelo ──
 // Sin ella la figura flota sobre la tarjeta. Va translúcida y por DEBAJO de
 // todo, así que se dibuja al final pero solo donde no hay nada pintado.
 for (let x = 8; x <= 52; x++) {
   const dx = (x - 30) / 22;
-  const alto = Math.round(2 * Math.sqrt(Math.max(0, 1 - dx * dx)));
-  for (let y = 38; y <= 38 + alto; y++) {
-    if (lienzo[y * ANCHO + x] === null) punto(x, y, C.sombraSuelo);
-  }
+  const alto = Math.round(1 + Math.sqrt(Math.max(0, 1 - dx * dx)));
+  for (let y = 39; y <= 39 + alto; y++) punto(x, y, C.cespedSombra);
 }
 
-// ── 6 · El contorno ──
+// ── 7 · El contorno ──
 // Un píxel oscuro alrededor de todo. Es lo que separa el muñeco del fondo y
 // lo que hace que se lea como una figura y no como manchas de color; sin él,
 // un sprite sobre cualquier fondo claro se deshace.

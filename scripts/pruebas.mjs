@@ -1640,27 +1640,51 @@ console.log('\n10. El estilo de la interfaz');
   );
   const fondo = leer('components', 'auth', 'FondoCalle.tsx');
   ok(/escena-fondo\.jpg/.test(fondo), 'la pantalla de acceso enseña esa foto');
+  // ── La piedra, la madera y el marco ──
+  //
+  // Es lo que separa una interfaz de bloques bonita de una plana: en
+  // Minecraft ninguna superficie es de un color liso. Dos teselas de 64×64
+  // forran la app entera y pesan menos que cualquier foto.
+  for (const t of ['textura-piedra.png', 'textura-madera.png']) {
+    ok(hay('public', t), `hay tesela de ${t.replace('textura-', '').replace('.png', '')}`);
+    const peso = fs.statSync(path.join(raiz, 'public', t)).size;
+    ok(peso < 8 * 1024, `y ${t} pesa lo que tiene que pesar`, `${(peso / 1024).toFixed(1)} KB`);
+  }
+  ok(hay('scripts', 'generar-texturas.mjs'), 'y se generan por código, no son binarios sueltos');
   ok(
-    /\.auth-card \{[^}]*backdrop-filter: blur\([^;]*!important/.test(css),
-    'la tarjeta es de cristal: se ve el juego a través'
+    /background-image: url\('\/textura-piedra\.png'\)/.test(css),
+    'las piezas van forradas de piedra, no de un color plano'
   );
-  // El desenfoque está apagado en TODA la app —cuesta demasiado en un teléfono
-  // flojo— con un `* { backdrop-filter: none !important }`. El CSS heredado
-  // trae quince desenfoques más, pero esa regla los deja muertos: los únicos
-  // que llegan a la pantalla son los que llevan !important. Tiene que haber
-  // exactamente UNO; si aparece un segundo, alguien levantó la regla.
+  // El marco con grano solo se puede hacer con border-image: ni un color
+  // plano ni un box-shadow pueden llevar textura.
+  ok(
+    /border-image: url\('\/textura-madera\.png'\)/.test(css),
+    'y enmarcadas en madera'
+  );
+
+  // ── Ni un desenfoque vivo ──
+  //
+  // La tarjeta del acceso fue de cristal un rato; al pasar a piedra maciza,
+  // el desenfoque se fue con ella. Quedan catorce `backdrop-filter` en el CSS
+  // heredado, pero el `* { backdrop-filter: none !important }` los mata a
+  // todos: solo sobrevive lo que lleve !important, y no debe haber nada.
   const vivos = (css.match(/backdrop-filter: blur\([^;]*!important/g) || []).length;
-  ok(vivos === 1, 'y es la ÚNICA excepción viva a la regla de no desenfocar', String(vivos));
-  // Al declarar backdrop-filter y -webkit-backdrop-filter juntos, el compilador
-  // de CSS los fusiona y se queda solo con el -webkit-, que Chrome ya no usa:
-  // el cristal desaparecía sin que nada fallara. Los prefijos los pone él.
+  ok(vivos === 0, 'no queda ningún desenfoque vivo en toda la app', String(vivos));
   ok(
     !/-webkit-backdrop-filter:[^;]*!important/.test(css),
     'sin prefijos a mano: el compilador los fusiona y se come el bueno'
   );
-  // La excepción de "todo va por encima del fondo" iba por nombre de clase.
-  // Al renombrar el fondo se quedó dentro de la regla, perdió su position
-  // fixed y empujaba el formulario media pantalla hacia abajo.
+
+  // ── El rótulo ──
+  // Es un LOGO de juego, hecho con la misma fuente de píxeles y CSS: no hay
+  // una imagen más que cargar ni que rehacer si cambia el nombre.
+  ok(
+    /\.mc-rotulo \{[^}]*-webkit-text-stroke/.test(css),
+    'el rótulo lleva contorno, relieve y halo, como el logo de un juego'
+  );
+  // Sin paint-order el contorno se dibuja ENCIMA y se come el oro.
+  ok(/paint-order: stroke fill/.test(css), 'y el contorno va por detrás del relleno');
+
   ok(
     /:not\(\.fondo-escena\)/.test(css),
     'el fondo está exento de la regla que sube todo por encima de él'
@@ -1696,9 +1720,12 @@ console.log('\n10. El estilo de la interfaz');
     /:not\(\.fondo-juego\)/.test(css),
     'y el fondo está exento de la regla que sube todo por encima de él'
   );
+  // Las tarjetas fueron translúcidas y ahora son piedra maciza dentro de su
+  // marco. Lo que se ve de la calle es lo que queda ALREDEDOR de ellas, no a
+  // través.
   ok(
-    /\.app-shell \.wallet-card,[\s\S]{0,600}background: rgba\(253, 250, 243, 0\.88\)/.test(css),
-    'las tarjetas de dentro son translúcidas: se ve la calle detrás'
+    /\.app-shell \.wallet-card,[\s\S]{0,700}background-image: url\('\/textura-piedra\.png'\)/.test(css),
+    'las tarjetas de dentro son de piedra, y la calle se ve alrededor'
   );
   // Las tarjetas translúcidas pisaron los colores de los tres niveles de
   // retiro y el nivel alcanzado se quedó en blanco sobre blanco.

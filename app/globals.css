@@ -90,14 +90,18 @@ canvas {
 
 :root {
   /* ── Superficies: la acera de la escena, aclarada hasta ser papel ── */
-  --mc-panel:   #fdfaf3;  /* cara de las tarjetas */
-  --mc-panel-2: #f2ede1;  /* filas alternas, zonas hundidas */
-  --mc-panel-3: #e7e0cf;  /* separadores */
-  --mc-borde:   #d5cdb8;
+  --mc-panel:   #8b8375;  /* la piedra: es el color base bajo la textura */
+  --mc-panel-2: #79715f;  /* zonas hundidas */
+  --mc-panel-3: #5f584d;  /* separadores */
+  --mc-borde:   #4c463b;
   --mc-stone:   var(--mc-panel);   /* nombres viejos, valores nuevos */
   --mc-stone-2: var(--mc-panel-2);
 
-  --mc-ink:    #1f2a26;  /* texto principal */
+  --mc-ink:    #1f2a26;  /* tinta oscura, para el texto SOBRE oro */
+
+  /* La madera del marco. */
+  --mc-madera: #9c6b28;
+  --mc-madera-oscura: #6f4715;
   --mc-ink-2:  #4f5c56;
   --mc-ink-3:  #7f8b84;
 
@@ -144,9 +148,12 @@ canvas {
   --red-lose:   #c03a1f;
   --red-mid:    var(--mc-red);
 
-  --text-primary:   var(--mc-ink);
-  --text-secondary: var(--mc-ink-2);
-  --text-muted:     var(--mc-ink-3);
+  /* Las superficies pasaron de papel claro a PIEDRA de tono medio, así que
+     el texto se invierte: claro sobre piedra, como en la escena del juego.
+     Cambiarlo aquí gira las nueve pantallas de una vez. */
+  --text-primary:   #f5f2e8;
+  --text-secondary: #ddd7c8;
+  --text-muted:     #aca493;
 
   /* LA decisión tipográfica: el texto corrido va en la fuente del sistema y
      la de píxeles se reserva para rótulos, botones, etiquetas y cifras.
@@ -4546,29 +4553,10 @@ textarea.form-input,
 
 /* ── La tarjeta de cristal ── */
 
-.auth-card {
-  /* Translúcida de verdad: se ve la calle a través. El 0,7 es el punto en el
-     que todavía se distingue el juego detrás y el texto ya se lee cómodo;
-     por debajo, las etiquetas empiezan a pelearse con la basura del suelo. */
-  background: rgba(253, 250, 243, 0.7) !important;
-  /* La capa de bloques apaga el desenfoque en TODA la app, porque sobre una
-     lista larga es de lo más caro que se le puede pedir a un teléfono flojo.
-     Aquí es una sola pieza, quieta, en una pantalla sin nada más: es el único
-     sitio donde sale a cuenta, y es lo que hace que esto sea cristal y no un
-     rectángulo semitransparente. */
-  backdrop-filter: blur(18px) saturate(1.2) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
-    0 18px 44px rgba(10, 18, 14, 0.42);
-}
-
-/* Los campos, algo más opacos que la tarjeta: es donde se escribe. */
-.auth-page .form-input {
-  background: rgba(255, 255, 255, 0.88);
-}
-.auth-page .form-input:focus {
-  background: #fff;
-}
+/* La tarjeta del acceso fue de cristal durante un rato —translúcida y con
+   desenfoque— y ahora es piedra maciza dentro de su marco. El desenfoque se
+   fue con ella: no queda ninguno vivo en toda la app, que es lo que hay que
+   pedirle a una interfaz que corre en teléfonos de gama baja. */
 
 /* Lo que va sobre la foto, fuera de la tarjeta, necesita su sombra. */
 .mc-marca { text-shadow: 0 2px 10px rgba(10, 18, 14, 0.5); }
@@ -4712,45 +4700,12 @@ textarea.form-input,
   z-index: 1;
 }
 
-/* ── Las piezas, ahora translúcidas ── */
-
-.app-shell .wallet-card,
-.app-shell .hist-card,
-.app-shell .afi-card,
-.app-shell .perfil-card,
-.app-shell .modal-card,
-.app-shell .rn-step:not(.rn-done):not(.rn-curr),
-.app-shell .wallet-inner,
-.app-shell .redeem-preview,
-.app-shell .rn-card,
-.app-shell .buy-summary {
-  /* 0,88: por debajo de esto una tabla de compras deja de leerse cómoda
-     sobre la calle. Se ve el fondo, pero manda el contenido. */
-  background: rgba(253, 250, 243, 0.88);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
-    0 10px 26px rgba(10, 18, 14, 0.34);
-}
-
-/* Las zonas hundidas, un punto más oscuras que su tarjeta, como siempre. */
-.app-shell .wallet-inner,
-.app-shell .redeem-preview,
-.app-shell .rn-card,
-.app-shell .buy-summary {
-  background: rgba(240, 235, 223, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-}
-
-/* La cabecera y la barra de abajo enmarcan la pantalla: van más opacas, que
-   es lo que las separa del contenido que pasa por debajo al desplazarse. */
-.app-shell .game-header,
-.app-shell .play-bar {
-  background: rgba(253, 250, 243, 0.93);
-}
-
-.app-shell .menu-list {
-  background: rgba(253, 250, 243, 0.97);
-}
+/* Las piezas fueron translúcidas —papel claro dejando ver la calle— hasta
+   que pasaron a ser piedra dentro de un marco. Aquellas reglas se han
+   BORRADO en vez de quedar tapadas por las nuevas: una regla muerta que dice
+   lo contrario de lo que se ve en pantalla es lo que hace que, meses
+   después, nadie se atreva a tocar una hoja de estilos.
+   Lo que sigue —el texto suelto sobre el fondo— sí sigue vivo. */
 
 /* ── El texto que va SUELTO, fuera de una tarjeta ── */
 
@@ -4787,3 +4742,388 @@ textarea.form-input,
     inset 0 0 0 1px rgba(255, 255, 255, 0.6),
     0 12px 30px rgba(10, 18, 14, 0.4);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL ACABADO: PIEDRA, MARCO Y RÓTULO
+
+   Esta capa es la última y manda sobre las anteriores. Cambia el acabado, no
+   la estructura: las piezas siguen siendo las mismas, con su labio y su
+   retícula, pero dejan de ser papel liso y pasan a ser PIEDRA con grano,
+   dentro de un marco de madera.
+
+   Es lo que faltaba para que dejara de parecer un cuadro de diálogo. En
+   Minecraft ninguna superficie es de un color plano: todas tienen textura, y
+   los paneles van enmarcados. Dos teselas de 64×64 (1,3 KB cada una) forran
+   la app entera, así que cuesta menos que cualquier foto.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1 · Las piezas: piedra dentro de un marco de madera ──────────────── */
+
+.mc-pieza,
+.auth-card,
+.app-shell .wallet-card,
+.app-shell .hist-card,
+.app-shell .afi-card,
+.app-shell .perfil-card,
+.app-shell .modal-card,
+.app-shell .admin-card,
+.app-shell .stat-card,
+.mc-premio {
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 128px;
+  background-repeat: repeat;
+  /* El marco. `border-image` con la tesela de madera: un borde con grano, que
+     es lo que no se puede conseguir con un color plano ni con box-shadow. */
+  border: 10px solid var(--mc-madera);
+  border-image: url('/textura-madera.png') 22 repeat;
+  box-shadow:
+    /* filo claro por dentro, filo oscuro por fuera: el marco se despega */
+    inset 0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 0 0 2px #241a09,
+    0 16px 34px rgba(6, 12, 9, 0.5) !important;
+}
+
+.auth-card {
+  background-color: var(--mc-panel) !important;
+  padding: 18px 16px 20px;
+}
+
+/* Las zonas hundidas dentro de una pieza: la misma piedra, más oscura. */
+.app-shell .wallet-inner,
+.app-shell .redeem-preview,
+.app-shell .rn-card,
+.app-shell .buy-summary,
+.app-shell .rn-step:not(.rn-done):not(.rn-curr) {
+  background-color: #6b6459;
+  background-image: url('/textura-piedra.png');
+  background-size: 96px;
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.28),
+    inset 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* La cabecera y la barra de abajo: la misma piedra, sin marco, con su canto
+   de madera arriba o abajo según de qué borde de la pantalla cuelguen. */
+.app-shell .game-header {
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 128px;
+  box-shadow: 0 4px 0 0 var(--mc-madera-oscura), 0 8px 18px rgba(6, 12, 9, 0.4);
+}
+
+.app-shell .play-bar {
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 128px;
+  box-shadow: 0 -4px 0 0 var(--mc-madera-oscura), 0 -8px 18px rgba(6, 12, 9, 0.4);
+}
+
+.app-shell .menu-list {
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 128px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 0 0 2px #241a09,
+    0 14px 28px rgba(6, 12, 9, 0.5);
+}
+
+.menu-item { color: var(--text-primary); }
+.menu-item:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* ── 2 · Los campos: huecos oscuros excavados en la piedra ────────────── */
+
+/* Vuelven a ser oscuros. Sobre papel blanco parecían un terminal de los
+   ochenta; sobre piedra son lo que son en el juego: un hueco donde escribir.
+   El contexto cambia lo que significa la misma caja. */
+.form-input,
+.auth-page .form-input,
+select.form-input,
+textarea.form-input,
+.ref-input,
+.afi-link,
+.wallet-amount-input,
+.header-select {
+  background: rgba(28, 26, 22, 0.9) !important;
+  color: #f2efe6;
+  box-shadow:
+    inset 0 0 0 2px #57503f,
+    inset 0 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.form-input::placeholder,
+.afi-link::placeholder {
+  color: #9a9284;
+}
+
+.form-input:focus,
+.auth-page .form-input:focus,
+.ref-input:focus,
+.wallet-amount-input:focus {
+  background: rgba(20, 18, 15, 0.94) !important;
+  box-shadow:
+    inset 0 0 0 2px var(--mc-gold),
+    inset 0 3px 0 rgba(0, 0, 0, 0.5);
+}
+
+.form-label {
+  color: #e6e0d0;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+/* ── 3 · Los botones ──────────────────────────────────────────────────── */
+
+/* El de oro gana un degradado y un filo oscuro alrededor: es la pieza más
+   trabajada de la pantalla porque es la que se toca. */
+.btn-submit,
+.btn-primary,
+.play-bar-btn,
+.mc-boton {
+  background: linear-gradient(180deg, #ffd75e 0%, #f7bd1e 48%, #e2a40d 100%);
+  color: #3d2c02;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 0 rgba(150, 96, 4, 0.45),
+    0 0 0 3px #46310a,
+    0 var(--mc-labio) 0 3px var(--mc-gold-lip),
+    0 10px 18px rgba(6, 12, 9, 0.4);
+}
+
+.btn-submit:hover:not(:disabled),
+.btn-primary:hover:not(:disabled),
+.play-bar-btn:hover:not(:disabled),
+.mc-boton:hover:not(:disabled) {
+  background: linear-gradient(180deg, #ffe58c 0%, #ffcb3d 48%, #efb01a 100%);
+}
+
+/* Los neutros: piedra con marco fino, en vez de papel. */
+.btn-secondary,
+.btn-login,
+.btn-mini,
+.header-select,
+.afi-volver,
+.afi-copiar,
+.qty-btn,
+.play-bar-recomendar,
+.instalar-pwa__boton {
+  background-color: #9c9486;
+  background-image: url('/textura-piedra.png');
+  background-size: 96px;
+  color: #f5f2e8;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+    0 0 0 3px #2f2a21,
+    0 var(--mc-labio) 0 3px #5e564a,
+    0 8px 14px rgba(6, 12, 9, 0.35);
+}
+
+.header-select {
+  background: #9c9486 url('/textura-piedra.png') repeat !important;
+  background-size: 96px !important;
+  color: #f5f2e8;
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-login:hover,
+.btn-mini:hover:not(:disabled),
+.header-select:hover,
+.afi-volver:hover,
+.afi-copiar:hover,
+.qty-btn:hover:not(:disabled),
+.play-bar-recomendar:hover,
+.instalar-pwa__boton:hover {
+  background-color: #ada596;
+}
+
+.btn-submit:active:not(:disabled),
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled),
+.btn-login:active,
+.btn-mini:active:not(:disabled),
+.header-select:active,
+.afi-volver:active,
+.afi-copiar:active,
+.qty-btn:active:not(:disabled),
+.play-bar-btn:active:not(:disabled),
+.play-bar-recomendar:active,
+.instalar-pwa__boton:active,
+.mc-boton:active:not(:disabled) {
+  transform: translateY(var(--mc-labio));
+  box-shadow:
+    inset 0 3px 0 rgba(0, 0, 0, 0.3),
+    0 0 0 3px #2f2a21;
+}
+
+.btn-submit:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-mini:disabled,
+.qty-btn:disabled,
+.play-bar-btn:disabled,
+.mc-boton:disabled {
+  background: #6f6a5e;
+  color: #a49c8d;
+  box-shadow: 0 0 0 3px #2f2a21, 0 var(--mc-labio) 0 3px #4a453b;
+}
+
+/* ── 4 · El rótulo ────────────────────────────────────────────────────── */
+
+/* Letras de oro con contorno negro, relieve y un halo verde muy tenue: es un
+   LOGO de juego, no un encabezado. Todo en CSS y con la misma fuente de
+   píxeles, así que no hay una imagen más que cargar ni que rehacer si algún
+   día cambia el nombre. */
+.mc-rotulo {
+  font-size: clamp(1.9rem, 9vw, 2.5rem);
+  letter-spacing: 0.02em;
+  color: #ffd23f;
+  text-transform: uppercase;
+  -webkit-text-stroke: 4px #1d1405;
+  /* Sin esto el contorno se dibuja ENCIMA y se come el oro de las letras. */
+  paint-order: stroke fill;
+  text-shadow:
+    0 4px 0 #a06c05,
+    0 6px 0 #1d1405,
+    0 10px 18px rgba(6, 12, 9, 0.6),
+    0 0 22px rgba(126, 211, 106, 0.35);
+}
+
+.mc-splash {
+  transform: none;
+  animation: none;
+  margin-top: 4px;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe86b;
+  -webkit-text-stroke: 3px #1d1405;
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
+}
+
+/* ── 5 · El texto, ahora claro sobre piedra ───────────────────────────── */
+
+.auth-title,
+.wallet-card-title,
+.wallet-inner-title,
+.buy-title,
+.rn-nivel,
+.mc-premio-rotulo,
+.instalar-pwa__titulo {
+  color: #fbf8ee;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+.auth-subtitle,
+.instalar-pwa__nota,
+.instalar-pwa__pasos,
+.auth-switch,
+.auth-forgot,
+.wallet-sub,
+.rn-partidas,
+.rn-desbloquea {
+  color: #d9d3c3;
+}
+
+/* Los enlaces: el verde del césped, que sobre piedra canta y sobre papel no
+   se veía. */
+.auth-switch a,
+.auth-forgot a,
+.afi-link-texto {
+  color: #8ce46f;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.auth-switch a:hover,
+.auth-forgot a:hover { color: #b6f79f; }
+
+/* Y el oro de los rótulos vuelve a ser oro encendido: sobre piedra oscura ya
+   no hace falta bajarlo de tono para que se lea. */
+.wallet-title,
+.wallet-hold strong,
+.pay-data-title,
+.terms-title,
+.admin-link,
+.afi-premio,
+.afi-stat-oro .afi-stat-n,
+.status-pendiente,
+.origen-huella-cab strong,
+.wallet-big,
+.stat-value,
+.top-value,
+.mc-premio-cifra,
+.qty-number {
+  color: var(--mc-gold);
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
+}
+
+/* ── 6 · El vestíbulo del juego ───────────────────────────────────────── */
+
+.app-shell .mc-lobby-titulo,
+.app-shell .mc-lobby-ayuda,
+.app-shell .mc-lobby-tickets {
+  color: #f6f3ea;
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.65);
+}
+
+.app-shell .mc-lobby-titulo {
+  -webkit-text-stroke: 3px #1d1405;
+  paint-order: stroke fill;
+}
+
+/* ── 7 · El acceso ────────────────────────────────────────────────────── */
+
+/* La ilustración pasa a ser un diorama —el ciudadano de pie sobre un bloque
+   de césped— y se pega al borde de arriba de la tarjeta, como el escaparate
+   de un juego. */
+.auth-ilustracion {
+  width: 100%;
+  max-width: none;
+  margin: -6px 0 2px;
+  filter: drop-shadow(0 8px 12px rgba(6, 12, 9, 0.45));
+}
+
+/* Ya no hace falta apagar tanto la calle: la tarjeta es opaca. */
+.fondo-escena-velo {
+  background: linear-gradient(
+    180deg,
+    rgba(14, 22, 18, 0.22) 0%,
+    rgba(14, 22, 18, 0.38) 100%
+  );
+}
+
+/* El grano, calibrado. A 128 px la tesela se estira tanto que la piedra
+   vuelve a parecer un color plano; a 96 px en una pieza pequeña, al revés:
+   se lee como suciedad. Cada tamaño de pieza pide su escala. */
+.mc-pieza,
+.auth-card,
+.app-shell .wallet-card,
+.app-shell .hist-card,
+.app-shell .afi-card,
+.app-shell .perfil-card,
+.app-shell .modal-card,
+.app-shell .admin-card,
+.app-shell .stat-card,
+.app-shell .game-header,
+.app-shell .play-bar,
+.app-shell .menu-list,
+.mc-premio {
+  background-size: 116px;
+}
+
+/* En una pieza pequeña la tesela hay que estirarla MUCHO: a tamaño de
+   tarjeta se lee como grano, y en un botón de 40 px de alto, como suciedad. */
+.btn-secondary,
+.btn-login,
+.btn-mini,
+.afi-volver,
+.afi-copiar,
+.qty-btn,
+.play-bar-recomendar,
+.instalar-pwa__boton {
+  background-size: 260px;
+}
+
+.header-select { background-size: 260px !important; }
