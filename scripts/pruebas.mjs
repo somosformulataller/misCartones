@@ -1695,6 +1695,43 @@ console.log('\n10. El estilo de la interfaz');
     /@media \(max-height: 700px\)[\s\S]{0,400}\.instalar-pwa__nota \{ display: none/.test(css),
     'en pantallas cortas el login suelta lastre para que el botón de entrar se vea'
   );
+  // Lo que se aprieta es la ILUSTRACIÓN, y nada más. El diorama había pasado
+  // a ocupar el ancho entero de la tarjeta y, por ir esa regla la última, se
+  // comió los tamaños de las consultas de altura: en un teléfono corto el
+  // ciudadano se llevaba media pantalla y el botón de entrar caía por debajo
+  // del borde. El tope tiene que quedar DESPUÉS del `width: 100%`.
+  const iAncha = css.lastIndexOf('.auth-ilustracion {\n  width: 100%');
+  const iTope = css.indexOf('.auth-page.es-acceso .auth-ilustracion');
+  ok(
+    iTope > iAncha && iAncha >= 0,
+    'el tope del diorama va después de la regla que lo ensancha, o no ganaría'
+  );
+  // El rótulo NO entra en el recorte: es el nombre del juego y lo primero
+  // que hay que reconocer al abrir. Si algún día vuelve a aparecer un
+  // font-size suyo dentro de una consulta de altura, es que alguien pagó el
+  // ajuste con el logo en vez de con el muñeco.
+  const bloquesDeAltura = [];
+  for (const m of css.matchAll(/@media \(max-height:[^)]*\)[^{]*\{/g)) {
+    let i = m.index + m[0].length;
+    let hondo = 1;
+    while (i < css.length && hondo > 0) {
+      if (css[i] === '{') hondo++;
+      else if (css[i] === '}') hondo--;
+      i++;
+    }
+    bloquesDeAltura.push(css.slice(m.index, i));
+  }
+  ok(bloquesDeAltura.length > 0, 'el acceso se adapta a la altura de la pantalla');
+  ok(
+    bloquesDeAltura.every((b) => !/\.mc-rotulo\b[^}]*\{[^}]*font-size/.test(b)),
+    'el logo no se encoge para hacer sitio: eso lo paga la ilustración'
+  );
+  // Y el registro se queda fuera de todo esto: allí son ocho campos y
+  // desplazarse está bien.
+  ok(
+    /es-registro/.test(login) && /es-acceso/.test(login),
+    'el acceso y el registro se distinguen por clase, para apretar solo uno'
+  );
 
   // ── Las pantallas de dentro: cristal, pero sin pagar el desenfoque ──
   ok(

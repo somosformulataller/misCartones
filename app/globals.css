@@ -4637,9 +4637,13 @@ textarea.form-input,
 /* En pantallas cortas (un teléfono de 640-740 px de alto, que aquí son
    muchos) la ilustración cede el sitio: es lo único de la pantalla que se
    puede encoger sin que nada deje de leerse ni de tocarse. */
+/* Estas dos consultas quedan solo para la ilustración. Llevaban también un
+   `font-size` para el rótulo que estaba MUERTO —el logo se redefine cuatro
+   cientos renglones más abajo con un clamp que gana— y una regla que no hace
+   nada es peor que ninguna: la próxima vez que el logo salga grande, alguien
+   la va a tocar aquí y no va a pasar nada. */
 @media (max-height: 800px) {
   .auth-ilustracion { width: min(150px, 48%); }
-  .mc-rotulo { font-size: 1.45rem; }
 }
 
 @media (max-height: 700px) {
@@ -4649,7 +4653,6 @@ textarea.form-input,
      botón de entrar o tiene que buscarlo desplazando. */
   .instalar-pwa__nota { display: none; }
   .auth-subtitle { display: none; }
-  .mc-rotulo { font-size: 1.25rem; }
   .mc-splash { font-size: 0.52rem; }
 }
 
@@ -5127,3 +5130,42 @@ textarea.form-input,
 }
 
 .header-select { background-size: 260px !important; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL ACCESO CABE EN LA PANTALLA
+
+   El diorama pasó a ocupar el ancho entero de la tarjeta, y esa regla —por
+   ir la última— se comió los tamaños que las consultas de altura le habían
+   puesto más arriba. Resultado: en un teléfono corto el ciudadano se llevaba
+   media pantalla y el botón de entrar caía por debajo del borde.
+
+   Se arregla apretando la ILUSTRACIÓN y nada más. El rótulo no se toca: es
+   el nombre del juego y lo primero que hay que reconocer al abrir.
+
+   Y va todo bajo `.es-acceso`, así que el registro se queda como estaba:
+   allí son ocho campos, se desplaza, y no hay nada que apretar.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.auth-page.es-acceso .auth-ilustracion {
+  width: min(158px, 46%);
+  max-width: 158px;
+  margin: -2px auto 2px;
+}
+
+/* De aquí para abajo el teléfono ya no da para más: cada tramo le quita un
+   poco al ciudadano, que es lo único de la pantalla que puede encogerse sin
+   que nada deje de leerse ni de tocarse con el dedo. */
+@media (max-height: 780px) {
+  .auth-page.es-acceso .auth-ilustracion {
+    width: min(126px, 38%);
+    max-width: 126px;
+  }
+}
+
+@media (max-height: 680px) {
+  .auth-page.es-acceso .auth-ilustracion {
+    width: min(100px, 32%);
+    max-width: 100px;
+  }
+}

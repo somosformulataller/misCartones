@@ -218,7 +218,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
+    // El acceso y el registro son la misma pantalla con ocho campos de
+    // diferencia, y esa diferencia decide si cabe o no en un teléfono. La
+    // clase deja que la hoja de estilos apriete SOLO el acceso, que sí tiene
+    // que caber entero; el registro se desplaza y no pasa nada.
+    <div className={`auth-page ${isSignUp ? 'es-registro' : 'es-acceso'}`}>
       {/* La calle de fondo: el mismo mediodía que hay dentro del juego, para
           que entrar a jugar no cambie de mundo. */}
       <FondoCalle />
