@@ -199,9 +199,8 @@ export default function LoginPage() {
         <FondoCalle />
         <div className="auth-card">
           <div className="auth-header">
-            <div className="auth-logo" aria-hidden>
-              ♻️
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="auth-logo" src="/icon-192.png" alt="" width={64} height={64} />
             <h1 className="auth-title">Cuentas no disponibles</h1>
             <p className="auth-subtitle">
               El registro no está configurado en este servidor todavía.
@@ -218,6 +217,17 @@ export default function LoginPage() {
           que entrar a jugar no cambie de mundo. */}
       <FondoCalle />
 
+      <div className="mc-marca">
+        <h1 className="mc-rotulo">Mis Cartones</h1>
+        {/* El texto amarillo inclinado del menú de Minecraft. Es la única
+            broma de toda la pantalla y por eso funciona: dice que esto es un
+            juego antes de que el jugador lea una sola etiqueta. */}
+        <p className="mc-splash" aria-hidden>
+          ¡La basura paga!
+        </p>
+        <p className="mc-rotulo-sub">Recoge · Entrega · Cobra</p>
+      </div>
+
       <motion.div
         className="auth-card"
         initial={{ opacity: 0, y: 30 }}
@@ -226,9 +236,10 @@ export default function LoginPage() {
       >
         {/* Header */}
         <div className="auth-header">
-          <div className="auth-logo" aria-hidden>
-            ♻️
-          </div>
+          {/* El icono de la app, no un emoji: es el mismo dibujo que queda
+              en la pantalla de inicio al instalarla. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="auth-logo" src="/icon-192.png" alt="" width={64} height={64} />
           <h1 className="auth-title">
             {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
           </h1>
@@ -433,8 +444,8 @@ export default function LoginPage() {
             {loading
               ? 'Cargando...'
               : isSignUp
-              ? '♻️ Crear cuenta y jugar'
-              : '♻️ Entrar a jugar'}
+              ? 'Crear cuenta y jugar'
+              : 'Entrar a jugar'}
           </button>
 
           {/* Solo al iniciar sesión: en el registro no hay nada que

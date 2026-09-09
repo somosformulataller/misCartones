@@ -1544,6 +1544,75 @@ console.log('\n9. La PWA (instalable en el teléfono)');
   );
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// 10. El estilo de Minecraft
+// ════════════════════════════════════════════════════════════════════════════
+console.log('\n10. El estilo de Minecraft');
+
+{
+  const leer = (...p) => fs.readFileSync(path.join(raiz, ...p), 'utf8');
+  const css = leer('app', 'globals.css');
+
+  // ── La retícula ──
+  // Estas tres reglas son las que sostienen TODO lo demás. Si alguien las
+  // quita para arreglar un componente suelto, la interfaz entera vuelve a
+  // parecerse a una página web cualquiera y no a la escena del juego.
+  ok(
+    /\*,\s*\n\*::before,\s*\n\*::after \{\s*\n\s*border-radius: 0 !important;/.test(css),
+    'ni una esquina redonda en toda la interfaz'
+  );
+  ok(
+    /backdrop-filter: none !important/.test(css),
+    'ni un desenfoque: rompen la ilusión de píxel'
+  );
+  ok(
+    /--radius-sm: 0px;[\s\S]{0,120}--radius-xl: 0px;/.test(css),
+    'los cuatro radios heredados valen cero'
+  );
+
+  // ── El bisel: dos tonos y contorno negro, la forma de Minecraft ──
+  for (const v of ['--mc-stone', '--mc-stone-lit', '--mc-stone-dim', '--mc-ink', '--mc-px']) {
+    ok(css.includes(v + ':'), `está definida la variable ${v}`);
+  }
+  ok(
+    /--shadow-card:\s*calc\(var\(--mc-px\)/.test(css),
+    'las sombras son bloques desplazados, no halos difuminados'
+  );
+
+  // ── La fuente ──
+  const layout = leer('app', 'layout.tsx');
+  ok(/Pixelify_Sans/.test(layout), 'la interfaz va en una fuente de píxeles');
+  ok(
+    /next\/font\/google/.test(layout),
+    'la fuente se sirve desde nuestro dominio, no desde Google'
+  );
+  // Se probó Silkscreen y sus minúsculas son versalitas: TODA la pantalla
+  // salía gritando en mayúsculas.
+  ok(!/Silkscreen\(/.test(layout), 'no se usa una fuente que solo tiene mayúsculas');
+  ok(
+    /--font-lectura/.test(css) && /\.instalar-pwa__nota,/.test(css),
+    'los párrafos largos vuelven a la fuente del sistema, que se lee mejor'
+  );
+
+  // ── La paleta sale de la escena, no de una captura de Minecraft ──
+  ok(css.includes('#c9c1ad'), 'la piedra es la acera de la escena');
+  ok(css.includes('#f2c11a'), 'el oro es la raya del centro de la calzada');
+
+  // ── El login ──
+  const login = leer('app', 'auth', 'login', 'page.tsx');
+  ok(/mc-rotulo/.test(login), 'el login enseña el nombre del juego, no solo un formulario');
+  ok(/mc-splash/.test(login), 'y el texto amarillo inclinado del menú de Minecraft');
+  ok(
+    /icon-192\.png/.test(login),
+    'el logo del login es el icono de la app, el mismo que queda en el teléfono'
+  );
+
+  // ── La pantalla de juego ya no usa clases sueltas de Tailwind ──
+  const juego = leer('app', '(main)', 'juego', 'page.tsx');
+  ok(!/rounded-3xl|bg-gradient-to-b/.test(juego), 'la pantalla de juego no tiene degradados ni bordes redondos');
+  ok(/mc-boton/.test(juego), 'su botón es el de la interfaz, no uno propio');
+}
+
 console.log(
   fallos === 0
     ? '\n✅ Todo en orden.\n'
