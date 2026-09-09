@@ -147,6 +147,172 @@ try {
     `HTTP ${h2.status} ${h2.txt.slice(0, 140)}`
   );
 
+  // ── 004: cuentas, pagos, billetera y referidos ──
+  console.log('\n004 — Cuentas, pagos, billetera y referidos');
+
+  for (const t of [
+    'ticket_purchases', 'withdrawals', 'referral_claims', 'blocked_references',
+    'rate_limit_hits', 'player_payment_origins', 'player_tags', 'cron_pasadas',
+    'password_reset_attempts', 'password_reset_grants',
+  ]) {
+    const r = await rest(`${t}?select=*&limit=0`);
+    ok(r.ok, `tabla ${t}`, r.ok ? '' : `HTTP ${r.status} ${r.txt.slice(0, 140)}`);
+  }
+
+  // El código de invitación se pone SOLO al darse de alta. Si no, el jugador
+  // entra a Referidos y no tiene nada que compartir.
+  const perfil = (await rest(
+    `players?id=eq.${uid}&select=referral_code,accepted_terms_at,password_reset_at`
+  )).json?.[0];
+  ok(
+    typeof perfil?.referral_code === 'string' && perfil.referral_code.length === 6,
+    'handle_new_user pone el código de invitación',
+    JSON.stringify(perfil)
+  );
+  // Ni O ni 0 ni I ni 1 ni L: el código se dicta por WhatsApp, y uno que el
+  // invitado teclea mal es un referido perdido.
+  ok(
+    /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}$/.test(perfil?.referral_code ?? ''),
+    'el código no lleva caracteres que se confundan al dictarlos',
+    perfil?.referral_code
+  );
+
+  // ── Los RPC del jugador exigen sesión ELLOS, no la ruta ──
+  // Se llaman aquí con la clave de servicio, que no tiene auth.uid(): tienen
+  // que negarse igual. Es la prueba de que la puerta está en la base y no en
+  // el formulario, que cualquiera puede saltarse.
+  for (const fn of [
+    ['redeem_tickets', { p_qty: 1 }],
+    ['request_withdrawal', { p_amount: 1 }],
+    ['claim_referral', { p_referred: uid }],
+    ['my_referrals', {}],
+  ]) {
+    const r = await rpc(fn[0], fn[1]);
+    ok(
+      r.txt.includes('No autorizado'),
+      `${fn[0]} se niega sin sesión, aunque llame el servidor`,
+      `HTTP ${r.status} ${r.txt.slice(0, 120)}`
+    );
+  }
+
+  // ── Un solo retiro pendiente por jugador ──
+  await rest(`players?id=eq.${uid}`, { method: 'PATCH', body: JSON.stringify({ balance: 50 }) });
+  const w1 = await rest('withdrawals', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ player_id: uid, amount_usd: 5 }),
+  });
+  ok(!!w1.json?.[0]?.id, 'se puede abrir un retiro', w1.txt.slice(0, 140));
+  const w2 = await rest('withdrawals', {
+    method: 'POST',
+    body: JSON.stringify({ player_id: uid, amount_usd: 7 }),
+  });
+  ok(
+    w2.status === 409 || w2.txt.includes('withdrawals_uno_pendiente'),
+    'la BASE DE DATOS impide dos retiros pendientes del mismo jugador',
+    `HTTP ${w2.status} ${w2.txt.slice(0, 140)}`
+  );
+
+  // ── Cada tramo de referido se cobra UNA vez ──
+  // Es el candado que en el juego hermano faltó y dejó cobrar la misma
+  // partida veinte veces. Aquí se comprueba a nivel de índice: da igual lo
+  // que haga el código de arriba.
+  const c1 = await rest('referral_claims', {
+    method: 'POST',
+    body: JSON.stringify({ referrer_id: uid, referred_id: uid, amount_usd: 1, partidas: 10, tramo: 1 }),
+  });
+  ok(c1.ok || c1.status === 201, 'se registra el cobro de un tramo', `HTTP ${c1.status}`);
+  const c2 = await rest('referral_claims', {
+    method: 'POST',
+    body: JSON.stringify({ referrer_id: uid, referred_id: uid, amount_usd: 1, partidas: 20, tramo: 1 }),
+  });
+  ok(
+    c2.status === 409 || c2.txt.includes('referral_claims_tramo_unico'),
+    'la BASE DE DATOS impide cobrar dos veces el mismo tramo',
+    `HTTP ${c2.status} ${c2.txt.slice(0, 140)}`
+  );
+
+  // ── Aprobar una compra es idempotente ──
+  // La conciliación REINTENTA por diseño. Sin esto, un reintento entrega los
+  // tickets otra vez y el juego regala dinero sin que nadie se entere.
+  const compra = await rest('ticket_purchases', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      player_id: uid, quantity: 3, amount_usd: 6, reference: '9987654321',
+    }),
+  });
+  const compraId = compra.json?.[0]?.id;
+  ok(!!compraId, 'se registra una compra', compra.txt.slice(0, 140));
+  ok(
+    compra.json?.[0]?.reference_norm === '654321',
+    'la referencia se guarda normalizada a sus últimos 6 dígitos',
+    compra.json?.[0]?.reference_norm
+  );
+
+  // Sin compra no hay nada que aprobar, y "los tickets no cambiaron" sería un
+  // verde que sale de que no ocurrió NADA. Eso miente peor que un rojo, así
+  // que se declara no comprobado.
+  if (!compraId) {
+    ok(false, 'aprobar entrega los tickets de la compra', 'sin compra: no se pudo comprobar');
+    ok(false, 'aprobar DOS veces no entrega los tickets dos veces', 'sin compra: no se pudo comprobar');
+    ok(false, 'rechazar una compra aprobada devuelve sus tickets', 'sin compra: no se pudo comprobar');
+  } else {
+    const tickets = async () =>
+      Number((await rest(`players?id=eq.${uid}&select=tickets`)).json?.[0]?.tickets ?? 0);
+    const antes = await tickets();
+    await rpc('approve_purchase', { p_purchase: compraId, p_origin: 'manual' });
+    const tras1 = await tickets();
+    ok(tras1 === antes + 3, 'aprobar entrega los tickets de la compra', `${antes} → ${tras1}`);
+
+    await rpc('approve_purchase', { p_purchase: compraId, p_origin: 'manual' });
+    const tras2 = await tickets();
+    ok(tras2 === tras1, 'aprobar DOS veces no entrega los tickets dos veces', `${tras1} → ${tras2}`);
+
+    // Y rechazar una que ya estaba aprobada los devuelve.
+    await rpc('reject_purchase', { p_purchase: compraId, p_note: 'prueba de verificación' });
+    const tras3 = await tickets();
+    ok(tras3 === antes, 'rechazar una compra aprobada devuelve sus tickets', `${tras2} → ${tras3}`);
+  }
+
+  // ── Los almacenes ──
+  const bk = await fetch(`${URL}/storage/v1/bucket`, { headers: svc });
+  const bkJson = await bk.json().catch(() => []);
+  const nombres = Array.isArray(bkJson) ? bkJson.map((b) => b.id) : [];
+  ok(
+    nombres.includes('payment-proofs'),
+    'existe el bucket de comprobantes',
+    nombres.length ? nombres.join(', ') : `la API de storage respondió ${bk.status}`
+  );
+  ok(
+    nombres.includes('avatars'),
+    'existe el bucket de fotos de perfil',
+    nombres.length ? nombres.join(', ') : `la API de storage respondió ${bk.status}`
+  );
+  const proofs = Array.isArray(bkJson) ? bkJson.find((b) => b.id === 'payment-proofs') : null;
+  ok(
+    proofs?.public === false,
+    'el bucket de comprobantes es PRIVADO: lleva el nombre, el banco y la cuenta de una persona',
+    JSON.stringify(proofs?.public)
+  );
+
+  // ── Las tablas de defensa no las lee NADIE desde el navegador ──
+  for (const t of ['blocked_references', 'rate_limit_hits', 'player_payment_origins', 'player_tags', 'password_reset_grants']) {
+    // Primero que la tabla EXISTA. Sin esto, una tabla que falta da 404 con
+    // cero filas y pasaría por "el navegador no la ve", que es justo lo
+    // contrario de lo que se quiere demostrar.
+    const conServicio = await rest(`${t}?select=*&limit=0`);
+    const r = await rest(`${t}?select=*`, {}, anon);
+    const filas = Array.isArray(r.json) ? r.json.length : null;
+    ok(
+      conServicio.ok && (filas === 0 || r.status === 401 || r.status === 403),
+      `con la clave anon, ${t} no devuelve nada`,
+      conServicio.ok
+        ? `HTTP ${r.status}, ${filas} filas`
+        : 'la tabla no existe: no se pudo comprobar'
+    );
+  }
+
   // ── RLS: el navegador solo ve lo suyo, y sin sesión no ve nada ──
   console.log('\nRLS — lo que ve el navegador');
   for (const t of ['players', 'game_runs', 'game_history', 'app_events']) {
