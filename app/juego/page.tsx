@@ -59,9 +59,30 @@ export default function JuegoPage() {
       return;
     }
 
-    // Todavía no hay Supabase conectado: partida LOCAL con el mismo RNG y el
-    // mismo reparto que usa el servidor. Ver lib/game/demo.ts.
-    if (!data || status === 503 || data.code === 'SIN_CONFIGURAR' || status === 0) {
+    // Partida LOCAL con el mismo RNG y el mismo reparto que usa el servidor.
+    // Ver lib/game/demo.ts. Se cae aquí por tres motivos distintos:
+    //
+    //   · 503 SIN_CONFIGURAR — no hay Supabase.
+    //   · status 0 — no hay red.
+    //   · 401 SIN_SESION — hay Supabase, pero el jugador no ha entrado.
+    //
+    // El tercero es temporal y hay que quitarlo EN CUANTO EXISTA UNA PANTALLA
+    // DE REGISTRO. Hoy no existe: la app se conectó a la base de datos antes
+    // que a la puerta de entrada, así que la API empezó a pedir una sesión que
+    // nadie podía tener y el botón de jugar devolvía "No autorizado".
+    //
+    // Mientras tanto se cae a demo, NO en silencio: la partida demo enseña su
+    // aviso en pantalla, así que nadie puede confundirla con dinero real. En
+    // cuanto haya registro, un SIN_SESION tiene que llevar a iniciar sesión —
+    // meter a un jugador con sesión caducada en una demo sin decírselo sería
+    // mucho peor que este error.
+    if (
+      !data ||
+      status === 503 ||
+      status === 0 ||
+      data.code === 'SIN_CONFIGURAR' ||
+      data.code === 'SIN_SESION'
+    ) {
       const run = createDemoRun();
       demoRun.current = run;
       setDemo(true);

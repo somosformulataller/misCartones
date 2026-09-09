@@ -34,7 +34,14 @@ export async function POST() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      // Con `code` y no solo con el 401: quien llama necesita distinguir
+      // "tu sesión caducó, vuelve a entrar" de "en esta app todavía no hay
+      // manera de entrar". Son la misma respuesta HTTP y piden cosas
+      // distintas al jugador.
+      return NextResponse.json(
+        { error: 'No has iniciado sesión.', code: 'SIN_SESION' },
+        { status: 401 }
+      );
     }
 
     const { data: player, error: playerError } = await supabase

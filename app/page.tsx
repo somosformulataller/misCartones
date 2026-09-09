@@ -47,10 +47,17 @@ export default function Lobby() {
             {conectado ? (
               <span className="font-bold text-emerald-700">conectado</span>
             ) : (
-              <span className="font-bold text-amber-700">
-                sin configurar — el juego corre en modo demo
-              </span>
+              <span className="font-bold text-amber-700">sin configurar</span>
             )}
+          </p>
+          {/* Estar conectado a la base de datos NO significa que ya se juegue
+              por dinero: falta la puerta de entrada. Decir solo "conectado"
+              daba a entender lo contrario. */}
+          <p className="mt-1">
+            Partidas:{' '}
+            <span className="font-bold text-amber-700">
+              modo demo — falta el registro de jugadores
+            </span>
           </p>
           <p className="mt-1">
             Fase 1: prototipo jugable. El arte son formas dibujadas por código; lo que se
