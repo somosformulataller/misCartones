@@ -21,7 +21,7 @@ import path from 'node:path';
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.join(aqui, '..');
 
-console.log('Compilando lib/game y lib/three…');
+console.log('Compilando lib/game, lib/three y lib/admin…');
 execSync(`npx tsc -p "${path.join(aqui, 'tsconfig.pruebas.json')}"`, {
   cwd: raiz,
   stdio: 'inherit',
@@ -1114,6 +1114,358 @@ console.log('\n7. Cuentas, pagos y billetera');
     }
   }
   ok(sinGuarda === 0, 'Todas las rutas de dinero comprueban que haya base de datos');
+}
+
+
+// ── 8. Panel de administración ─────────────────────────────────────────────
+//
+// El panel es la única parte de la app que puede mover el dinero de otra
+// persona: aprueba compras, paga retiros, suma y resta saldo, corrige la
+// cédula a la que se cobra y borra cuentas enteras. Lo que se comprueba aquí
+// es quién puede hacer cada cosa y que el porte desde La Llave Correcta no
+// dejó atrás nada de lo que allá se aprendió a golpes.
+console.log('\n8. Panel de administración');
+{
+  const construido = path.join(raiz, '.pruebas-build', 'lib');
+  const { allowedAreas, hasArea, PANEL_AREAS } = require(
+    path.join(construido, 'admin', 'areas.js')
+  );
+  const { digitosDeBusqueda, esBusquedaNumerica } = require(
+    path.join(construido, 'admin', 'busqueda.js')
+  );
+  const perfil = require(path.join(construido, 'admin', 'playerProfile.js'));
+  const { computeRetention } = require(path.join(construido, 'admin', 'retention.js'));
+  const { resumenReferidos } = require(path.join(construido, 'referrals', 'ganado.js'));
+
+  const leer = (...trozos) => fs.readFileSync(path.join(raiz, ...trozos), 'utf8');
+
+  // ── Quién ve qué ──
+  // Atención al cliente atiende personas; no mira los números del negocio.
+  // Da igual lo que alguien marque por error en la pantalla de Equipo: estas
+  // cuatro áreas y la de Equipo no se le abren nunca. Y Equipo importa el
+  // doble, porque quien reparte permisos puede darse permisos a sí mismo.
+  const TODAS = PANEL_AREAS.map((a) => a.key);
+  for (const veto of ['resumen', 'caja', 'metricas', 'referidos', 'equipo']) {
+    ok(
+      !hasArea('support', TODAS, veto),
+      `atención al cliente NO ve «${veto}» ni marcándoselo a mano`,
+      allowedAreas('support', TODAS).join(', ')
+    );
+  }
+  ok(
+    hasArea('support', null, 'transacciones') && hasArea('support', null, 'usuarios'),
+    'una cuenta de atención SIN áreas marcadas puede trabajar igual',
+    allowedAreas('support', null).join(', ')
+  );
+  ok(
+    allowedAreas('admin', null).length === TODAS.length,
+    'un administrador sin restricciones ve el panel entero'
+  );
+  ok(allowedAreas('player', null).length === 0, 'un jugador no ve NADA del panel');
+  ok(allowedAreas(null, null).length === 0, 'sin sesión no se ve NADA del panel');
+  ok(
+    allowedAreas('admin', ['usuarios']).join() === 'usuarios',
+    'a un administrador SÍ se le puede recortar a propósito'
+  );
+  ok(
+    !TODAS.includes('chat'),
+    'no queda ninguna pestaña de chat: este juego no tiene atención por chat'
+  );
+
+  // ── El buscador de la lista de usuarios ──
+  // Allá, buscar el correo «elena.1973saa@gmail.com» sacaba «1973» y devolvía
+  // a cualquiera con 1973 en la cédula o el teléfono: Diego salía primero al
+  // buscar a Elena. Con una lista de retiros por pagar delante, abrir la ficha
+  // equivocada no es un detalle.
+  ok(
+    digitosDeBusqueda('elena.1973saa@gmail.com') === null,
+    'buscar un correo NO se convierte en buscar los dígitos que lleva dentro'
+  );
+  ok(digitosDeBusqueda('Ana 2') === null, 'un nombre con un número dentro se busca tal cual');
+  ok(
+    digitosDeBusqueda('V-6.436.499') === '6436499',
+    'una cédula escrita como sea sí se busca por sus dígitos',
+    String(digitosDeBusqueda('V-6.436.499'))
+  );
+  ok(
+    digitosDeBusqueda('+58 412 7855651') === '584127855651',
+    'un teléfono también',
+    String(digitosDeBusqueda('+58 412 7855651'))
+  );
+  ok(digitosDeBusqueda('123') === null, 'menos de 4 dígitos no se persigue: devolvería media base');
+  ok(!esBusquedaNumerica('jose@correo.com'), 'un correo no es una búsqueda numérica');
+
+  // ── Corregir los datos de un jugador ──
+  // Es la acción más delicada del panel: aquí dentro está la cédula y el
+  // teléfono a los que se le PAGA a alguien. El criterio es limpiar antes que
+  // rechazar —quien corrige pega el dato de un WhatsApp, con puntos y +58—
+  // pero lo que no se puede interpretar tiene que rebotar.
+  ok(perfil.revisarCedula('V-28.730.098').valor === '28730098', 'la cédula se guarda en dígitos');
+  ok(!perfil.revisarCedula('123').ok, 'una cédula de 3 dígitos NO se guarda');
+  ok(!perfil.revisarCedula('1234567890').ok, 'una cédula de 10 dígitos tampoco');
+  ok(
+    perfil.revisarTelefono('+58 412 123 4567', 'El WhatsApp').valor === '04121234567',
+    'el teléfono se guarda en su forma larga venezolana',
+    String(perfil.revisarTelefono('+58 412 123 4567', 'El WhatsApp').valor)
+  );
+  ok(
+    !perfil.revisarTelefono('0412123456', 'El WhatsApp').ok,
+    'un teléfono al que le falta un dígito NO se guarda'
+  );
+  ok(!perfil.revisarCorreo('').ok, 'el correo no puede quedar vacío: es con lo que inicia sesión');
+  ok(!perfil.revisarCorreo('no-es-correo').ok, 'un correo sin arroba tampoco');
+  ok(perfil.revisarCorreo(' JOSE@Correo.COM ').valor === 'jose@correo.com', 'el correo se normaliza');
+  ok(!perfil.revisarNombre('Jose2', 'El nombre').ok, 'un nombre con números se rechaza');
+
+  // Solo viajan los campos que de verdad cambiaron. Si el servidor recibiera
+  // todos, su propia limpieza (quitarle los guiones al teléfono) entraría en
+  // la bitácora como un cambio que nadie hizo.
+  ok(
+    perfil.diferencias({ cedula: '123', payout_name: 'Ana' }, { cedula: '123', payout_name: 'Eva' })
+      .length === 1,
+    'la bitácora solo registra lo que de verdad cambió'
+  );
+  // El nombre visible se mantiene al día solo: si no, el jugador aparecería
+  // con dos nombres distintos según la tabla del panel que se mire.
+  ok(
+    perfil.nombreVisible({ last_name: 'Pérez' }, { first_name: 'Ana', last_name: 'Gómez' }) ===
+      'Ana Pérez',
+    'corregir el apellido rehace el nombre visible'
+  );
+  ok(
+    perfil.nombreVisible({}, { first_name: 'Ana', last_name: 'Gómez', username: 'Ana Gómez' }) === null,
+    'si el nombre visible ya está bien, no se toca'
+  );
+
+  // ── Recurrencia ──
+  const hoy = '2026-09-09';
+  const ret = computeRetention({
+    today: hoy,
+    players: [
+      { id: 'a', username: 'Ana', role: 'player', balance: 1, tickets: 0 },
+      { id: 'b', username: 'Beto', role: 'player', balance: 0, tickets: 2 },
+      { id: 'z', username: 'Equipo', role: 'admin', balance: 0, tickets: 0 },
+      { id: 'n', username: 'Nunca jugó', role: 'player', balance: 0, tickets: 0 },
+    ],
+    games: [
+      // Ana: tres días seguidos
+      { player_id: 'a', payout: 0, created_at: '2026-09-06T14:00:00-04:00' },
+      { player_id: 'a', payout: 4, created_at: '2026-09-07T14:00:00-04:00' },
+      { player_id: 'a', payout: 0, created_at: '2026-09-08T14:00:00-04:00' },
+      // Beto: un solo día, hace tiempo
+      { player_id: 'b', payout: 0, created_at: '2026-09-01T14:00:00-04:00' },
+      // El equipo no es audiencia
+      { player_id: 'z', payout: 30, created_at: '2026-09-08T14:00:00-04:00' },
+    ],
+    purchases: [{ player_id: 'a', amount_usd: 6 }],
+    withdrawals: [{ player_id: 'a', amount_usd: 2 }],
+  });
+  const ana = ret.players.find((p) => p.id === 'a');
+  const beto = ret.players.find((p) => p.id === 'b');
+  ok(
+    !ret.players.some((p) => p.id === 'z'),
+    'las partidas del EQUIPO no cuentan como audiencia: falsearían la métrica'
+  );
+  ok(ana.days_count === 3 && ana.pattern === 'seguidos', 'tres días seguidos se leen como seguidos');
+  ok(ana.max_streak === 3 && ana.skipped_days === 0, 'la racha se mide bien');
+  ok(ana.rtp !== null && Math.abs(ana.rtp - 4 / 6) < 1e-9, 'el RTP del jugador sale de sus partidas');
+  ok(beto.abandoned === true, 'quien jugó un solo día y lleva más de 3 sin volver, abandonó');
+  ok(ana.abandoned === false, 'quien juega seguido NO cuenta como abandono');
+  ok(
+    ret.totals.never_played === 1,
+    'los registrados que nunca jugaron se cuentan aparte',
+    String(ret.totals.never_played)
+  );
+  // Una partida de las 9 de la noche en Venezuela cuenta en SU día, no en el
+  // siguiente por ser ya UTC.
+  const nocturno = computeRetention({
+    today: hoy,
+    players: [{ id: 'a', username: 'Ana', role: 'player' }],
+    games: [{ player_id: 'a', payout: 0, created_at: '2026-09-08T21:30:00-04:00' }],
+    purchases: [],
+    withdrawals: [],
+  });
+  ok(
+    nocturno.players[0].days[0] === '2026-09-08',
+    'una partida de las 9 de la noche cuenta en el día de Venezuela, no en el UTC siguiente',
+    nocturno.players[0].days[0]
+  );
+
+  // ── Lo ganado invitando ──
+  // Hay VARIAS filas por referido (una por cada dólar): se cuentan amigos
+  // distintos, no filas, o el panel diría que trajo el triple de gente.
+  ok(
+    resumenReferidos([
+      { amount_usd: 1, referred_id: 'x' },
+      { amount_usd: 1, referred_id: 'x' },
+      { amount_usd: 1, referred_id: 'y' },
+    ]).cobros === 2,
+    'tres cobros de dos amigos se cuentan como DOS amigos'
+  );
+
+  // ── La puerta está en el servidor, no en la pantalla ──
+  // El menú del panel esconde lo que no toca, pero esconder no es proteger:
+  // cualquiera puede escribir la dirección de una API. Cada ruta tiene que
+  // comprobarlo por su cuenta.
+  const RUTAS_PANEL = [
+    'caja', 'emails-export', 'interaction', 'payments', 'pending',
+    'referrals', 'retention', 'staff', 'stats', 'tags', 'users',
+  ];
+  let sinGuardia = 0;
+  for (const r of RUTAS_PANEL) {
+    const texto = leer('app', 'api', 'admin', r, 'route.ts');
+    if (!texto.includes('requireStaff(')) {
+      sinGuardia++;
+      console.log('     ✗ /api/admin/' + r + ' no comprueba que quien pide sea del equipo');
+    }
+  }
+  ok(sinGuardia === 0, 'TODAS las rutas del panel exigen sesión de equipo');
+
+  // Y las áreas: las que enseñan números del negocio piden su área, no valen
+  // con "es del equipo".
+  const AREA_DE = {
+    caja: "requireStaff('caja')",
+    referrals: "requireStaff('referidos')",
+    retention: "requireStaff('metricas')",
+    staff: "requireStaff('equipo')",
+    payments: "requireStaff('transacciones')",
+    interaction: "requireStaff('interacciones')",
+  };
+  for (const [ruta, esperado] of Object.entries(AREA_DE)) {
+    ok(leer('app', 'api', 'admin', ruta, 'route.ts').includes(esperado),
+       `/api/admin/${ruta} exige además el área que le toca`);
+  }
+
+  // Crear cuentas del equipo es SOLO de administradores: el guard pide el
+  // área 'equipo', y esa área está vetada a atención al cliente.
+  ok(!hasArea('support', ['equipo'], 'equipo'), 'atención al cliente no puede crear cuentas de equipo');
+
+  // ── El proxy ──
+  const proxyTxt = leer('proxy.ts');
+  ok(proxyTxt.includes("'/admin'"), '/admin está entre las rutas que exigen sesión');
+
+  // ── La migración 005 ──
+  const sql = leer('supabase', 'migrations', '005_panel_admin.sql');
+
+  // Los tres RPC de agregado leen la base ENTERA saltándose RLS. Si
+  // 'authenticated' pudiera ejecutarlos, cualquier jugador con la consola
+  // abierta sacaría el saldo y el teléfono de todos los demás.
+  for (const fn of ['get_admin_totals()', 'get_interaction_stats()', 'admin_referral_overview()']) {
+    const revoke = new RegExp(
+      'REVOKE\\s+(ALL|EXECUTE)\\s+ON\\s+FUNCTION\\s+public\\.' +
+        fn.replace('()', '\\(\\)') +
+        '\\s+FROM\\s+PUBLIC,\\s*anon,\\s*authenticated'
+    );
+    ok(revoke.test(sql), `${fn} le está prohibida al navegador`);
+    ok(
+      new RegExp('GRANT EXECUTE ON FUNCTION public\\.' + fn.replace('()', '\\(\\)') + '\\s+TO service_role').test(sql),
+      `${fn} solo la puede llamar el servidor`
+    );
+  }
+
+  // El canje tiene que dejar rastro DENTRO de la misma función: si fuera un
+  // paso aparte, podría existir un canje sin su registro y el saldo dejaría
+  // de cuadrar sin que nada lo explique.
+  const redeem = sql.slice(sql.indexOf('FUNCTION public.redeem_tickets'));
+  ok(
+    redeem.slice(0, redeem.indexOf('$ LANGUAGE')).includes('INSERT INTO public.ticket_redemptions'),
+    'canjear saldo por tickets deja su fila de bitácora en la MISMA transacción'
+  );
+  ok(redeem.includes('FOR UPDATE'), 'el canje sigue bloqueando la fila del jugador');
+
+  // Las bitácoras no las ve el navegador: son notas del equipo sobre personas.
+  for (const t of ['ticket_redemptions', 'manual_adjustments', 'player_data_changes']) {
+    ok(
+      new RegExp('ALTER TABLE public\\.' + t + '\\s+ENABLE ROW LEVEL SECURITY').test(sql),
+      `${t} tiene RLS encendida`
+    );
+    ok(
+      new RegExp('REVOKE ALL ON public\\.' + t + '\\s+FROM anon, authenticated').test(sql),
+      `${t} está fuera del alcance del navegador`
+    );
+  }
+
+  ok(
+    /ALTER TABLE public\.ticket_purchases[\s\S]{0,120}handled_by/.test(sql) &&
+      /ALTER TABLE public\.withdrawals[\s\S]{0,120}handled_by/.test(sql),
+    'las compras y los retiros guardan quién del equipo los atendió'
+  );
+  // El nombre en texto además del id: si esa cuenta del equipo se borra, el id
+  // queda en NULL pero la bitácora tiene que seguir diciendo quién fue.
+  ok(sql.includes('made_by_name'), 'la firma de un ajuste sobrevive a que se borre esa cuenta');
+  ok(
+    /CREATE UNIQUE INDEX IF NOT EXISTS player_tags_unica\s+ON public\.player_tags \(player_id, lower\(label\)\)/.test(sql),
+    'la misma etiqueta no se puede poner dos veces al mismo jugador'
+  );
+  ok(
+    sql.includes('LEAST(3.00, (r.partidas / 10) * 1.00)'),
+    'el tablero de referidos usa la MISMA regla que paga: $1 por cada 10 partidas, tope $3'
+  );
+
+  // ── No quedó nada del chat que este juego no tiene ──
+  const ARCHIVOS_PANEL = [
+    ['app', '(main)', 'admin', 'page.tsx'],
+    ['components', 'admin', 'PlayerDetail.tsx'],
+    ['components', 'admin', 'AdminNav.tsx'],
+    ['components', 'admin', 'PlayerTags.tsx'],
+    ['components', 'admin', 'StaffPanel.tsx'],
+    ['app', 'api', 'admin', 'users', 'route.ts'],
+    ['lib', 'admin', 'compensacion.ts'],
+  ];
+  let restos = 0;
+  for (const f of ARCHIVOS_PANEL) {
+    const texto = leer(...f);
+    for (const marca of ['chat_conversations', 'chat_messages', '@/types/chat', "'/admin/chat'"]) {
+      if (texto.includes(marca)) {
+        restos++;
+        console.log('     ✗ ' + f.join('/') + ' todavía nombra ' + marca);
+      }
+    }
+  }
+  ok(restos === 0, 'no quedan llamadas a un chat de atención que aquí no existe');
+
+  // ── Y nada del juego hermano se coló ──
+  // Las partidas de aquí cuentan bolsas; las de allá, llaves. Un panel que
+  // pida keys_tried_count devolvería columnas que no existen.
+  let llaves = 0;
+  for (const f of [
+    ['app', '(main)', 'admin', 'page.tsx'],
+    ['components', 'admin', 'PlayerDetail.tsx'],
+    ['app', 'api', 'admin', 'users', 'route.ts'],
+    ['app', 'api', 'admin', 'stats', 'route.ts'],
+    ['types', 'game.ts'],
+  ]) {
+    if (leer(...f).includes('keys_tried_count')) {
+      llaves++;
+      console.log('     ✗ ' + f.join('/') + ' todavía pide keys_tried_count');
+    }
+  }
+  ok(llaves === 0, 'el panel cuenta bolsas, no las llaves del juego hermano');
+  const statsTxt = leer('app', 'api', 'admin', 'stats', 'route.ts');
+  ok(
+    statsTxt.includes("from('game_runs')") && !statsTxt.includes('game_sessions'),
+    'el panel mira game_runs, que es la tabla de partidas de este juego'
+  );
+
+  // Con sesión pero sin ser del equipo, la pantalla no pinta NADA mientras
+  // rebota al juego. Sin esto se vería un instante el armazón del panel —con
+  // sus pestañas de dinero— a alguien que no tiene por qué verlo.
+  ok(
+    leer('app', '(main)', 'admin', 'page.tsx').includes('if (!isStaff || !player) return null;'),
+    'quien no es del equipo no ve ni el armazón del panel'
+  );
+
+  // ── El panel no funciona a medias ──
+  // Sus totales suman sobre TODOS los jugadores. Con la sesión del que mira,
+  // RLS los recorta en silencio y el Resumen enseñaría un número más pequeño
+  // sin avisar de nada. Antes de eso, mejor decir que falta la clave.
+  for (const r of ['stats', 'payments', 'interaction']) {
+    const texto = leer('app', 'api', 'admin', r, 'route.ts');
+    ok(
+      texto.includes('isAdminClientConfigured()') && texto.includes('SUPABASE_SECRET_KEY'),
+      `/api/admin/${r} avisa en claro si falta la clave del servidor en vez de dar números cortos`
+    );
+  }
 }
 
 console.log(

@@ -38,7 +38,11 @@ export async function proxy(request: NextRequest) {
   // el jugador había perdido su saldo, cuando lo que pasaba es que no había
   // entrado. Un redirect dice la verdad; una pantalla vacía miente.
   const ruta = request.nextUrl.pathname;
-  const PRIVADAS = ['/juego', '/billetera', '/comprar', '/referidos', '/perfil'];
+  // /admin va en la lista, pero aquí solo se comprueba que HAYA sesión: quién
+  // es del equipo lo decide `requireStaff` en cada ruta de /api/admin, contra
+  // la base. El proxy no lee roles a propósito — si lo hiciera, el permiso
+  // viviría en dos sitios y tarde o temprano dirían cosas distintas.
+  const PRIVADAS = ['/juego', '/billetera', '/comprar', '/referidos', '/perfil', '/admin'];
   if (!user && PRIVADAS.some((p) => ruta === p || ruta.startsWith(p + '/'))) {
     const destino = request.nextUrl.clone();
     destino.pathname = '/auth/login';

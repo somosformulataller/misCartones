@@ -314,6 +314,131 @@ try {
   }
 
   // ── RLS: el navegador solo ve lo suyo, y sin sesión no ve nada ──
+
+  // ── 005: lo que sostiene el panel de administración ──
+  console.log('\n005 — Panel de administración');
+
+  for (const t of ['ticket_redemptions', 'manual_adjustments', 'player_data_changes']) {
+    const r = await rest(`${t}?select=*&limit=0`);
+    ok(r.ok, `tabla ${t}`, r.ok ? '' : `HTTP ${r.status} ${r.txt.slice(0, 140)}`);
+  }
+
+  // Las firmas: sin estas columnas, dentro de un mes nadie sabe quién aprobó
+  // qué. Se comprueba escribiendo, no mirando el catálogo.
+  const firmaCompra = await rest(`ticket_purchases?id=eq.${compraId ?? '00000000-0000-0000-0000-000000000000'}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ handled_by: uid }),
+  });
+  ok(
+    compraId ? firmaCompra.ok && firmaCompra.json?.[0]?.handled_by === uid : false,
+    'una compra puede guardar quién del equipo la atendió',
+    compraId ? `HTTP ${firmaCompra.status} ${firmaCompra.txt.slice(0, 120)}` : 'sin compra: no se pudo comprobar'
+  );
+  const retiroId = w1.json?.[0]?.id;
+  const firmaRetiro = await rest(`withdrawals?id=eq.${retiroId ?? '00000000-0000-0000-0000-000000000000'}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ handled_by: uid }),
+  });
+  ok(
+    retiroId ? firmaRetiro.ok && firmaRetiro.json?.[0]?.handled_by === uid : false,
+    'un retiro puede guardar quién del equipo lo pagó',
+    retiroId ? `HTTP ${firmaRetiro.status} ${firmaRetiro.txt.slice(0, 120)}` : 'sin retiro: no se pudo comprobar'
+  );
+
+  // ── La misma etiqueta, una sola vez ──
+  const et1 = await rest('player_tags', {
+    method: 'POST',
+    body: JSON.stringify({ player_id: uid, label: 'Testimonio pedido', color: 'gold' }),
+  });
+  ok(et1.ok || et1.status === 201, 'se le puede poner una etiqueta a un jugador', `HTTP ${et1.status}`);
+  // Distinta caja, misma etiqueta: para quien la lee es la misma cosa.
+  const et2 = await rest('player_tags', {
+    method: 'POST',
+    body: JSON.stringify({ player_id: uid, label: 'testimonio PEDIDO' }),
+  });
+  ok(
+    et2.status === 409 || et2.txt.includes('player_tags_unica'),
+    'la misma etiqueta no se repite aunque cambie de mayúsculas',
+    `HTTP ${et2.status} ${et2.txt.slice(0, 140)}`
+  );
+
+  // ── El canje deja rastro ──
+  // Se llama con la clave de servicio, que no tiene auth.uid(): tiene que
+  // negarse. Lo que importa aquí es que la función SIGA existiendo con su
+  // guardia después de reescribirla en la 005.
+  const canje = await rpc('redeem_tickets', { p_qty: 1 });
+  ok(
+    canje.txt.includes('No autorizado'),
+    'redeem_tickets sigue exigiendo sesión después de reescribirla',
+    `HTTP ${canje.status} ${canje.txt.slice(0, 120)}`
+  );
+  // Y que la bitácora acepta filas (es donde escribirá la función).
+  const canjeLog = await rest('ticket_redemptions', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ player_id: uid, quantity: 1, amount_usd: 2 }),
+  });
+  ok(!!canjeLog.json?.[0]?.id, 'la bitácora de canjes acepta un movimiento', canjeLog.txt.slice(0, 140));
+
+  // ── Los tres agregados del panel ──
+  const totales = await rpc('get_admin_totals', {});
+  ok(
+    totales.ok && typeof totales.json?.jugadores === 'number',
+    'get_admin_totals suma sobre la base entera',
+    `HTTP ${totales.status} ${totales.txt.slice(0, 160)}`
+  );
+  const inter = await rpc('get_interaction_stats', {});
+  ok(
+    inter.ok && Array.isArray(inter.json),
+    'get_interaction_stats devuelve la interacción por jugador',
+    `HTTP ${inter.status} ${inter.txt.slice(0, 160)}`
+  );
+  const refPanel = await rpc('admin_referral_overview', {});
+  ok(
+    refPanel.ok && refPanel.json?.summary && refPanel.json?.stats,
+    'admin_referral_overview arma el tablero de referidos entero',
+    `HTTP ${refPanel.status} ${refPanel.txt.slice(0, 160)}`
+  );
+  ok(
+    Array.isArray(refPanel.json?.stats?.chart) && refPanel.json.stats.chart.length === 7,
+    'la gráfica de afiliados trae los 7 días, hayan tenido o no registros',
+    `${refPanel.json?.stats?.chart?.length ?? '?'} días`
+  );
+
+  // Los tres saltan RLS y leen la base ENTERA. Si el navegador pudiera
+  // llamarlos, cualquier jugador sacaría el saldo y el teléfono de todos.
+  //
+  // Primero que la función EXISTA. Sin eso, una función que falta responde
+  // 404 y pasaría por «el navegador no puede llamarla», que es justo lo
+  // contrario de lo que se quiere demostrar.
+  const existe = { get_admin_totals: totales.ok, get_interaction_stats: inter.ok, admin_referral_overview: refPanel.ok };
+  for (const fn of ['get_admin_totals', 'get_interaction_stats', 'admin_referral_overview']) {
+    const r = await rpc(fn, {}, anon);
+    ok(
+      existe[fn] && !r.ok,
+      `con la clave anon, ${fn} NO se puede ejecutar`,
+      existe[fn]
+        ? `HTTP ${r.status} ${r.txt.slice(0, 120)}`
+        : 'la función no existe: no se pudo comprobar'
+    );
+  }
+
+  // ── Y las bitácoras tampoco se leen desde el navegador ──
+  for (const t of ['ticket_redemptions', 'manual_adjustments', 'player_data_changes']) {
+    const conServicio = await rest(`${t}?select=*&limit=0`);
+    const r = await rest(`${t}?select=*`, {}, anon);
+    const filas = Array.isArray(r.json) ? r.json.length : null;
+    ok(
+      conServicio.ok && (filas === 0 || r.status === 401 || r.status === 403),
+      `con la clave anon, ${t} no devuelve nada`,
+      conServicio.ok
+        ? `HTTP ${r.status}, ${filas} filas`
+        : 'la tabla no existe: no se pudo comprobar'
+    );
+  }
+
   console.log('\nRLS — lo que ve el navegador');
   for (const t of ['players', 'game_runs', 'game_history', 'app_events']) {
     const r = await rest(`${t}?select=*`, {}, anon);

@@ -123,6 +123,11 @@ export default function BarraJugar() {
     }
   };
 
+  // En el panel no pinta nada: quien está ahí está trabajando, no jugando, y
+  // un "compra 1 ticket por $2" fijo al pie de una tabla de retiros por pagar
+  // solo estorba y tapa filas.
+  if (pathname.startsWith('/admin')) return null;
+
   const ocultarBoton = arrancando || enPartida;
   const mostrarBarra = !ocultarBoton || Boolean(aviso);
   if (!mostrarBarra && !buyOpen) return null;

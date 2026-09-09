@@ -24,7 +24,7 @@ import { usePlayer } from '@/components/providers/PlayerProvider';
  * cada rato, y este juego no necesita eso.
  */
 export default function Header() {
-  const { player, isLoading, signOut } = usePlayer();
+  const { player, isLoading, isStaff, signOut } = usePlayer();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -55,6 +55,9 @@ export default function Header() {
   };
 
   const opciones = [
+    // El panel primero y solo para el equipo: es a lo que entran a
+    // trabajar, y para un jugador ni siquiera existe.
+    ...(isStaff ? [{ label: '👑 Panel', path: '/admin' }] : []),
     { label: '👛 Canjear o retirar', path: '/billetera' },
     { label: '🎟️ Comprar tickets', path: '/comprar' },
     { label: '🤝 Referidos', path: '/referidos' },

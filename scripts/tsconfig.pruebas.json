@@ -20,6 +20,11 @@
     "../lib/referrals/constants.ts",
     "../lib/wallet/limiteRetiros.ts",
     "../lib/payments/constants.ts",
+    "../lib/referrals/ganado.ts",
+    "../lib/admin/areas.ts",
+    "../lib/admin/busqueda.ts",
+    "../lib/admin/playerProfile.ts",
+    "../lib/admin/retention.ts",
     "../lib/supabase/env.ts",
     "../types/**/*.ts"
   ],

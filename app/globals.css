@@ -1821,3 +1821,1779 @@ select.ref-input { appearance: auto; }
   font-size: 3rem;
   line-height: 1;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PANEL DE ADMINISTRACIÓN
+
+   Traído del juego hermano y retintado: allá el panel vive sobre una
+   mazmorra oscura y usa neones; aquí el fondo es una calle de día y esos
+   mismos colores no se leen. Las REGLAS son las mismas —para que las dos
+   hojas sigan pareciéndose— y lo único que cambia son los colores
+   literales; todo lo que ya venía por token se adapta solo.
+
+   Solo están las reglas que el panel usa de verdad (268 de las 803 de
+   allá). Copiar la hoja entera habría dejado cientos de reglas muertas
+   que nadie sabría después si se pueden borrar.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.stat-card {
+  background: var(--bg-surface-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  text-align: center;
+  backdrop-filter: blur(10px);
+}
+
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--gold-1);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 600px) {
+  .modal-card { padding: var(--space-lg); }
+}
+
+/* ============================================
+   ADMIN DASHBOARD
+   ============================================ */
+.admin-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-xl) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.admin-title {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.admin-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-md);
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.admin-section-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.admin-table td {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(180, 118, 6, 0.04);
+}
+
+.admin-win { color: var(--green-win); font-weight: 700; }
+
+.admin-lose { color: var(--red-lose); }
+
+@media (max-width: 640px) {
+  .admin-title { font-size: 1.5rem; }
+
+  .admin-table { font-size: 0.78rem; }
+
+  .admin-table th,
+    .admin-table td { padding: 8px 9px; }
+
+  .admin-note { max-width: 190px; }
+
+  .admin-main { padding: var(--space-md) var(--space-sm); }
+}
+
+/* Candado dentro del campo, para que se note bloqueado de un vistazo */
+.ref-locked { position: relative; }
+
+.ref-locked .ref-input-locked { padding-right: 40px; }
+
+/* Botón al comprobante en el panel admin (firma la URL al tocarlo) */
+.proof-link {
+  font-size: 0.78rem;
+  color: var(--gold-1);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── Orígenes de pago (ficha del jugador) ──
+   Desde dónde paga: su cuenta habitual arriba, y debajo cada recarga
+   marcada como «la suya» o «otra cuenta», para decidir de un vistazo. */
+.origen-huella {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: var(--space-sm);
+}
+
+.origen-huella-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.origen-huella-cab span { color: var(--text-muted); }
+
+.origen-huella-cab strong { color: var(--gold-1); }
+
+.origen-huella-pie {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.origen-ok { color: var(--green-win); }
+
+.origen-otro { color: var(--red-mid); }
+
+/* Cabecera de la ficha del jugador: foto + nombre */
+.pdetail-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pdetail-head-name {
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+/* Insignias de estado */
+/* inline-block: siendo inline, el relleno vertical no empujaba la
+   línea siguiente y la píldora se montaba sobre el texto de abajo
+   ("Origen: manual") */
+.status-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: var(--radius-xl);
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.status-pendiente {
+  background: rgba(180, 118, 6,0.12);
+  color: var(--gold-1);
+  border: 1px solid rgba(180, 118, 6,0.35);
+}
+
+.status-validando {
+  background: rgba(3, 105, 161,0.12);
+  color: var(--green-mid);
+  border: 1px solid rgba(3, 105, 161,0.35);
+}
+
+.status-aprobado {
+  background: rgba(4, 120, 87,0.1);
+  color: var(--green-win);
+  border: 1px solid rgba(4, 120, 87,0.3);
+}
+
+.status-rechazado {
+  background: rgba(185, 28, 28,0.1);
+  color: var(--red-mid);
+  border: 1px solid rgba(185, 28, 28,0.3);
+}
+
+/* ── Admin: transacciones e interacción ── */
+.admin-filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* Los dos botones de orden van juntos y se separan del resto de
+   filtros: son otra cosa (cómo se ordena, no qué se ve) */
+.orden-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--border-subtle);
+}
+
+/* Invalidar una referencia a mano, sobre la lista negra */
+.admin-block-form {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.admin-block-form .chat-input {
+  max-width: 340px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .btn-mini { padding: 10px 14px; }
+}
+
+.btn-mini-active {
+  border-color: var(--gold-1);
+  color: var(--gold-1);
+  background: rgba(180, 118, 6,0.1);
+}
+
+.admin-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Aprobar/rechazar SIEMPRE a la vista (clave en móvil): la columna
+   Acciones queda pegada al borde derecho mientras la tabla scrollea
+   horizontal por debajo. Fondo sólido para tapar lo que pasa detrás. */
+.admin-table th.admin-th-actions,
+.admin-table td.admin-cell-actions {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--bg-primary);
+  box-shadow: -10px 0 14px rgba(12, 46, 36, 0.18);
+}
+
+.admin-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  max-width: 260px;
+  line-height: 1.4;
+  /* Las notas largas envuelven (el td es nowrap): sin esto la nota
+     ensanchaba la tabla cientos de píxeles */
+  white-space: normal;
+}
+
+.flow-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: var(--space-sm) 0;
+}
+
+.flow-date {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  margin-right: 6px;
+}
+
+@media (max-width: 640px) {
+  .btn-mini.btn-gold { padding: 6px 9px; font-size: 0.72rem; }
+}
+
+/* ── Panel admin: menú lateral + acciones de jugador ── */
+.admin-shell {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.admin-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 172px;
+  position: sticky;
+  top: 76px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px;
+}
+
+.admin-side-item {
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.admin-side-item:hover { color: var(--gold-1); }
+
+/* Insignia roja del menú lateral: pendientes por atender */
+.admin-side-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--red-lose);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+/* Columna con ritmo vertical: los bloques sueltos (grillas de
+   tarjetas, avisos, banner de tasa) no se tocan entre sí */
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (max-width: 800px) {
+  /* En columna, el align-items: flex-start del escritorio haría que
+       .admin-content tome el ancho de su tabla más ancha (desbordando
+       la pantalla y cortando columnas): estirado, el contenido queda al
+       ancho del viewport y las tablas scrollean DENTRO de su wrap. */
+    .admin-shell { flex-direction: column; align-items: stretch; }
+
+  .admin-side {
+      position: static;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      width: 100%;
+      min-width: 0;
+      padding: 8px;
+    }
+
+  .admin-side-item { white-space: nowrap; padding: 7px 10px; }
+}
+
+/* Chip de jugador con menú de acciones */
+.pchip {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-primary);
+  padding: 3px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pchip:hover { border-color: var(--gold-1); color: var(--gold-1); }
+
+.pchip-caret { font-size: 0.65rem; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .tx-table .pchip {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: left;
+      border-radius: 14px;
+    }
+}
+
+/* Ficha del jugador desplegada DEBAJO de su fila (acordeón, sin
+   modal): grilla adaptable y acciones con wrap — nada desborda el
+   ancho disponible. */
+.pdetail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.pdetail-loading { font-size: 0.8rem; color: var(--text-muted); }
+
+.pdetail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px 14px;
+}
+
+.pdetail-item { font-size: 0.72rem; color: var(--text-muted); min-width: 0; }
+
+.pdetail-item span { display: block; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.pdetail-item strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdetail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ── Ficha del jugador en MODAL ──
+   Escritorio/tablet: tarjeta centrada de hasta 760 px que hace scroll
+   por dentro. Móvil: hoja casi a pantalla completa pegada abajo, más
+   cómoda para el pulgar. En ambos casos el fondo no se desplaza. */
+.pdetail-overlay {
+  padding: var(--space-md);
+  overflow-y: auto;
+}
+
+.pdetail-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pdetail-modal-close:hover {
+  color: var(--gold-1);
+  border-color: var(--gold-1);
+}
+
+/* ── Comprobante del pago en grande ──
+   Va por encima de la ficha del jugador (se abre desde dentro de ella)
+   y en móvil ocupa casi toda la pantalla. La imagen se ajusta al hueco
+   disponible y, al tocarla, pasa a tamaño real con scroll. */
+.proof-overlay {
+  padding: var(--space-md);
+  z-index: 1100;
+}
+
+.proof-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex: 0 0 auto;
+}
+
+.proof-modal-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proof-modal-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.proof-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-family: var(--font-ui);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.proof-modal-btn:hover {
+  color: var(--gold-1);
+  border-color: var(--gold-1);
+}
+
+.proof-modal-x {
+  width: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 0.95rem;
+}
+
+.proof-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  padding: 8px;
+}
+
+.proof-modal-body img {
+  max-width: 100%;
+  max-height: calc(92dvh - 108px);
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  cursor: zoom-in;
+}
+
+/* Doble clase a propósito: así gana también dentro del @media de
+   móvil, que vuelve a fijar el alto máximo de la imagen ajustada. */
+.proof-modal-body.proof-modal-zoom img {
+  max-width: none;
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.proof-modal-msg {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  padding: var(--space-lg);
+  text-align: center;
+}
+
+.proof-modal-hint {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 640px) {
+  .proof-overlay { padding: 0; }
+
+  .modal-card.proof-modal {
+      width: 100%;
+      max-width: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
+      border-radius: 0;
+    }
+
+  .proof-modal-body img { max-height: calc(100dvh - 108px); }
+}
+
+@media (max-width: 640px) {
+  .pdetail-overlay {
+      padding: 0;
+      align-items: flex-end;
+    }
+
+  .modal-card.pdetail-modal {
+      width: 100%;
+      max-width: 100%;
+      max-height: 92dvh;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: var(--space-md);
+      padding-top: 46px;
+      padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    }
+}
+
+/* Ícono ℹ️ de las tarjetas de estadística (explica el bloque) */
+.stat-card { position: relative; }
+
+.stat-info {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0.55;
+  padding: 2px;
+  line-height: 1;
+}
+
+.stat-info:hover { opacity: 1; }
+
+.stat-help {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  text-align: left;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.badge-blocked {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(185, 28, 28, 0.18);
+  color: var(--red-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.users-search {
+  max-width: 340px;
+  margin-bottom: var(--space-md);
+}
+
+.emails-export-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: var(--space-md);
+}
+
+.emails-export-btn {
+  padding: 10px 16px;
+}
+
+.emails-export-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.chat-input:focus { border-color: var(--border-gold); }
+
+.qr-field .chat-input { border-radius: 10px; }
+
+/* ── Etiquetas y notas internas del jugador ── */
+.ptags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.achat-tags .ptags { margin: 0; }
+
+.ptags-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ptags-title {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ptag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ptag-neutral { background: rgba(12, 46, 36,0.08); color: var(--text-secondary); }
+
+.ptag-gold    { background: rgba(180, 118, 6,0.16); color: var(--gold-1); }
+
+.ptag-green   { background: rgba(4, 120, 87,0.13); color: var(--green-win); }
+
+.ptag-red     { background: rgba(185, 28, 28,0.18); color: var(--red-mid); }
+
+.ptag-blue    { background: rgba(3, 105, 161,0.18); color: var(--green-mid); }
+
+.ptag-open { border-color: currentColor; }
+
+.ptag-add {
+  background: none;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.ptag-add:hover { border-color: var(--gold-1); color: var(--gold-1); }
+
+/* Notas completas bajo los chips (solo en la ficha, no en el chat) */
+.ptags-notes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.ptags-notes strong { color: var(--text-primary); }
+
+.ptags-warning { font-size: 0.74rem; color: var(--red-mid); }
+
+.ptags-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface-2);
+  max-width: 420px;
+}
+
+.ptags-note-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.ptags-note-input:focus { border-color: var(--border-gold); }
+
+.ptags-colors { display: flex; gap: 6px; }
+
+.ptag-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ptag-dot-on { border-color: var(--text-primary); }
+
+.ptags-suggest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ptags-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.achat-conv-tags .ptag { cursor: inherit; }
+
+/* ══ Panel admin: historial del jugador, tops y equipo ══ */
+
+/* Historial dentro de la ficha del jugador */
+.phistory {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+}
+
+.phistory-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.phistory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.phistory-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface-2);
+  font-size: 0.8rem;
+}
+
+.phistory-date { color: var(--text-muted); white-space: nowrap; }
+
+.phistory-empty { color: var(--text-muted); font-size: 0.85rem; padding: 4px 2px; }
+
+/* Paginador del historial de partidas: se queda pegado arriba mientras
+   la página de jugadas corre por debajo. */
+.phistory-pager {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+}
+
+.phistory-pager-info {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-align: center;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Paginador de las tablas de Transacciones (compras y retiros) */
+.tx-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.tx-pager-info { text-align: center; }
+
+/* Sumatoria de los ajustes manuales: se queda arriba mientras la
+   lista de movimientos corre por debajo */
+.phistory-total {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  justify-content: space-between;
+  background: var(--bg-surface-2);
+  font-weight: 600;
+}
+
+/* Cuadre de los pagos cortos: lo primero que se ve al abrir la ficha
+   cuando el jugador pagó de menos alguna recarga */
+.comp-aviso {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-left-width: 4px;
+  border-radius: 10px;
+  background: var(--bg-surface-2);
+  font-size: 0.82rem;
+}
+
+.comp-titulo { margin: 0; font-weight: 700; }
+
+.comp-debe .comp-titulo { color: var(--red-lose); }
+
+.comp-ok .comp-titulo { color: var(--green-win); }
+
+.comp-cuentas { margin: 3px 0 0; color: var(--text-muted); }
+
+.comp-pistas { margin: 3px 0 0; color: var(--text-muted); font-style: italic; opacity: 0.85; }
+
+.comp-chip {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pdetail-nota { font-style: normal; font-weight: 400; color: var(--text-muted); font-size: 0.78rem; }
+
+.phistory-quien { color: var(--text-muted); }
+
+.phistory-quien em { font-style: normal; opacity: 0.75; }
+
+.phistory-motivo {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Tops de Interacciones */
+.top-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.top-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface-2);
+  padding: 12px 14px;
+}
+
+.top-title { font-weight: 700; margin-bottom: 8px; font-size: 0.9rem; }
+
+.top-empty { color: var(--text-muted); font-size: 0.82rem; }
+
+.top-list {
+  list-style: none;
+  counter-reset: top;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.top-list li {
+  counter-increment: top;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.84rem;
+}
+
+.top-list li::before {
+  content: counter(top) '.';
+  color: var(--text-muted);
+  min-width: 1.2em;
+}
+
+.top-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-value { font-weight: 700; color: var(--gold-1); white-space: nowrap; }
+
+/* Equipo del panel */
+.staff-ok {
+  border: 1px solid rgba(4, 120, 87, 0.4);
+  background: rgba(4, 120, 87, 0.12);
+  color: var(--green-win);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+}
+
+.staff-form {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-surface-2);
+  padding: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.staff-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.staff-form .chat-input { border-radius: 10px; }
+
+.staff-areas-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+
+.staff-areas-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+.staff-area-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.staff-area-check input { accent-color: var(--gold-1); }
+
+.staff-create { align-self: flex-start; }
+
+/* Estado en vivo de la validación bancaria (Transacciones) */
+.bank-note { color: var(--green-mid); }
+
+/* Tasa BCV del día en Transacciones (panel de administrador):
+   la tasa se lee EN GRANDE, con los equivalentes debajo */
+.admin-rate-banner {
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(180, 118, 6, 0.35);
+  border-radius: 10px;
+  padding: 12px 18px;
+  /* separación: la pone el gap de .admin-content */
+  color: var(--text-secondary);
+}
+
+.admin-rate-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.admin-rate-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--gold-2);
+}
+
+.admin-rate-value span {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-rate-sub {
+  font-size: 0.85rem;
+}
+
+.admin-rate-sub strong { color: var(--gold-2); }
+
+/* Texto secundario pequeño dentro de una celda del panel */
+.admin-subtext {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* Transacciones: tablas de 3 columnas SIN scroll horizontal — cada
+   celda apila sus datos y el texto envuelve en vez de ensanchar.
+   (overflow-wrap: anywhere y no word-break: los correos/referencias
+   largos también dejan de contar como ancho mínimo de la columna,
+   que es lo que ensanchaba la tabla más allá de la pantalla.) */
+.tx-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.tx-table td.admin-cell-actions,
+.tx-table th.admin-th-actions {
+  position: static;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tx-table .admin-actions {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 96px;
+}
+
+@media (max-width: 900px) {
+  .tx-table,
+    .tx-table tbody,
+    .tx-table tbody tr,
+    .tx-table tbody td {
+      display: block;
+      width: 100%;
+    }
+
+  .tx-table thead { display: none; }
+
+  .tx-table tbody tr {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-2);
+      margin-bottom: 10px;
+      padding: 4px 0;
+    }
+
+  .tx-table tbody td {
+      border-bottom: none;
+      padding: 7px 12px;
+    }
+
+  /* Separador suave entre los bloques de la tarjeta (datos · estado ·
+       acciones), en vez de columnas apretadas */
+    .tx-table tbody td:not(:first-child) {
+      border-top: 1px dashed var(--border-subtle);
+      margin-top: 2px;
+    }
+
+  /* Ya hay ancho de sobra: los botones vuelven a fila */
+    .tx-table .admin-actions {
+      flex-direction: row;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+  /* La referencia no se parte a la mitad: es un dato que se copia */
+    .tx-table .tx-ref strong { overflow-wrap: normal; }
+}
+
+.tx-amount {
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* Referencia del pago SIEMPRE visible y copiable (sin abrir la foto) */
+.tx-ref {
+  margin-top: 3px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.tx-ref strong {
+  color: var(--gold-2);
+  font-size: 1.02rem;
+  letter-spacing: 0.04em;
+  user-select: all;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtítulo de bloque dentro de una sección del panel */
+.admin-sub-title {
+  font-size: 0.95rem;
+  margin: var(--space-md) 0 var(--space-sm);
+  color: var(--text-secondary);
+}
+
+/* Audiencia (Usuarios e Interacción): tabla compacta + calendario.
+   Columna con gap: el calendario, la tabla y la nota explicativa
+   respiran entre sí en vez de tocarse. */
+.admin-aud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.admin-aud-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.admin-aud-head .admin-sub-title {
+  margin: 0;
+  margin-right: auto;
+}
+
+.admin-cal-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.admin-cal-input {
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(12, 46, 36, 0.15);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+
+.admin-aud-table td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-day-result {
+  margin: 0; /* separación: la pone el gap de .admin-aud */
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.admin-day-result strong {
+  color: var(--gold-2);
+  font-size: 1.05rem;
+}
+
+/* Etiquetas de estado del jugador (Usuarios e Interacción) */
+.ptags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.ptag {
+  font-size: 0.68rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(12, 46, 36, 0.14);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ptag-playing {
+  border-color: rgba(4, 120, 87, 0.5);
+  color: var(--green-win);
+}
+
+.ptag-buy {
+  border-color: rgba(180, 118, 6, 0.45);
+  color: var(--gold-2);
+}
+
+@media (max-width: 640px) {
+  .ptag { white-space: normal; }
+}
+
+/* ── Pestaña Referidos del panel ── */
+/* Mensaje de "todavía nada" */
+.admin-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 0.9rem;
+}
+
+/* El nombre del referidor: botón que despliega su lista de referidos */
+.ref-toggle {
+  background: none;
+  border: none;
+  color: var(--gold-2);
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.ref-toggle:hover { text-decoration: underline; }
+
+.ref-caret {
+  display: inline-block;
+  width: 0.9em;
+  color: var(--text-muted);
+}
+
+/* La fila desplegable con la subtabla de referidos */
+.ref-detalle-row > td {
+  background: var(--bg-surface-2);
+  padding: 6px 8px;
+}
+
+.admin-subtable {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.admin-subtable th {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ── Tablero superior de Referidos (hoy / semana / gráfica) ── */
+.ref-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ref-kpi {
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(12, 46, 36, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.ref-kpi-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.ref-kpi-num {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--gold-2);
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.ref-kpi-de {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.ref-kpi-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ref-weekrows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(12, 46, 36, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.ref-weekrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-surface-2);
+  font-size: 0.9rem;
+}
+
+.ref-weekrow-r {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ref-weekrow-r strong {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+.ref-delta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ref-delta-up { color: var(--green-win); }
+
+.ref-delta-down { color: var(--red-lose); }
+
+.ref-mini { margin: 0 0 14px; }
+
+.ref-mini strong { color: var(--gold-2); }
+
+.ref-chart-card {
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(12, 46, 36, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px 8px;
+  margin-bottom: 16px;
+}
+
+.ref-chart-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+
+.ref-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  height: 130px;
+}
+
+.ref-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 4px;
+}
+
+.ref-bar-val {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.ref-bar {
+  width: 100%;
+  max-width: 34px;
+  min-height: 3px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(180deg, var(--gold-2), var(--gold-3));
+}
+
+.ref-bar-day {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================
+   MÉTRICA HISTÓRICA (recurrencia + RTP)
+   ============================================ */
+
+/* Las fechas en que jugó un usuario, en pastillas pequeñas: con 30 o
+   40 días la celda envuelve en varias líneas en vez de ensanchar la
+   tabla (en móvil la fila ya es una tarjeta a ancho completo). */
+.ret-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 3px;
+}
+
+.ret-chip {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(180, 118, 6, 0.1);
+  border: 1px solid rgba(180, 118, 6, 0.28);
+  color: var(--gold-2);
+  white-space: nowrap;
+}
+
+/* El calendario de días crece uno por día: se le pone techo y scrolla
+   dentro de su caja en vez de estirar la página. */
+.ret-scroll {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+/* Etiquetas del patrón de juego. Van DESPUÉS de la base .ptag (misma
+   especificidad, gana la última) para que el color no se pierda. */
+.ret-tag-seguidos {
+  background: rgba(4, 120, 87, 0.12);
+  border-color: rgba(4, 120, 87, 0.5);
+  color: var(--green-win);
+}
+
+.ret-tag-saltos {
+  background: rgba(3, 105, 161, 0.14);
+  border-color: rgba(3, 105, 161, 0.45);
+  color: var(--green-mid);
+}
+
+.ret-tag-abandono {
+  background: rgba(185, 28, 28, 0.16);
+  border-color: rgba(185, 28, 28, 0.45);
+  color: var(--red-lose);
+}
+
+/* ── Semáforo de la validación automática (diario del cron) ──
+   Va al final del archivo a propósito: así gana al borde dorado de
+   .admin-rate-banner sin pelear con la especificidad. */
+.admin-rate-banner.salud-ok {
+  border-color: rgba(4, 120, 87, 0.35);
+}
+
+.admin-rate-banner.salud-ojo {
+  border-color: rgba(180, 118, 6, 0.55);
+}
+
+.admin-rate-banner.salud-mal {
+  border-color: rgba(185, 28, 28, 0.65);
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.admin-rate-banner.salud-mal .admin-rate-value {
+  color: var(--red-mid);
+}
+
+/* ── Corregir los datos de un jugador (ficha del panel) ──
+   El formulario va cerrado por defecto: la ficha se abre sobre todo
+   para mirar, y tener siempre a la vista los campos con los que se le
+   paga a alguien invita a tocarlos sin querer. */
+.pdetail-editar { margin-top: 10px; }
+
+.pedit {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--gold-dim, rgba(180, 118, 6, 0.35));
+  border-radius: 10px;
+  background: rgba(12, 46, 36, 0.10);
+}
+
+.pedit-aviso {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.pedit-titulo {
+  margin: 14px 0 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+}
+
+.pedit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 12px;
+}
+
+.pedit-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Un campo que ocupa la fila entera (el correo es largo) */
+.pedit-grid .pedit-ancho { grid-column: 1 / -1; }
+
+.pedit-nota { text-transform: none; letter-spacing: 0; opacity: 0.75; }
+
+.pedit-grid input,
+.pedit-grid select {
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(12, 46, 36, 0.14);
+  border-radius: 7px;
+  background: rgba(12, 46, 36, 0.14);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.pedit-grid input:focus,
+.pedit-grid select:focus {
+  outline: none;
+  border-color: var(--gold, var(--gold-3));
+}
+
+.pedit-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* Tickets que puso o quitó el equipo, dentro de la lista de recargas */
+.status-mano {
+  background: rgba(180, 118, 6, 0.14);
+  color: var(--gold-1);
+  border: 1px solid rgba(180, 118, 6, 0.35);
+}
+
+.phistory-mano { border-left: 3px solid var(--gold-3); }
+
+/* ── Caja: los 30 días, un renglón por día ──
+   Pensado primero para el teléfono, que es donde se mira: cada día es
+   una tarjeta con la fecha a la izquierda y sus cuatro cifras al lado,
+   envolviendo cuando no caben. */
+.caja-total {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm);
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--gold-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+}
+
+.caja-total.caja-pos { border-left-color: var(--green-win); }
+
+.caja-total.caja-neg { border-left-color: var(--red-lose); }
+
+.caja-total-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.caja-total-item span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.caja-total-item strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+.caja-pendiente { margin-top: -4px; }
+
+.caja-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.caja-dia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+}
+
+.caja-dia.caja-pos { border-left-color: var(--green-win); }
+
+.caja-dia.caja-neg { border-left-color: var(--red-lose); }
+
+.caja-dia.caja-vacio { opacity: 0.55; }
+
+.caja-fecha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 44px;
+  line-height: 1.1;
+}
+
+.caja-fecha strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+
+.caja-fecha span {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.caja-campo { display: flex; flex-direction: column; gap: 1px; min-width: 84px; }
+
+.caja-campo span { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; }
+
+.caja-campo strong { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+
+.caja-campo em { font-size: 0.62rem; font-style: normal; color: var(--text-muted); opacity: 0.8; }
+
+.caja-campo-ganancia { margin-left: auto; text-align: right; }
+
+.caja-campo-ganancia strong { display: flex; flex-direction: column; align-items: flex-end; }
+
+.caja-pct { font-size: 0.78rem; font-style: normal; color: inherit; opacity: 0.9; }
+
+@media (max-width: 520px) {
+  .caja-total { grid-template-columns: repeat(2, 1fr); }
+
+  .caja-campo { min-width: 72px; flex: 1; }
+}
+
+/* Referencia invalidada, señalada en la propia lista de transacciones */
+.tx-bloqueada {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-xl);
+  background: rgba(185, 28, 28, 0.16);
+  border: 1px solid rgba(185, 28, 28, 0.4);
+  color: var(--red-lose);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .modal-overlay {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background: rgba(12, 46, 36, 0.35);
+    }
+}
+
