@@ -199,21 +199,26 @@ export const COL = {
   cartonDorado: 0xffd60a,
   // Carretilla.
   //
-  // Era NARANJA, y ese era medio problema: naranja son también los conos de
-  // obra y el chaleco del ciudadano. El destino de la partida competía en
-  // color con un obstáculo y con el propio jugador. Ahora es FUCSIA, que no lo
-  // usa nada más en la escena: sobre el asfalto gris no hay forma de
-  // confundirla, y el halo amarillo que se enciende al cargar una bolsa
-  // contrasta con ella en vez de fundirse.
+  // Empezó NARANJA, y eso era medio problema: naranja son también los conos de
+  // obra y el chaleco del ciudadano, así que el destino de la partida competía
+  // en color con un obstáculo y con el propio jugador. Pasó por fucsia, que
+  // resolvía la confusión pero no pegaba con una herramienta de obra.
+  //
+  // Ahora es ROJO BERMELLÓN, que es de hecho el color de media carretilla de
+  // verdad. Es puro, sin el amarillo del naranja, así que no se confunde ni
+  // con los conos ni con el chaleco; y es bastante más oscuro y saturado que
+  // la teja de los tejados, que además queda lejos, fuera de la calzada.
+  // Sobre el asfalto gris no hay forma de perderla, y el halo amarillo que se
+  // enciende al cargar una bolsa contrasta con ella en vez de fundirse.
   //
   // La otra mitad son los CONTRASTES internos: el fondo en sombra contra el
   // labio claro del borde (es lo que dibuja el contorno desde arriba) y el
   // caucho negro de la rueda y los puños contra el metal del bastidor.
   metal: 0xd8e0e8,
   metalOscuro: 0x97a2b0,
-  tolva: 0xff2f8f,
-  tolvaOscura: 0x9c1257,
-  tolvaBorde: 0xffb3d8,
+  tolva: 0xd6202f,
+  tolvaOscura: 0x7d0e1b,
+  tolvaBorde: 0xff6f5e,
   neumatico: 0x25272e,
   llanta: 0xe9eef4,
   puno: 0x2b3a57,
