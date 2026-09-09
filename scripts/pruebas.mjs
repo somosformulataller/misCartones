@@ -30,7 +30,7 @@ const require = createRequire(import.meta.url);
 const salida = path.join(raiz, '.pruebas-build', 'lib', 'game');
 const { drawPayoutTier, drawSessionTier, drawWorldSeed } = require(path.join(salida, 'rng.js'));
 const { bagSplit } = require(path.join(salida, 'bagSplit.js'));
-const { buildWorld, PLAY, CITIZEN_RADIUS, BAG_RADIUS } = require(path.join(salida, 'world.js'));
+const { buildWorld, PLAY, CITIZEN_RADIUS, BAG_RADIUS, CART_RADIUS } = require(path.join(salida, 'world.js'));
 const { PAYOUT_TABLE, TOTAL_BAGS } = require(path.join(salida, 'constants.js'));
 
 let fallos = 0;
@@ -499,6 +499,23 @@ console.log('\n6. La escena en 3D');
     `dibujado ${(tam.x / 2).toFixed(2)}, colisiona ${(CITIZEN_RADIUS / 40).toFixed(2)}`
   );
   ok(tam.y > 2.1, 'El ciudadano es lo bastante grande para leerse desde la cámara');
+
+  // La carretilla es el DESTINO: la entrega salta al entrar en CART_RADIUS, así
+  // que si se dibujara más pequeña que ese radio la bolsa se depositaría sola
+  // antes de llegar, y si se dibujara más grande el ciudadano se metería
+  // DENTRO de la carretilla antes de que pasara nada.
+  //
+  // Se mide la malla del chasis, no el grupo: el grupo lleva además la sombra
+  // y el aura, que son manchas en el suelo y desbordan a propósito.
+  const tolva = carretilla.grupo.children.find((c) => c.isMesh && c.geometry.attributes.color);
+  caja.setFromObject(tolva).getSize(tam);
+  const radioCarretilla = Math.max(tam.x, tam.z) / 2;
+  console.log(`     Carretilla: ${radioCarretilla.toFixed(2)} de radio`);
+  ok(
+    Math.abs(radioCarretilla - CART_RADIUS / 40) < 0.2,
+    'La carretilla se dibuja del tamaño con el que se entrega',
+    `dibujada ${radioCarretilla.toFixed(2)}, entrega a ${(CART_RADIUS / 40).toFixed(2)}`
+  );
 
   // ── Nada tapa la zona de juego ──
   // La cámara mira desde arriba: cualquier cosa que asome sobre la calzada

@@ -34,16 +34,16 @@ export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 // si la bolsa se dibujara más grande que el suyo, se recogería "desde lejos".
 export const CITIZEN_RADIUS = 34;
 export const BAG_RADIUS = 36;
-export const CART_RADIUS = 76;
+export const CART_RADIUS = 100;
 
 // La separación mínima entre bolsas y la holgura con los obstáculos suben con
 // el radio de la bolsa: con bolsas de 36 y una separación de 90 quedarían a
 // 18 px de distancia entre bordes, prácticamente pegadas.
 const MIN_BAG_GAP = 108;
 // Y la distancia mínima a la carretilla sube con CART_RADIUS: con una tolva de
-// 76 y una bolsa de 36, a 150 la bolsa saldría PEGADA a la carretilla y el
-// viaje duraría cero.
-const MIN_CART_DIST = 172;
+// 100 y una bolsa de 36, cualquier valor por debajo de 136 pondría la bolsa
+// DENTRO de la carretilla y el viaje duraría cero pasos.
+const MIN_CART_DIST = 205;
 const MAX_CART_DIST = 620;
 /** Holgura entre una bolsa y cualquier obstáculo */
 const BAG_CLEARANCE = 46;
@@ -201,10 +201,16 @@ function intento(seed: number): World | null {
   const sectors = sectorRects();
   const centro = sectors[4];
 
-  // Carretilla: en la celda central, con holgura para su propio tamaño.
+  // Carretilla: en la celda central. Ya no cabe con su radio entero de margen
+  // (la celda mide 205 de ancho y el radio es 100), y tampoco hace falta: la
+  // celda central está a una celda entera de cualquier borde de la calzada,
+  // así que la tolva puede asomar a las celdas vecinas sin pisar la acera. Lo
+  // que sí hace falta es que quede MARGEN DE SORTEO, o la carretilla saldría
+  // clavada en el mismo punto en todas las partidas.
+  const margen = (medida: number) => Math.min(CART_RADIUS, medida * 0.28);
   const cart = {
-    x: centro.x + CART_RADIUS + rnd() * (centro.w - CART_RADIUS * 2),
-    y: centro.y + CART_RADIUS + rnd() * (centro.h - CART_RADIUS * 2),
+    x: centro.x + margen(centro.w) + rnd() * (centro.w - margen(centro.w) * 2),
+    y: centro.y + margen(centro.h) + rnd() * (centro.h - margen(centro.h) * 2),
   };
 
   // Cinco de las ocho celdas de alrededor, barajadas.
