@@ -302,8 +302,8 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     // valores fijos que quedaran bien en el móvil emborronarían media zona de
     // juego en el escritorio.
     const lejos = distanciaMaximaAlTerreno(camera);
-    niebla.near = lejos * 1.04;
-    niebla.far = lejos * 1.55;
+    niebla.near = lejos * 1.14;
+    niebla.far = lejos * 1.85;
 
     calcularDestinoHud();
   }

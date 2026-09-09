@@ -709,6 +709,30 @@ console.log('\n6. La escena en 3D');
       ` ${quemados.length} de ${GRANDES.length} superficies grandes se queman`
   );
   ok(luzTotal <= 1.45, 'La luz total no pasa del techo a partir del cual la escena se lava', `${luzTotal.toFixed(2)}`);
+
+  // La saturación de la paleta. Es donde vive el color de esta escena: con la
+  // luz por debajo de 1,45 y sin mapeo de tonos, lo vivo NO se consigue
+  // subiendo las luces (eso lava) sino saturando los materiales. La trampa es
+  // que cada retirada puntual para que algo no se recorte baja la media sin
+  // que se note, y a los diez arreglos la calle está gris otra vez.
+  //
+  // Se mide sobre las superficies grandes y las fachadas, que son las que
+  // mandan en la impresión general; los grises de estructura (asfalto, acera,
+  // suelo) quedan fuera porque son gris a propósito.
+  const VIVOS = [
+    'paredA', 'paredB', 'paredC', 'paredD', 'tejaA', 'tejaB', 'copa', 'copaClara',
+    'cono', 'chaleco', 'camisa', 'pantalon', 'lazo', 'carton', 'cartonDorado',
+    'tolva', 'botellaVerde', 'botellaAmbar', 'botellaAzul', 'lataRoja', 'brikNaranja',
+  ];
+  const satDe = (hex) => {
+    const c = new THREE.Color(hex).getHSL({});
+    return c.s;
+  };
+  const satMedia = VIVOS.reduce((t, n) => t + satDe(esc.COL[n]), 0) / VIVOS.length;
+  const apagados = VIVOS.filter((n) => satDe(esc.COL[n]) < 0.7);
+  console.log(`     Saturación de los colores vivos: ${(satMedia * 100).toFixed(0)} % de media`);
+  ok(satMedia > 0.85, 'La paleta viva se mantiene saturada', `${(satMedia * 100).toFixed(0)} %`);
+  ok(apagados.length === 0, 'Ningún color vivo se ha quedado por debajo del 70 % de saturación', `${apagados.join(', ')}`);
   ok(GRANDES.every((n) => esc.COL[n] !== undefined), 'La lista de superficies grandes sigue existiendo en la paleta');
   ok(
     quemados.length === 0,

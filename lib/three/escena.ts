@@ -108,108 +108,121 @@ const ESCALA_CARRETILLA = 1.62;
 
 /**
  * Paleta ANIME. Los colores están deliberadamente sobresaturados respecto a lo
- * que sería "realista": con la iluminación por debajo de 1 (ver las luces en
- * game.ts) el material se ve casi tal cual, así que la saturación tiene que
- * venir de aquí. Subirla con las luces en vez de con la paleta hace lo
- * contrario de lo que parece: lava los colores hacia el blanco.
+ * que sería "realista": sin mapeo de tonos y con la luz apenas por encima de
+ * 1 (ver LUZ, arriba) el material se ve casi tal cual, así que la saturación
+ * tiene que venir de AQUÍ. Subirla con las luces en vez de con la paleta hace
+ * lo contrario de lo que parece: lava los colores hacia el blanco.
+ *
+ * Toda la paleta pasó por una subida de saturación del 42 % con un tope: las
+ * SUPERFICIES GRANDES (asfalto, aceras, bordillo, fachadas, tejados, azoteas)
+ * se frenan antes de recortarse sobre el asfalto, porque son las que ocupan la
+ * pantalla y quemarlas es lo que desluce una escena entera. Los demás sí
+ * pueden recortarse: un blanco que se recorta sigue siendo blanco, y un rojo
+ * saturado tiene un canal en el tope por definición. Retirarles brillo "para
+ * que no se quemen" es exactamente lo que los deja apagados.
+ *
+ * Ojo con las retiradas puntuales. Cada vez que un color se baja un peldaño
+ * para que algo no se recorte, la media de saturación cae sin que se note, y a
+ * los diez arreglos la calle está gris otra vez. Por eso hay una prueba que
+ * mide esa media y no la deja bajar del 85 %.
  */
 export const COL = {
   // Calle
-  asfalto: 0x767c8b,
-  asfaltoClaro: 0x8b91a0,
-  asfaltoOscuro: 0x5e6472,
-  rodada: 0x5a606d,
-  linea: 0xf4f6fa,
-  acera: 0xcfc9bb,
-  aceraOscura: 0xb0a99a,
-  bordillo: 0xe6e0d2,
-  suelo: 0x9aa1ad,
+  asfalto: 0x727a8f,
+  asfaltoClaro: 0x878fa4,
+  asfaltoOscuro: 0x5a6276,
+  rodada: 0x565f71,
+  linea: 0xf3f6fb,
+  acera: 0xd3cbb7,
+  aceraOscura: 0xb5ab95,
+  bordillo: 0xe8dfcc,
+  suelo: 0x96a0b1,
   // Casas: el color de la escena vive aquí. Un barrio se lee por sus fachadas.
   // Las dos fachadas más claras bajan un peldaño al subir la luz: a 0xf5a23c y
   // 0xf2d84e su canal rojo se recortaba sobre el asfalto y las dos se iban
   // hacia el amarillo blanquecino. Es la misma retirada que la de paredE, y es
   // lo que hay que hacer siempre que sube la exposición: no dejar que la luz
   // decida el color, decidirlo en la paleta.
-  paredA: 0xe59637,
-  paredB: 0xe4cb44,
-  paredC: 0xe0654a,
-  paredD: 0x63c9dd,
+  paredA: 0xe78a1a,
+  paredB: 0xe7c825,
+  paredC: 0xe74927,
+  paredD: 0x44cbe6,
   // Bajada al subir la luz: a 0xf2efe2 esta fachada se recortaba a blanco puro
   // sobre el asfalto y perdía su tono crema. Cuando sube la exposición hay que
   // retirar las pinturas casi blancas, no dejarlas quemarse.
-  paredE: 0xe4dfd0,
-  tejaA: 0xd8543a,
-  tejaB: 0xb8452f,
-  tejaC: 0x8f97a6,
-  azotea: 0xb9b2a2,
-  ventana: 0xa9e2f7,
+  paredE: 0xe6dfca,
+  tejaA: 0xe63917,
+  tejaB: 0xd53112,
+  tejaC: 0x8a96ab,
+  azotea: 0xbeb49d,
+  ventana: 0xa1e6ff,
   // Vegetación
-  copa: 0x35c23f,
-  copaClara: 0x74e659,
-  tronco: 0x8f5a2a,
+  copa: 0x17e026,
+  copaClara: 0x65ff40,
+  tronco: 0xa45915,
   // Poste y cables
-  poste: 0x8d8074,
-  cable: 0x33363f,
+  poste: 0x92806f,
+  cable: 0x303542,
   // Basura suelta: los puntos de color sobre el gris del asfalto. Estos tonos
   // van a la INSTANCIA y multiplican al multiplicador de brillo guardado en el
   // vértice, así que son prácticamente el color final: conviene que sean
   // saturados, porque cada pieza ocupa pocos píxeles y el color es casi toda
   // la información que llega.
   papel: 0xffffff,
-  papelCrema: 0xf0dfae,
-  cartonSuelto: 0xd99b52,
-  botellaVerde: 0x2fd46f,
-  botellaAmbar: 0xd98a2b,
+  papelCrema: 0xfee6a0,
+  cartonSuelto: 0xf59d36,
+  botellaVerde: 0x0cf767,
+  botellaAmbar: 0xfe8d06,
   botellaAzul: 0x4fb8ff,
-  botellaRoja: 0xf0402f,
-  botellaClara: 0xdff3f7,
+  botellaRoja: 0xff3420,
+  botellaClara: 0xdaf6fc,
   lataRoja: 0xff3b30,
-  lataAzul: 0x2f6df0,
-  lataPlata: 0xdfe4ea,
+  lataAzul: 0x2068ff,
+  lataPlata: 0xdde4ec,
   brikNaranja: 0xff8a2b,
   brikAmarillo: 0xffd52e,
-  brikRojo: 0xe03a52,
-  brikVerde: 0x46c94f,
-  plato: 0xfbfbf6,
-  platoCrema: 0xf3e6c8,
-  bandeja: 0xe8f0f5,
-  comidaTomate: 0xe8452f,
+  brikRojo: 0xff1b3c,
+  brikVerde: 0x2ae537,
+  plato: 0xfcfcf5,
+  platoCrema: 0xfceabf,
+  bandeja: 0xe5f1f8,
+  comidaTomate: 0xff3318,
   comidaMaiz: 0xffc53d,
-  comidaVerde: 0x74c93a,
-  comidaPan: 0xd9a45c,
-  comidaCarne: 0xa8552f,
+  comidaVerde: 0x6ee71c,
+  comidaPan: 0xf3a842,
+  comidaCarne: 0xc14c16,
   // Obstáculos de calle
-  escombro: 0xa8b0bc,
-  palet: 0xc8944e,
-  rueda: 0x2c2f36,
-  caja: 0xcf9a55,
+  escombro: 0xa4afc0,
+  palet: 0xe29834,
+  rueda: 0x2a2e38,
+  caja: 0xe99d3b,
   cono: 0xff6a10,
-  charco: 0x4a5768,
+  charco: 0x44566e,
   // Ciudadano
-  camisa: 0x1fb6f0,
+  camisa: 0x10bdff,
   chaleco: 0xff8a1f,
-  reflectante: 0xeef4f8,
-  pantalon: 0x2f4bc9,
+  reflectante: 0xecf4fa,
+  pantalon: 0x0f36e9,
   piel: 0xffc48f,
   // Pelo en dos tonos. Uno solo, a esta distancia y con caras planas, se lee
   // como un casco; el tono claro por encima da la dirección del peinado, que
   // es lo que lo convierte en pelo.
-  pelo: 0x3a2416,
-  peloClaro: 0x6b452a,
+  pelo: 0x42220e,
+  peloClaro: 0x79431c,
   // La cara. El ojo no es negro puro: a esta escala un negro absoluto sobre
   // piel clara vibra y se lee como un agujero.
-  ojo: 0x23293a,
+  ojo: 0x1e273f,
   brilloOjo: 0xffffff,
-  boca: 0xb56b52,
+  boca: 0xca613d,
   // Bolsa: negra como una bolsa de basura de verdad. Lo que impide que se
   // pierda sobre el asfalto gris no es su color, es el LAZO amarillo y el
   // halo que se enciende al acercarse.
   // Tres tonos, no uno: el plástico negro solo se lee como plástico si tiene
   // un degradado de la panza (en sombra) al hombro (a la luz) y un reflejo
   // duro arriba. Con un único negro la bolsa sale como una silueta plana.
-  bolsa: 0x22242b,
-  bolsaMedia: 0x3a3f4a,
-  bolsaClara: 0x6a7182,
+  bolsa: 0x20232d,
+  bolsaMedia: 0x373e4d,
+  bolsaClara: 0x656f87,
   lazo: 0xffe816,
   // Cartones
   carton: 0xffab33,
@@ -231,14 +244,14 @@ export const COL = {
   // La otra mitad son los CONTRASTES internos: el fondo en sombra contra el
   // labio claro del borde (es lo que dibuja el contorno desde arriba) y el
   // caucho negro de la rueda y los puños contra el metal del bastidor.
-  metal: 0xd8e0e8,
-  metalOscuro: 0x97a2b0,
-  tolva: 0xd6202f,
-  tolvaOscura: 0x7d0e1b,
+  metal: 0xd5e0eb,
+  metalOscuro: 0x92a1b5,
+  tolva: 0xf60014,
+  tolvaOscura: 0x8b0010,
   tolvaBorde: 0xff6f5e,
-  neumatico: 0x25272e,
-  llanta: 0xe9eef4,
-  puno: 0x2b3a57,
+  neumatico: 0x232630,
+  llanta: 0xe7eef6,
+  puno: 0x223760,
 } as const;
 
 /** Material low-poly: una sola luz por píxel y caras planas. Es lo más barato
