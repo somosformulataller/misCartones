@@ -32,7 +32,16 @@ export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 // ciudadano y las bolsas se modelan a este tamaño exacto. Si el muñeco se
 // dibujara más grande que su radio, atravesaría visiblemente los obstáculos;
 // si la bolsa se dibujara más grande que el suyo, se recogería "desde lejos".
-export const CITIZEN_RADIUS = 48;
+//
+// El ciudadano tiene TRES radios, y confundirlos fue un error real: al crecer
+// de 22 a 48 para que se le viera la cara, el mismo número que mide su ancho
+// dibujado se estaba usando también para apartarlo del bordillo, y le comía
+// 48 px de calle por cada lado. Se quedaba clavado a un palmo de la línea sin
+// motivo visible. Son tres cosas distintas y se miden por separado, cada una
+// sobre la parte del cuerpo que de verdad hace ese trabajo:
+export const CITIZEN_RADIUS = 48; // ancho DIBUJADO (brazos y cabeza incluidos)
+export const CITIZEN_BODY_RADIUS = 32; // el TORSO: lo que choca con las cosas
+export const CITIZEN_FEET_RADIUS = 26; // los PIES: lo único que pisa la calle
 export const BAG_RADIUS = 36;
 export const CART_RADIUS = 100;
 
@@ -125,7 +134,9 @@ function buildGrid(obstacles: WorldObstacle[]) {
   const blocked = new Uint8Array(cols * rows);
   for (const o of obstacles) {
     if (!o.solid) continue;
-    const pad = CITIZEN_RADIUS;
+    // El torso, no el ancho dibujado: los brazos pasan por encima de un palé
+    // sin engancharse, y contarlos aquí estrecharía los pasillos sin motivo.
+    const pad = CITIZEN_BODY_RADIUS;
     const x0 = Math.floor((o.x - pad - PLAY.x) / CELL);
     const x1 = Math.ceil((o.x + o.w + pad - PLAY.x) / CELL);
     const y0 = Math.floor((o.y - pad - PLAY.y) / CELL);

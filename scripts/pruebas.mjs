@@ -30,7 +30,8 @@ const require = createRequire(import.meta.url);
 const salida = path.join(raiz, '.pruebas-build', 'lib', 'game');
 const { drawPayoutTier, drawSessionTier, drawWorldSeed } = require(path.join(salida, 'rng.js'));
 const { bagSplit } = require(path.join(salida, 'bagSplit.js'));
-const { buildWorld, PLAY, CITIZEN_RADIUS, BAG_RADIUS, CART_RADIUS } = require(path.join(salida, 'world.js'));
+const { buildWorld, PLAY, CITIZEN_RADIUS, CITIZEN_BODY_RADIUS, CITIZEN_FEET_RADIUS, BAG_RADIUS, CART_RADIUS } =
+  require(path.join(salida, 'world.js'));
 const { PAYOUT_TABLE, TOTAL_BAGS } = require(path.join(salida, 'constants.js'));
 
 let fallos = 0;
@@ -198,7 +199,7 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
         for (let gx = 0; gx < cols; gx++) {
           const cx = PLAY.x + gx * CELL + CELL / 2;
           const cy = PLAY.y + gy * CELL + CELL / 2;
-          if (distRect(cx, cy, o) < CITIZEN_RADIUS) bloq[gy * cols + gx] = 1;
+          if (distRect(cx, cy, o) < CITIZEN_BODY_RADIUS) bloq[gy * cols + gx] = 1;
         }
       }
     }
@@ -531,6 +532,24 @@ console.log('\n6. La escena en 3D');
     `dibujado ${(tam.x / 2).toFixed(2)}, colisiona ${(CITIZEN_RADIUS / 40).toFixed(2)}`
   );
   ok(tam.y > 2.1, 'El ciudadano es lo bastante grande para leerse desde la cámara');
+
+  // Los tres radios del ciudadano tienen que estar ORDENADOS, y el de los pies
+  // tiene que dejar la calle casi entera. Cuando el muñeco creció para que se
+  // le viera la cara, su ancho dibujado se estaba usando también para apartarlo
+  // del bordillo: se quedaba clavado a un palmo de la línea, con 48 px de calle
+  // comidos por cada lado. Aquí eso ya no puede volver a pasar en silencio.
+  const anchoAndable = (PLAY.w - 2 * CITIZEN_FEET_RADIUS) / PLAY.w;
+  const largoAndable = (PLAY.h - 2 * CITIZEN_FEET_RADIUS) / PLAY.h;
+  console.log(
+    `     Radios del ciudadano: pies ${CITIZEN_FEET_RADIUS}, torso ${CITIZEN_BODY_RADIUS}, dibujado ${CITIZEN_RADIUS}` +
+      ` -- se anda el ${(anchoAndable * 100).toFixed(0)} % del ancho de la calle y el ${(largoAndable * 100).toFixed(0)} % del largo`
+  );
+  ok(
+    CITIZEN_FEET_RADIUS < CITIZEN_BODY_RADIUS && CITIZEN_BODY_RADIUS < CITIZEN_RADIUS,
+    'Los pies frenan menos que el torso, y el torso menos que el ancho dibujado'
+  );
+  ok(anchoAndable > 0.9, 'La calle andable conserva más del 90 % de su ancho', `${(anchoAndable * 100).toFixed(0)} %`);
+  ok(largoAndable > 0.94, 'La calle andable conserva más del 94 % de su largo', `${(largoAndable * 100).toFixed(0)} %`);
 
   // ¿Se le ve la CARA? Eso no lo decide el tamaño del muñeco sino el de su
   // cabeza, y en último término cuántos PÍXELES ocupa esa cabeza en el peor

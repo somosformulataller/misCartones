@@ -32,6 +32,8 @@ import {
   buildWorld,
   mulberry32,
   CITIZEN_RADIUS,
+  CITIZEN_BODY_RADIUS,
+  CITIZEN_FEET_RADIUS,
   BAG_RADIUS,
   CART_RADIUS,
   PLAY,
@@ -254,13 +256,13 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   }
   function chocaSolido(x: number, y: number): boolean {
     for (const o of world.obstacles) {
-      if (o.solid && circuloVsRect(x, y, CITIZEN_RADIUS, o)) return true;
+      if (o.solid && circuloVsRect(x, y, CITIZEN_BODY_RADIUS, o)) return true;
     }
     return false;
   }
   function enCharco(x: number, y: number): boolean {
     for (const o of world.obstacles) {
-      if (!o.solid && circuloVsRect(x, y, CITIZEN_RADIUS * 0.6, o)) return true;
+      if (!o.solid && circuloVsRect(x, y, CITIZEN_BODY_RADIUS * 0.6, o)) return true;
     }
     return false;
   }
@@ -526,8 +528,11 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       chocó = true;
     }
 
-    sim.x = Math.max(PLAY.x + CITIZEN_RADIUS, Math.min(PLAY.x + PLAY.w - CITIZEN_RADIUS, sim.x));
-    sim.y = Math.max(PLAY.y + CITIZEN_RADIUS, Math.min(PLAY.y + PLAY.h - CITIZEN_RADIUS, sim.y));
+    // El bordillo se frena con los PIES, no con el ancho dibujado. Nadie anda
+    // por la calle dejando medio metro de aire hasta la acera: se camina hasta
+    // pisar el filo, y los hombros vuelan por encima sin que pase nada.
+    sim.x = Math.max(PLAY.x + CITIZEN_FEET_RADIUS, Math.min(PLAY.x + PLAY.w - CITIZEN_FEET_RADIUS, sim.x));
+    sim.y = Math.max(PLAY.y + CITIZEN_FEET_RADIUS, Math.min(PLAY.y + PLAY.h - CITIZEN_FEET_RADIUS, sim.y));
 
     // Tropiezo: solo cargando y con velocidad. NO se pierde ni dinero ni la
     // bolsa: se pierde TIEMPO.
