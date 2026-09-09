@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/pruebas.mjs"
+    "test": "node scripts/pruebas.mjs",
+    "verificar:supabase": "node scripts/verificar-supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",
