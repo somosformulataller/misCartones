@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import GameCanvas from '@/components/game/GameCanvas';
 import Hud from '@/components/game/Hud';
+import { usePlayer } from '@/components/providers/PlayerProvider';
 import { createDemoRun } from '@/lib/game/demo';
+import { onGameStart, setGameActive } from '@/lib/game/startSignal';
 import { TOTAL_BAGS } from '@/lib/game/constants';
 import type { ResultadoEntrega } from '@/lib/three/game';
 import type { DepositBagResponse, StartRunResponse } from '@/types/game';
@@ -13,6 +15,7 @@ type Estado = 'idle' | 'cargando' | 'jugando' | 'fin';
 
 export default function JuegoPage() {
   const router = useRouter();
+  const { player, isLoading, refresh } = usePlayer();
   const [estado, setEstado] = useState<Estado>('idle');
   const [seed, setSeed] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -59,30 +62,26 @@ export default function JuegoPage() {
       return;
     }
 
-    // Partida LOCAL con el mismo RNG y el mismo reparto que usa el servidor.
-    // Ver lib/game/demo.ts. Se cae aquí por tres motivos distintos:
+    // Sin sesión → a iniciarla. Durante un tiempo esto caía a partida demo,
+    // porque no había pantalla de registro y era eso o dejar el botón muerto.
+    // Ya la hay, así que el apaño se va: meter a alguien con la sesión
+    // caducada en una demo, sin decírselo, sería mucho peor que mandarlo a
+    // entrar de nuevo — creería estar jugando por dinero y no lo estaría.
+    if (status === 401 || data?.code === 'SIN_SESION') {
+      router.push('/auth/login');
+      return;
+    }
+
+    // Partida LOCAL con el mismo RNG y el mismo reparto que usa el servidor
+    // (ver lib/game/demo.ts). Quedan dos motivos, los dos de infraestructura:
     //
-    //   · 503 SIN_CONFIGURAR — no hay Supabase.
+    //   · 503 SIN_CONFIGURAR — no hay Supabase configurado.
     //   · status 0 — no hay red.
-    //   · 401 SIN_SESION — hay Supabase, pero el jugador no ha entrado.
     //
-    // El tercero es temporal y hay que quitarlo EN CUANTO EXISTA UNA PANTALLA
-    // DE REGISTRO. Hoy no existe: la app se conectó a la base de datos antes
-    // que a la puerta de entrada, así que la API empezó a pedir una sesión que
-    // nadie podía tener y el botón de jugar devolvía "No autorizado".
-    //
-    // Mientras tanto se cae a demo, NO en silencio: la partida demo enseña su
-    // aviso en pantalla, así que nadie puede confundirla con dinero real. En
-    // cuanto haya registro, un SIN_SESION tiene que llevar a iniciar sesión —
-    // meter a un jugador con sesión caducada en una demo sin decírselo sería
-    // mucho peor que este error.
-    if (
-      !data ||
-      status === 503 ||
-      status === 0 ||
-      data.code === 'SIN_CONFIGURAR' ||
-      data.code === 'SIN_SESION'
-    ) {
+    // Ninguno de los dos es culpa del jugador ni tiene arreglo desde aquí, y
+    // en los dos casos la demo enseña su aviso en pantalla: nadie la puede
+    // confundir con dinero real.
+    if (!data || status === 503 || status === 0 || data.code === 'SIN_CONFIGURAR') {
       const run = createDemoRun();
       demoRun.current = run;
       setDemo(true);
@@ -104,7 +103,7 @@ export default function JuegoPage() {
     setSeed(data.world_seed);
     setYaEntregadas([]);
     setEstado('jugando');
-  }, []);
+  }, [router]);
 
   const onDeposit = useCallback(
     async (bagId: number): Promise<ResultadoEntrega> => {
@@ -140,7 +139,30 @@ export default function JuegoPage() {
     if (demoRun.current) setPremio(demoRun.current.payout);
     // Se deja ver el clímax antes de sacar el cartel.
     setTimeout(() => setEstado('fin'), 2600);
-  }, []);
+    // El servidor ya acreditó el premio y gastó el ticket: se vuelve a pedir
+    // el perfil para que la billetera y la barra de abajo digan la verdad.
+    if (!demoRun.current) refresh();
+  }, [refresh]);
+
+  // La barra amarilla del layout pide arrancar desde cualquier pantalla.
+  // Solo se hace caso estando quieto: si ya hay partida, un segundo toque no
+  // puede cobrar otro ticket.
+  useEffect(() => {
+    return onGameStart(() => {
+      setEstado((prev) => {
+        if (prev === 'jugando' || prev === 'cargando') return prev;
+        empezar();
+        return prev;
+      });
+    });
+  }, [empezar]);
+
+  // Y se le cuenta a la barra si hay partida en curso, para que esconda su
+  // botón mientras se juega.
+  useEffect(() => {
+    setGameActive(estado === 'jugando');
+    return () => setGameActive(false);
+  }, [estado]);
 
   return (
     <main className="pantalla-juego relative w-full overflow-hidden bg-[#4fc3f7]">
@@ -160,7 +182,7 @@ export default function JuegoPage() {
             muted={muted}
             demo={demo}
             onToggleMute={() => setMuted((m) => !m)}
-            onSalir={() => router.push('/')}
+            onSalir={() => router.push('/billetera')}
           />
         </>
       )}
@@ -182,9 +204,14 @@ export default function JuegoPage() {
               {error}
             </p>
           )}
+          {player && (
+            <p className="text-sm font-bold text-emerald-900/70">
+              Tienes {player.tickets ?? 0} ticket{(player.tickets ?? 0) === 1 ? '' : 's'}
+            </p>
+          )}
           <button
             onClick={empezar}
-            disabled={estado === 'cargando'}
+            disabled={estado === 'cargando' || isLoading}
             className="rounded-3xl border-b-4 border-amber-600 bg-amber-400 px-12 py-4 text-xl font-black tracking-wide text-emerald-950 shadow-xl shadow-emerald-900/20 transition active:translate-y-1 active:border-b-0 disabled:opacity-60"
           >
             {estado === 'cargando' ? 'Preparando…' : 'JUGAR'}
@@ -216,10 +243,10 @@ export default function JuegoPage() {
               Otra vez
             </button>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/billetera')}
               className="rounded-3xl border-2 border-emerald-800/25 bg-white/60 px-9 py-3.5 font-bold text-emerald-900 transition active:scale-95"
             >
-              Salir
+              Mi billetera
             </button>
           </div>
         </div>

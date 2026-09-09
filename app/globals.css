@@ -53,3 +53,1771 @@ canvas {
   height: 100vh;
   height: 100dvh;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LAS PANTALLAS DE FUERA DEL JUEGO
+   (registro, billetera, compra, referidos, perfil)
+
+   Los estilos vienen de La Llave Correcta, donde llevan meses de uso real,
+   pero AQUÍ SE INVIERTEN. Aquel juego pasa en una mazmorra: fondo casi
+   negro, oro sobre oscuridad. Éste pasa a mediodía en una calle, y una
+   billetera oscura después de una pantalla de cielo azul se lee como si
+   fueran dos aplicaciones distintas pegadas.
+
+   Así que lo que cambia es el juego de variables, no las reglas: las
+   superficies pasan a ser vidrio claro sobre el cielo, el texto a verde
+   oscuro, y el ORO SE QUEDA — es el amarillo de los botones de abajo y el
+   único color que en los dos juegos significa lo mismo, "esto es lo que
+   tienes que tocar".
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Superficies: vidrio claro. El fondo de la página es el cielo, y estas
+     tarjetas flotan encima; por eso llevan alfa y no un blanco macizo. */
+  --bg-primary:       #eaf4fb;
+  --bg-surface:       rgba(255, 255, 255, 0.82);
+  --bg-surface-2:     rgba(255, 255, 255, 0.62);
+  --bg-surface-glass: rgba(255, 255, 255, 0.72);
+  --border-subtle:    rgba(6, 78, 59, 0.14);
+  --border-gold:      rgba(180, 118, 6, 0.45);
+
+  /* El amarillo de los botones. Es el mismo del juego hermano a propósito:
+     el ámbar oscuro del borde inferior es lo que le da el aire de tecla que
+     se hunde al pulsarla. */
+  --gold-1: #f7c927;
+  --gold-2: #ffe06a;
+  --gold-3: #d99b12;
+
+  /* Estados. Sobre fondo claro los neones del otro juego se vuelven
+     ilegibles, así que bajan a versiones con cuerpo. */
+  --green-win:  #047857;
+  --green-mid:  #0369a1;
+  --red-lose:   #b91c1c;
+  --red-mid:    #dc2626;
+
+  /* Texto: el mismo verde oscuro de la escena, no un gris neutro. */
+  --text-primary:   #10261f;
+  --text-secondary: #3f5d52;
+  --text-muted:     #6b8378;
+
+  --font-ui:      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-ui);
+
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  40px;
+  --space-2xl: 64px;
+
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 40px;
+
+  /* Sombras de día: caen hacia abajo y son verdosas, como las de la calle.
+     Las del otro juego son halos de luz en la oscuridad y aquí se verían
+     como manchas. */
+  --shadow-gold:  0 6px 22px rgba(180, 118, 6, 0.28);
+  --shadow-green: 0 6px 26px rgba(4, 120, 87, 0.22);
+  --shadow-red:   0 6px 22px rgba(185, 28, 28, 0.22);
+  --shadow-card:  0 14px 40px rgba(12, 46, 36, 0.18);
+}
+
+/* El armazón: cabecera arriba, contenido que crece, barra amarilla abajo.
+   La barra NO es position:fixed — es el tercer hijo de una columna que mide
+   la pantalla. Fija se montaba encima del último campo de cada formulario y
+   había que hacer scroll a ciegas para llegar al botón de guardar. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.app-content {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: var(--space-sm);
+}
+
+/* Un contenido que no cabe se desplaza DENTRO de su caja. Sin esto, una
+   tabla de compras larga empuja la página entera de lado. */
+.app-content > main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+/* La pantalla del juego ocupa todo y no lleva relleno: el lienzo se encuadra
+   solo y cualquier margen aquí le roba calle. */
+.app-content > main.pantalla-juego {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Las reglas que siguen se extrajeron de app/globals.css de La Llave
+   Correcta: solo las 214 que usan clases que este juego pinta de verdad, de
+   las 803 que tiene aquella hoja. El resto es panel de administración, chat
+   y mazmorra — traerlo entero sería código muerto que después nadie se
+   atreve a borrar porque no sabe qué lo usa. */
+/* ============================================
+   HEADER
+   ============================================ */
+/* Dos filas, solo botones: nada se oculta ni se superpone */
+.game-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  min-width: 0;
+  /* Si aun así no cabe, la fila envuelve antes que superponerse */
+  flex-wrap: wrap;
+}
+
+/* Sin sesión: solo el botón de entrar, alineado a la derecha */
+.header-row.header-row-end { justify-content: flex-end; }
+
+/* Esquina derecha del header: tickets + Soporte + campanita en la
+   MISMA línea. Es el ancla del panel del chat (position relative):
+   así el panel se alinea con la esquina del header y no con el botón
+   de Soporte (que tiene la campanita a su derecha). */
+.header-corner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.btn-login {
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+  color: #000;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: opacity 0.2s;
+}
+
+.btn-login:hover { opacity: 0.85; }
+
+/* ============================================
+   MODALS
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.modal-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  z-index: 2;
+}
+
+.modal-icon {
+  font-size: 4rem;
+  line-height: 1;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.win-title {
+  background: linear-gradient(135deg, var(--green-win), var(--green-mid));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modal-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+  color: #000;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245,197,24,0.3);
+}
+
+/* ============================================
+   AUTH PAGE
+   ============================================ */
+.auth-page {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  position: relative;
+}
+
+/* Campos también translúcidos para no tapar la escena */
+.auth-page .form-input {
+  background: rgba(13, 15, 20, 0.5);
+}
+
+.auth-page .form-input:focus {
+  background: rgba(13, 15, 20, 0.75);
+}
+
+/* Tarjeta casi transparente: la puerta y las llaves se ven a través */
+.auth-card {
+  position: relative;
+  z-index: 1;
+  background: rgba(18, 20, 28, 0.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.auth-header {
+  text-align: center;
+}
+
+.auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-sm);
+  /* La llave del juego (SVG dorado) con su resplandor */
+  filter: drop-shadow(0 0 14px rgba(245, 197, 24, 0.45));
+}
+
+.auth-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.auth-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.form-input {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: var(--font-ui);
+  transition: border-color 0.2s;
+  outline: none;
+  width: 100%;
+}
+
+.form-input:focus {
+  border-color: var(--gold-1);
+  box-shadow: 0 0 0 3px rgba(245,197,24,0.1);
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.auth-error {
+  background: rgba(255,71,87,0.1);
+  border: 1px solid rgba(255,71,87,0.3);
+  color: var(--red-mid);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.auth-success {
+  background: rgba(0,255,135,0.1);
+  border: 1px solid rgba(0,255,135,0.3);
+  color: var(--green-win);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+
+.btn-submit {
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+  color: #000;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(245,197,24,0.3);
+}
+
+.btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-switch {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  /* Compensa el relleno del enlace (abajo): la línea sigue donde estaba */
+  margin: -14px 0;
+}
+
+.auth-switch a {
+  color: var(--gold-1);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-switch a:hover { text-decoration: underline; }
+
+/* «¿Olvidaste tu contraseña?», justo debajo del botón de entrar */
+.auth-forgot {
+  text-align: center;
+  font-size: 0.85rem;
+  /* El enlace lleva 14 px de relleno arriba y abajo (ver más abajo):
+     se recuperan aquí para que la separación con el botón no crezca */
+  margin: -14px 0;
+}
+
+.auth-forgot a {
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.auth-forgot a:hover { color: var(--gold-1); }
+
+/* Un enlace de texto mide 16 px de alto: en el móvil eso es un blanco
+   demasiado pequeño para el dedo (Apple y Google piden ~44). El relleno
+   agranda la zona que se puede tocar SIN mover ni un píxel del texto. */
+.auth-switch a,
+.auth-forgot a {
+  display: inline-block;
+  padding: 14px 10px;
+}
+
+/* Aviso dentro del formulario (la pausa de retiros al recuperar) */
+.auth-note {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: rgba(245, 197, 24, 0.07);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.2s;
+}
+
+.auth-back:hover { color: var(--text-primary); }
+
+/* ============================================
+   APP SHELL (SPA) — layout persistente
+   ============================================ */
+.app-shell {
+  /* Altura fija del viewport: la app se comporta como juego, sin
+     scroll de página. Antes era 100dvh, que MIDE DISTINTO según la
+     barra del navegador esté puesta o escondida: cada vez que la barra
+     aparecía o desaparecía, el shell entero cambiaba de alto y la
+     escena 3D se re-escalaba (el "estiramiento"). 100svh es siempre el
+     mismo número, así que la pantalla ya no se mueve. */
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* Red de seguridad: solo aparece scroll interno si el contenido
+     realmente no cabe (ventanas muy bajas); nunca scroll horizontal */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Header: desplegable propio (no el select del sistema) ── */
+.menu-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.header-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-1);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  /* Sin max-width: "Comprar Tickets" se lee SIEMPRE completo; si no
+     cabe, la fila del header envuelve antes que recortar el texto */
+  min-width: 0;
+  transition: all 0.15s;
+}
+
+.header-select:hover { background: rgba(245,197,24,0.1); }
+
+.header-select:focus { outline: none; border-color: var(--gold-1); }
+
+.header-select-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 210px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 300;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.menu-item:hover {
+  background: rgba(245,197,24,0.1);
+  color: var(--gold-1);
+}
+
+.menu-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+  margin: 4px 6px;
+}
+
+.menu-item-danger { color: var(--red-lose); }
+
+.menu-item-danger:hover {
+  background: rgba(255,71,87,0.1);
+  color: var(--red-lose);
+}
+
+.btn-mini.btn-gold {
+  border-color: var(--border-gold);
+  color: var(--gold-1);
+  font-weight: 700;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+}
+
+.btn-mini.btn-gold:hover:not(:disabled) { background: rgba(245,197,24,0.12); }
+
+.btn-mini.btn-gold:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Modal de compra ── */
+.buy-modal {
+  max-height: 90dvh;
+  overflow-y: auto;
+  text-align: left;
+  align-items: stretch;
+}
+
+.buy-title { font-size: 1.6rem; text-align: center; }
+
+.qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+}
+
+.qty-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-gold);
+  background: var(--bg-surface-2);
+  color: var(--gold-1);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qty-btn:hover { background: rgba(245,197,24,0.15); }
+
+.qty-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.qty-number {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gold-1);
+  line-height: 1;
+}
+
+.qty-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.price-box {
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.price-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.price-total {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.rate-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pay-data {
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pay-data-title {
+  font-weight: 700;
+  color: var(--gold-1);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pay-data-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  font-size: 0.95rem;
+}
+
+.pay-data-grid span { color: var(--text-muted); }
+
+.pay-data-grid strong { color: var(--text-primary); user-select: all; }
+
+.pay-instruction {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.ref-input {
+  width: 100%;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.12));
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.ref-input:focus {
+  outline: none;
+  border-color: var(--gold-1);
+}
+
+/* Campo bloqueado (p. ej. cédula del registro): se ve, no se edita */
+input.ref-input[readonly] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.ref-locked-icon {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  font-size: 0.95rem;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+select.ref-input { appearance: auto; }
+
+/* Pista bajo el campo de referencia (acepta últimos 6 dígitos) */
+.ref-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+
+/* Captura del pago (opcional) */
+.proof-attach {
+  background: none;
+  border: 1px dashed var(--border-gold);
+  border-radius: var(--radius-md);
+  color: var(--gold-1);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.proof-attach:hover { background: rgba(245, 197, 24, 0.08); }
+
+.proof-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+}
+
+.proof-name {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.proof-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.proof-remove:hover { color: var(--red-mid); }
+
+.buy-error {
+  color: var(--red-mid);
+  font-size: 0.85rem;
+}
+
+/* ── Lectura del comprobante (OCR) ──
+   El jugador ya no escribe la referencia: se lee de su captura. Esta
+   zona le dice en qué punto va, porque mientras se analiza el botón de
+   enviar está deshabilitado y sin explicación parecería roto. */
+.ocr-estado {
+  min-height: 20px;
+  /* Aire extra antes del botón «Enviar»: el gap del modal (16px) dejaba
+     el aviso pegado al botón. */
+  margin-bottom: var(--space-sm);
+}
+
+.ocr-leyendo {
+  font-size: 0.85rem;
+  color: var(--gold-1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ocr-ok {
+  font-size: 0.85rem;
+  color: var(--green-win);
+}
+
+.ocr-ok strong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* ── Foto de perfil (/perfil) ── */
+.profile-main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-lg);
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.profile-avatar {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--gold-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-2);
+  flex-shrink: 0;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-avatar-letter {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--gold-1);
+}
+
+.profile-name {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Círculo de foto/inicial del jugador (chat del panel y ficha) */
+.pavatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-1);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pavatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.buy-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.btn-ghost:hover { color: var(--text-secondary); }
+
+.btn-secondary {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  color: var(--gold-1);
+  font-family: var(--font-display);
+  font-weight: 700;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover { background: rgba(245,197,24,0.12); }
+
+.buy-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+  text-align: center;
+  width: 100%;
+}
+
+/* ── Billetera ── */
+.wallet-main,
+.ranking-main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+.wallet-title {
+  font-family: var(--font-cinzel), var(--font-display), serif;
+  /* Fluido: en móvil baja lo justo para que el título más largo
+     («Mejores jugadas recientes») quepa en UNA línea */
+  font-size: clamp(0.95rem, 4.6vw, 1.8rem);
+  color: var(--gold-1);
+  white-space: nowrap;
+}
+
+.wallet-notice {
+  background: rgba(0,255,135,0.08);
+  border: 1px solid rgba(0,255,135,0.3);
+  color: var(--green-win);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.wallet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-lg);
+}
+
+.wallet-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.wallet-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+}
+
+.wallet-big {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--gold-1);
+  line-height: 1;
+}
+
+.wallet-sub {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.wallet-inner {
+  margin-top: var(--space-sm);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.wallet-inner-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.wallet-pending {
+  background: rgba(245,197,24,0.08);
+  border: 1px solid rgba(245,197,24,0.25);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Aviso de la pausa de retiros tras recuperar la cuenta.
+   NO reutiliza .wallet-pending a propósito: aquella es una columna
+   flex —pensada para una sola línea suelta— y partía esta frase en
+   tres bloques, dejando el punto final huérfano en su propio renglón. */
+.wallet-hold {
+  background: rgba(245,197,24,0.08);
+  border: 1px solid rgba(245,197,24,0.25);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.wallet-hold strong { color: var(--gold-1); }
+
+/* ── Barra de niveles de retiro diario ── */
+.retiro-niveles { display: flex; flex-direction: column; gap: 10px; }
+
+.rn-bar { display: flex; gap: 3px; }
+
+.rn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.22);
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.rn-lock .rn-badge { background: rgba(255,255,255,0.06); }
+
+.rn-nivel {
+  font-weight: 700;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rn-partidas { font-size: 0.72rem; line-height: 1.15; }
+
+.rn-desbloquea { font-size: 0.62rem; opacity: 0.92; margin-top: 2px; }
+
+.rn-registro-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.rn-registro-cards { display: flex; flex-direction: column; gap: 8px; }
+
+.rn-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.rn-card strong { color: var(--text-primary); font-weight: 700; }
+
+.wallet-row {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.wallet-amount-input { flex: 1; min-width: 140px; }
+
+.redeem-preview {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: var(--bg-surface-2);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  text-align: center;
+}
+
+.payout-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.wallet-history {
+  background: var(--bg-surface);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.history-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.history-item {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding-bottom: var(--space-sm);
+}
+
+.history-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.history-date {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.history-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.admin-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.orden-toggle .btn-mini {
+  white-space: nowrap;
+}
+
+.btn-mini {
+  background: var(--bg-surface-2);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-mini:hover { border-color: var(--gold-1); color: var(--gold-1); }
+
+.btn-mini.btn-ok {
+  border-color: rgba(0,255,135,0.4);
+  color: var(--green-win);
+}
+
+.btn-mini.btn-danger {
+  border-color: rgba(255,71,87,0.4);
+  color: var(--red-mid);
+}
+
+.btn-mini:disabled { opacity: 0.5; cursor: wait; }
+
+.modal-card.pdetail-modal {
+  max-width: 760px;
+  width: min(100%, 760px);
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-lg);
+  padding-top: 42px;
+  align-items: stretch;
+  text-align: left;
+  gap: 0;
+}
+
+.modal-card.proof-modal {
+  max-width: 940px;
+  width: min(100%, 940px);
+  max-height: 92dvh;
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+  text-align: left;
+  overflow: hidden;
+}
+
+/* ── Registro: campos en pareja y aceptación de términos ── */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin: 4px 0;
+}
+
+.form-check input {
+  margin-top: 3px;
+  accent-color: var(--gold-1);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* ── Términos y condiciones ── */
+.terms-page {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-lg) var(--space-md);
+}
+
+.terms-card {
+  width: 100%;
+  max-width: 720px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+}
+
+.terms-title {
+  color: var(--gold-1);
+  font-size: 1.5rem;
+  margin-top: 10px;
+}
+
+.terms-updated {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 4px 0 var(--space-md);
+}
+
+.terms-card section { margin-bottom: var(--space-md); }
+
+.terms-card h2 {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.terms-card p, .terms-card li {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.terms-card ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+
+/* ── Chat del ADMIN ── */
+.admin-link { color: var(--gold-1); text-decoration: underline; }
+
+.field-error {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--red-mid);
+}
+
+/* WhatsApp del registro: prefijo de móvil (select) + los 7 dígitos.
+   El select se queda del ancho de su contenido y el input toma el
+   resto; min-width:0 evita que se desborde en pantallas angostas. */
+.phone-field {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* El WhatsApp lleva dos campos, así que su columna es más ancha que
+   la de la cédula (si se reparten mitad y mitad, los 7 dígitos no
+   caben y se ven cortados). Debajo de 420px ya van uno bajo otro. */
+.form-row-phone { grid-template-columns: 1.55fr 1fr; }
+
+.phone-prefix {
+  width: auto;
+  flex: 0 0 auto;
+  padding-left: 10px;
+  padding-right: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  /* Para que el desplegable del navegador salga oscuro como la app */
+  color-scheme: dark;
+}
+
+.phone-rest {
+  flex: 1 1 auto;
+  min-width: 0;
+  letter-spacing: 0.04em;
+}
+
+/* Barra inferior de jugar: un solo botón amarillo según el estado
+   del jugador (sustituye a la barra de canje) */
+.play-bar {
+  /* Ancho compartido: el botón de jugar y el de recomendar miden lo
+     mismo (mismo ancho y alto), apilados y alineados. La fuente se
+     encoge sola en pantallas chicas para que el texto SIEMPRE quepa en
+     una sola línea (nunca envuelve). */
+  --playbar-w: 340px;
+  --playbar-fs: clamp(0.9rem, 4.4vw, 1.1rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px var(--space-md);
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-gold);
+  flex-shrink: 0;
+}
+
+/* La fila del botón amarillo principal (y su aviso al lado) */
+.play-bar-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  max-width: var(--playbar-w);
+}
+
+.play-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 54px;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+  color: #000;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--playbar-fs);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(245,197,24,0.3);
+}
+
+.play-bar-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(245,197,24,0.4);
+}
+
+.play-bar-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Lo que cuesta empezar, dentro del propio botón: se lee como una
+   ficha aparte para que no se confunda con el texto de la acción */
+.play-bar-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.88em;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+/* Botón "recomendar juego y ganar $3": SIEMPRE debajo del amarillo
+   principal, con aire MEDIEVAL — una placa de oro pulido enmarcada
+   (marco de bronce oscuro + bisel interior claro) con remaches en los
+   dos extremos y tipografía romana (Cinzel), como un letrero grabado.
+   Distinta del botón plano de jugar y llama la atención. */
+.play-bar-recomendar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--playbar-w);
+  min-height: 54px;
+  white-space: nowrap;
+  padding: 8px 16px;
+  /* Cinzel: serif romano, aire de letrero grabado medieval */
+  font-family: var(--font-cinzel, 'Cinzel', 'Times New Roman', serif);
+  font-weight: 700;
+  font-size: var(--playbar-fs);
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  text-align: center;
+  color: #2c1b04;
+  cursor: pointer;
+  border: 3px solid #6e4a12;
+  border-radius: 16px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  background:
+    /* remaches metálicos en cada extremo */
+    radial-gradient(circle at 16px 50%,
+      #fff3c4 0, #fff3c4 2px, #7a5314 2.6px, #7a5314 4px, transparent 4.6px),
+    radial-gradient(circle at calc(100% - 16px) 50%,
+      #fff3c4 0, #fff3c4 2px, #7a5314 2.6px, #7a5314 4px, transparent 4.6px),
+    /* placa de oro pulido: brillo al centro, oscuro arriba y abajo */
+    linear-gradient(180deg,
+      #c98f27 0%, #f4cd57 18%, #ffeaa8 46%, #eebe3e 72%, #b0741b 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 242, 196, 0.6), /* bisel interior claro */
+    inset 0 3px 4px rgba(255, 255, 255, 0.5),
+    inset 0 -4px 7px rgba(84, 52, 8, 0.55),
+    0 4px 14px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 246, 214, 0.65);
+}
+
+.play-bar-recomendar:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 242, 196, 0.7),
+    inset 0 3px 4px rgba(255, 255, 255, 0.55),
+    inset 0 -4px 7px rgba(84, 52, 8, 0.55),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.play-bar-recomendar:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 242, 196, 0.5),
+    inset 0 4px 7px rgba(84, 52, 8, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.play-bar-recomendar:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* Aviso junto al botón (p. ej. "¡Ya puedes jugar!"): aparece y se
+   va solo a los 4 s */
+.play-bar-flash {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold-1);
+  animation: playFlashIn 0.25s ease-out;
+}
+
+/* ══════════════ Referidos (prefijo .afi-) ══════════════ */
+/* Botón del header: hereda todo de .chat-fab */
+.afi-fab { text-decoration: none; }
+
+.afi-volver {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-gold);
+  background: var(--bg-surface-2);
+  color: var(--gold-1);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.afi-volver:hover { background: rgba(245, 197, 24, 0.1); transform: translateX(-2px); }
+
+.afi-lema { text-align: center; margin: 0; }
+
+.afi-codigo { text-align: center; margin: 0; letter-spacing: 0.08em; }
+
+/* Link + botón de copiar */
+.afi-link-row { display: flex; gap: var(--space-sm); align-items: stretch; }
+
+.afi-link { flex: 1; min-width: 0; font-size: 0.85rem; }
+
+.afi-copiar { width: auto; flex-shrink: 0; padding: 12px 16px; }
+
+/* Tarjeta "Comparte y gana": video del tutorial + botones de compartir */
+.afi-video-card { display: flex; flex-direction: column; gap: var(--space-md); }
+
+.afi-video-texto { text-align: center; margin: 0; }
+
+/* Resumen en tres cifras */
+/* De dónde salió lo que ha ganado: jugando o invitando */
+.wallet-origen {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.wallet-origen-titulo {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.wallet-origen-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 0.9rem;
+}
+
+.wallet-origen-fila strong { font-variant-numeric: tabular-nums; }
+
+.afi-ganado { margin-top: 10px; text-align: center; }
+
+.afi-premio { color: var(--gold-1); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.afi-total-linea { margin-top: 8px; text-align: right; }
+
+/* 4 columnas desde que hay también "Ganado": en pantallas estrechas
+   caen a 2×2 en vez de apretarse a 4 tarjetas ilegibles */
+.afi-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-sm); }
+
+.afi-stat {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.afi-stat-n {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.afi-stat-oro { border-color: var(--border-gold); }
+
+.afi-stat-oro .afi-stat-n { color: var(--gold-1); }
+
+.afi-stat-l { font-size: 0.72rem; color: var(--text-secondary); letter-spacing: 0.04em; }
+
+/* Progreso de cada invitado */
+.afi-item { display: flex; flex-direction: column; gap: 8px; }
+
+.afi-barra {
+  height: 8px;
+  background: var(--bg-surface-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.afi-cobrar { margin-top: 4px; }
+
+.afi-pasos {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ── Modal "Invita a un amigo" ── (bienvenida / 1ª partida / 1er retiro) */
+.invite-card {
+  max-width: 420px;
+  gap: var(--space-sm);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 0 60px rgba(212, 175, 55, 0.12), var(--shadow-card);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.invite-card .modal-title { font-size: 1.9rem; }
+
+.invite-link-row { width: 100%; margin-top: 4px; }
+
+.invite-compartir { width: 100%; }
+
+/* Cerrar (×) en la esquina y el "Ahora no" discreto abajo */
+.invite-cerrar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.invite-cerrar:hover { color: var(--text-secondary); }
+
+.invite-omitir {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-top: 2px;
+}
+
+.invite-omitir:hover { color: var(--text-secondary); text-decoration: underline; }
+/* ══════════════════════════════════════════════════════════════════════════
+   EL FONDO DE LAS PANTALLAS DE ACCESO (components/auth/FondoCalle.tsx)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.fondo-calle {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fc-cielo {
+  position: absolute;
+  inset: 0;
+  /* Los mismos tres colores que LUZ.fondo y el degradado del body. */
+  background: linear-gradient(180deg, #9ee0fa 0%, #c6cfdb 46%, #868ca0 100%);
+}
+
+.fc-sol {
+  position: absolute;
+  top: -80px;
+  right: -60px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 205, 0.95) 0%, rgba(255, 232, 150, 0) 70%);
+}
+
+.fc-nube {
+  position: absolute;
+  height: 46px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  filter: blur(0.5px);
+}
+.fc-nube-1 { top: 12%; left: 8%;  width: 150px; }
+.fc-nube-2 { top: 24%; right: 12%; width: 110px; opacity: 0.75; }
+
+/* La calzada en fuga: un trapecio hecho con clip-path. El asfalto es el
+   0x46423d de la escena — oscuro y CÁLIDO, que es lo que hace que la calle
+   parezca castigada por el sol y no un suelo de estudio. */
+.fc-calzada {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62%;
+  background: linear-gradient(180deg, #585349 0%, #46423d 55%, #37342e 100%);
+  clip-path: polygon(32% 0, 68% 0, 100% 100%, 0 100%);
+}
+
+/* La doble raya amarilla del centro. Es la señal que más dice «calle» de
+   toda la escena, y por eso está también aquí: quien llega del enlace de un
+   amigo ve la misma calle en el registro que dentro del juego. */
+.fc-linea {
+  position: absolute;
+  bottom: 0;
+  top: 0;
+  width: 1.1%;
+  background: #f2c11a;
+  opacity: 0.9;
+}
+.fc-linea-izq { left: 48.2%;  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
+.fc-linea-der { left: 50.7%; clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
+
+.fc-acera {
+  position: absolute;
+  bottom: 0;
+  height: 62%;
+  width: 34%;
+  background: linear-gradient(180deg, #b9b3a4 0%, #9c9689 100%);
+  z-index: -1;
+}
+.fc-acera-izq { left: 0; }
+.fc-acera-der { right: 0; }
+
+/* Sin este velo el formulario se lee sobre la raya amarilla, que es
+   exactamente donde cae la columna del texto. */
+.fc-velo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.78) 100%);
+}
+
+/* La tarjeta de acceso va POR ENCIMA del fondo. */
+.auth-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg) var(--space-md);
+}
+.auth-page > *:not(.fondo-calle) {
+  position: relative;
+  z-index: 1;
+}
+.auth-logo {
+  font-size: 3rem;
+  line-height: 1;
+}

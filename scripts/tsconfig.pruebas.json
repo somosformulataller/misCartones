@@ -11,6 +11,17 @@
     "baseUrl": "..",
     "paths": { "@/*": ["./*"] }
   },
-  "include": ["../lib/game/**/*.ts", "../lib/three/encuadre.ts", "../lib/three/escena.ts", "../types/**/*.ts"],
+  "include": [
+    "../lib/game/**/*.ts",
+    "../lib/three/encuadre.ts",
+    "../lib/three/escena.ts",
+    "../lib/auth/whatsapp.ts",
+    "../lib/auth/datos.ts",
+    "../lib/referrals/constants.ts",
+    "../lib/wallet/limiteRetiros.ts",
+    "../lib/payments/constants.ts",
+    "../lib/supabase/env.ts",
+    "../types/**/*.ts"
+  ],
   "exclude": ["../lib/game/demo.ts"]
 }

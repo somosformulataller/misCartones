@@ -15,6 +15,7 @@
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,20 @@ execSync(`npx tsc -p "${path.join(aqui, 'tsconfig.pruebas.json')}"`, {
 });
 
 const require = createRequire(import.meta.url);
+
+// Los módulos portados de La Llave se importan entre sí con el alias "@/...".
+// tsc lo entiende al comprobar tipos pero NO lo reescribe al emitir, así que
+// en tiempo de ejecución Node no sabe qué es "@/lib/payments/constants". Se
+// resuelve aquí, contra lo ya compilado, en vez de reescribir a mano decenas
+// de imports en código que conviene mantener idéntico a su original.
+const Module = require('node:module');
+const resolverOriginal = Module._resolveFilename;
+Module._resolveFilename = function (peticion, ...resto) {
+  if (typeof peticion === 'string' && peticion.startsWith('@/')) {
+    peticion = path.join(raiz, '.pruebas-build', peticion.slice(2));
+  }
+  return resolverOriginal.call(this, peticion, ...resto);
+};
 const salida = path.join(raiz, '.pruebas-build', 'lib', 'game');
 const { drawPayoutTier, drawSessionTier, drawWorldSeed } = require(path.join(salida, 'rng.js'));
 const { bagSplit } = require(path.join(salida, 'bagSplit.js'));
@@ -867,6 +882,238 @@ console.log('\n6. La escena en 3D');
   // ── El suelo llega a todas partes ──
   caja.setFromObject(suelo).getSize(tam);
   ok(tam.x >= 300 && tam.z >= 300, 'El suelo sigue midiendo 320 unidades', `${tam.x} × ${tam.z}`);
+}
+
+// ── 7. Cuentas, pagos y billetera ──────────────────────────────────────────
+//
+// Todo esto vino de La Llave Correcta, donde ya funciona con dinero real. Lo
+// que se comprueba aquí no es que la lógica portada esté bien —allá lleva
+// meses demostrándolo—, sino que el PORTE no la rompió y que las diferencias
+// propias de este juego siguen en su sitio. Es donde un cambio inocente
+// cuesta dinero de verdad.
+console.log('\n7. Cuentas, pagos y billetera');
+{
+  const construido = path.join(raiz, '.pruebas-build', 'lib');
+  const { isWhatsappValid, normalizeWhatsapp, splitWhatsapp } = require(
+    path.join(construido, 'auth', 'whatsapp.js')
+  );
+  const { limpiarCedula, limpiarTelefono } = require(path.join(construido, 'auth', 'datos.js'));
+  const { montoGanadoReferido, REFERRAL_REWARD_USD, REFERRAL_TRAMO_GAMES } = require(
+    path.join(construido, 'referrals', 'constants.js')
+  );
+  const { retirosPermitidos, inicioDiaCaracasISO } = require(
+    path.join(construido, 'wallet', 'limiteRetiros.js')
+  );
+  const pagos = require(path.join(construido, 'payments', 'constants.js'));
+
+  // ── El teléfono y la cédula: una persona, una cuenta ──
+  // Estas dos normalizaciones son lo que impide que el mismo humano abra dos
+  // cuentas escribiendo su número de otra forma. El índice único de la base
+  // compara el texto guardado, así que si esto deja pasar dos formas
+  // distintas del mismo número, el índice no sirve de nada.
+  ok(isWhatsappValid('04121234567'), 'Un móvil venezolano normal vale');
+  ok(isWhatsappValid('+584121234567'), 'El mismo número con +58 también vale');
+  ok(
+    normalizeWhatsapp('+584121234567') === normalizeWhatsapp('04121234567'),
+    'El número con +58 y sin él se guardan IGUAL',
+    normalizeWhatsapp('+584121234567') + ' contra ' + normalizeWhatsapp('04121234567')
+  );
+  ok(!isWhatsappValid('0412123456'), 'Un número al que le falta un dígito NO vale');
+  ok(!isWhatsappValid('02121234567'), 'Un fijo (0212) no vale: por ahí no se escribe por WhatsApp');
+  ok(isWhatsappValid('04221234567'), 'El 0422 de Digitel vale: es el prefijo nuevo y está muy vivo');
+  ok(
+    splitWhatsapp('04141234567').prefix === '0414' &&
+      splitWhatsapp('04141234567').rest === '1234567',
+    'El número se parte bien para rellenar el formulario'
+  );
+
+  ok(
+    limpiarCedula('V-12.345.678') === limpiarCedula('12345678'),
+    'La cédula con prefijo y puntos es la MISMA que sin ellos',
+    limpiarCedula('V-12.345.678') + ' contra ' + limpiarCedula('12345678')
+  );
+  ok(
+    limpiarTelefono('584121234567') === '04121234567',
+    'El teléfono con código de país vuelve a su forma local',
+    limpiarTelefono('584121234567')
+  );
+
+  // ── Referidos: los tramos ──
+  // Los números que mandan viven en el RPC claim_referral, porque el cliente
+  // puede llamarlo directo. Estos son los que se MUESTRAN, y tienen que decir
+  // exactamente lo mismo: enseñar «te toca $2» y abonar $1 es peor que no
+  // enseñar nada.
+  ok(montoGanadoReferido(0) === 0, 'Sin partidas del referido no se ha ganado nada');
+  ok(montoGanadoReferido(9) === 0, 'Con 9 partidas todavía no se libera el primer dólar');
+  ok(montoGanadoReferido(10) === 1, 'A las 10 partidas se libera $1');
+  ok(montoGanadoReferido(29) === 2, 'A las 29 partidas van dos tramos, no tres');
+  ok(montoGanadoReferido(30) === REFERRAL_REWARD_USD, 'A las 30 se completa el premio entero');
+  ok(
+    montoGanadoReferido(10000) === REFERRAL_REWARD_USD,
+    'Por muchas partidas que juegue el referido, el tope no se pasa',
+    String(montoGanadoReferido(10000))
+  );
+  ok(REFERRAL_TRAMO_GAMES * REFERRAL_REWARD_USD === 30, 'Los tramos cuadran con las 30 partidas');
+
+  // ── Límite de retiros del día ──
+  ok(retirosPermitidos(0) === 1, 'Sin jugar hoy, un retiro');
+  ok(retirosPermitidos(30) === 1, 'Con 30 partidas sigue siendo uno');
+  ok(retirosPermitidos(31) === 2, 'A partir de 31 partidas, dos');
+  ok(retirosPermitidos(51) === 3, 'Pasadas 50 partidas, tres');
+  ok(retirosPermitidos(9999) === 3, 'Tres es el tope diario, juegue lo que juegue');
+  // El día se corta a medianoche de Caracas, no en UTC: preguntando en UTC,
+  // un retiro de las 9 de la noche cuenta en el día siguiente y el jugador se
+  // encuentra el cupo gastado sin haber hecho nada.
+  // Las 11:30 de la noche del 9 en Caracas siguen siendo el día 9: su
+  // medianoche es el 9 a las 00:00 hora local, o sea las 04:00 UTC.
+  const medianoche = inicioDiaCaracasISO(new Date('2026-09-09T23:30:00-04:00'));
+  ok(
+    medianoche === '2026-09-09T04:00:00.000Z',
+    'El día del límite empieza a medianoche de Caracas, no en UTC',
+    medianoche
+  );
+
+  // ── Referencias de pago ──
+  // La forma canónica de una referencia son sus últimos 6 dígitos, que es por
+  // donde empareja el banco. En el juego hermano se comparaba el texto crudo
+  // y «124754» y «6124754» pasaron por pagos distintos siendo el mismo: las
+  // dos compras se aprobaron.
+  ok(
+    pagos.referenceTail('6124754') === pagos.referenceTail('124754'),
+    'Dos formas del MISMO pago dan la misma cola de 6 dígitos',
+    pagos.referenceTail('6124754') + ' contra ' + pagos.referenceTail('124754')
+  );
+  ok(pagos.referenceTail('00 12-34 56') === '123456', 'La cola ignora espacios y guiones');
+  ok(!pagos.isReferenceValid('1234'), 'Cuatro dígitos no bastan para identificar un pago');
+  ok(pagos.isReferenceValid('123456'), 'Seis dígitos sí');
+  ok(
+    pagos.diaCaracas('2026-09-09T23:30:00-04:00') === '2026-09-09',
+    'Un pago de las once y media de la noche sigue siendo del día 9 en Caracas',
+    pagos.diaCaracas('2026-09-09T23:30:00-04:00')
+  );
+
+  // ── EL CERROJO DE LA CUENTA BANCARIA ──
+  //
+  // La Bank API es MULTICUENTA y La Llave Correcta ya la usa. Reclamar un
+  // movimiento lo marca como usado y se lo queda quien llegue primero: si
+  // estas dos constantes trajeran de vuelta los valores de allá, un pago
+  // hecho para comprar tickets de La Llave se lo quedaría este juego, y aquel
+  // jugador se quedaría sin ellos.
+  //
+  // Por eso NO pueden tener valor por defecto. Esta prueba existe para que
+  // nadie los reponga «para que funcione en local».
+  const fuente = fs.readFileSync(path.join(raiz, 'lib', 'payments', 'constants.ts'), 'utf8');
+  ok(
+    !fuente.includes("'llave-bdv-2'") && !fuente.includes("'0102***7113'"),
+    'La cuenta bancaria de La Llave NO está escrita en este repositorio'
+  );
+  ok(
+    /BANK_ACCOUNT_NAME_ESPERADO = cleanEnv\(/.test(fuente) &&
+      /BANK_CUENTA_ESPERADA = cleanEnv\(/.test(fuente),
+    'Las dos constantes de cuenta salen del entorno, no del código'
+  );
+  ok(
+    pagos.BANK_ACCOUNT_NAME_ESPERADO === '' && pagos.BANK_CUENTA_ESPERADA === '',
+    'Sin variables de entorno se quedan vacías, y la validación no se enciende',
+    '"' + pagos.BANK_ACCOUNT_NAME_ESPERADO + '" / "' + pagos.BANK_CUENTA_ESPERADA + '"'
+  );
+  const bankApi = fs.readFileSync(path.join(raiz, 'lib', 'payments', 'bankApi.ts'), 'utf8');
+  ok(
+    /if \(!BANK_ACCOUNT_NAME_ESPERADO \|\| !BANK_CUENTA_ESPERADA\) return null;/.test(bankApi),
+    'Sin saber cuál es nuestra cuenta, la API del banco se da por NO configurada'
+  );
+
+  // ── Lo que la base tiene que garantizar por sí sola ──
+  //
+  // Cada uno de estos índices existe porque su ausencia costó dinero en el
+  // juego hermano. Una comprobación en código tiene carrera; un índice único
+  // no la tiene.
+  const sql = fs.readFileSync(
+    path.join(raiz, 'supabase', 'migrations', '004_cuentas_y_dinero.sql'),
+    'utf8'
+  );
+  const exige = (re, msg) => ok(re.test(sql), msg);
+  exige(
+    /CREATE UNIQUE INDEX IF NOT EXISTS referral_claims_tramo_unico[\s\S]*?\(referred_id, tramo\)/,
+    'Cada tramo de cada referido se puede cobrar UNA sola vez'
+  );
+  exige(
+    /CREATE UNIQUE INDEX IF NOT EXISTS withdrawals_uno_pendiente[\s\S]*?WHERE status = 'pendiente'/,
+    'Un solo retiro pendiente por jugador, garantizado por la base'
+  );
+  exige(
+    /CREATE UNIQUE INDEX IF NOT EXISTS players_referral_code_unico/,
+    'Dos jugadores no pueden compartir código de invitación'
+  );
+  exige(/FOR UPDATE/, 'Los RPC de dinero bloquean la fila del jugador antes de tocarla');
+  // Idempotencia de la aprobación: la conciliación REINTENTA por diseño, y
+  // sin esto un reintento regala los tickets otra vez.
+  exige(
+    /IF v_purchase\.status = 'aprobado' THEN[\s\S]{0,260}RETURN json_build_object/,
+    'Aprobar una compra ya aprobada no vuelve a entregar tickets'
+  );
+  // Los RPC que mueven dinero de verdad no los puede llamar el navegador.
+  for (const fn of ['approve_purchase', 'reject_purchase', 'pay_withdrawal', 'cancel_withdrawal']) {
+    ok(
+      new RegExp('REVOKE EXECUTE ON FUNCTION public\\.' + fn + '[^;]*FROM PUBLIC, anon, authenticated').test(sql),
+      fn + ' está fuera del alcance del navegador'
+    );
+  }
+  // Y los que sí puede llamar comprueban la sesión ELLOS, no la ruta.
+  for (const fn of ['redeem_tickets', 'request_withdrawal', 'claim_referral']) {
+    const cuerpo = sql.slice(sql.indexOf('FUNCTION public.' + fn + '('), sql.indexOf('FUNCTION public.' + fn + '(') + 1400);
+    ok(
+      cuerpo.includes("IF auth.uid() IS NULL THEN RAISE EXCEPTION 'No autorizado'"),
+      fn + ' comprueba la sesión por su cuenta, sin fiarse de la ruta'
+    );
+  }
+  // El freno de 24 h tras recuperar la contraseña: es la ventana exacta en la
+  // que una cuenta recién robada intentaría vaciarse.
+  ok(
+    (sql.match(/password_reset_at > NOW\(\) - INTERVAL '24 hours'/g) || []).length >= 2,
+    'Retirar y cobrar referidos están frenados 24 h tras recuperar la contraseña'
+  );
+  // El comprobante es de una persona: lleva su nombre, su banco y su cuenta.
+  ok(
+    /VALUES \('payment-proofs', 'payment-proofs', FALSE\)/.test(sql),
+    'El bucket de comprobantes es PRIVADO'
+  );
+
+  // ── La puerta de entrada ──
+  //
+  // Durante un tiempo, una partida sin sesión caía a demo, porque no había
+  // pantalla de registro. Ya la hay. Si ese apaño volviera, un jugador con la
+  // sesión caducada creería estar jugando por dinero sin estarlo.
+  const juego = fs.readFileSync(path.join(raiz, 'app', '(main)', 'juego', 'page.tsx'), 'utf8');
+  const corte = juego.indexOf('const run = createDemoRun()');
+  const caida = juego.slice(Math.max(0, corte - 900), corte);
+  ok(!caida.includes("data.code === 'SIN_SESION'"), 'Sin sesión ya NO se cae a partida demo');
+  ok(/router\.push\('\/auth\/login'\)/.test(juego), 'Sin sesión se manda a iniciarla');
+
+  // Las pantallas de dinero se cierran en el proxy, no en cada una: sin
+  // sesión, /billetera cargaba entera y con todo a cero, que se lee como
+  // «he perdido mi saldo».
+  const proxy = fs.readFileSync(path.join(raiz, 'proxy.ts'), 'utf8');
+  for (const ruta of ['/juego', '/billetera', '/comprar', '/referidos', '/perfil']) {
+    ok(proxy.includes("'" + ruta + "'"), ruta + ' está en la lista de rutas privadas del proxy');
+  }
+
+  // Ninguna ruta de dinero puede dar por hecho que hay Supabase: aquí el
+  // cliente devuelve null cuando no lo hay, y sin la guarda reventaría con un
+  // 500 en lugar de decir qué pasa.
+  const rutasDinero = [
+    'purchases', 'wallet', 'wallet/redeem', 'wallet/withdraw', 'wallet/payout-info',
+    'referrals', 'referrals/claim', 'profile/photo', 'purchases/ocr', 'purchases/recheck',
+  ];
+  let sinGuarda = 0;
+  for (const r of rutasDinero) {
+    const texto = fs.readFileSync(path.join(raiz, 'app', 'api', ...r.split('/'), 'route.ts'), 'utf8');
+    if (texto.includes('await createClient()') && !texto.includes('if (!supabase)')) {
+      sinGuarda++;
+      console.log('     ✗ /api/' + r + ' no comprueba que haya Supabase');
+    }
+  }
+  ok(sinGuarda === 0, 'Todas las rutas de dinero comprueban que haya base de datos');
 }
 
 console.log(

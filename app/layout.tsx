@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { PlayerProvider } from '@/components/providers/PlayerProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,7 +19,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {/* El perfil del jugador se carga UNA vez, en la raíz, y de ahí lo
+            leen todas las pantallas. Si cada una lo pidiera por su cuenta, el
+            saldo saltaría al navegar y habría cuatro peticiones donde va una. */}
+        <PlayerProvider>{children}</PlayerProvider>
+      </body>
     </html>
   );
 }
