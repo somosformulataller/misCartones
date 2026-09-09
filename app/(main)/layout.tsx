@@ -1,6 +1,7 @@
 'use client';
 
 import Header from '@/components/layout/Header';
+import FondoJuego from '@/components/layout/FondoJuego';
 import BarraJugar from '@/components/layout/BarraJugar';
 import { InviteModalProvider } from '@/components/referrals/InviteModalProvider';
 
@@ -22,6 +23,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <InviteModalProvider>
       <div className="app-shell">
+        <FondoJuego />
         <Header />
         <div className="app-content">{children}</div>
         <BarraJugar />

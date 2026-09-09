@@ -4664,3 +4664,126 @@ textarea.form-input,
   .mc-rotulo { font-size: 1.25rem; }
   .mc-splash { font-size: 0.52rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LAS PANTALLAS DE DENTRO: CRISTAL SOBRE LA CALLE
+   (billetera, compra, referidos, perfil y el vestíbulo del juego)
+
+   El mismo idioma que el registro, resuelto de otra manera. Allí la tarjeta
+   desenfoca ella misma con `backdrop-filter`, que se puede pagar porque es
+   UNA pieza quieta en una pantalla sin nada más. Aquí hay listas que se
+   desplazan y tarjetas a montones: hacer eso por tarjeta hunde los fps en un
+   teléfono flojo. Así que el desenfoque viene YA COCIDO en la imagen de
+   fondo (14 KB) y las tarjetas solo son translúcidas, que es gratis.
+
+   El panel de administración se queda fuera: ver FondoJuego.tsx.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.fondo-juego {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #232a26;
+}
+
+.fondo-juego-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Esta sí se interpola: es una imagen desenfocada de 320 px estirada a la
+     pantalla entera, y con `pixelated` saldrían escalones. */
+  image-rendering: auto;
+}
+
+/* Un velo verde muy tenue: iguala el fondo de arriba abajo para que las
+   tarjetas se lean igual al principio y al final de una lista larga. */
+.fondo-juego-velo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(18, 30, 24, 0.28), rgba(18, 30, 24, 0.42));
+}
+
+/* Todo lo demás va por encima. La excepción se escribe por clase y hay que
+   acordarse de ella si alguna vez se renombra el fondo: la misma regla, con
+   el nombre viejo, ya dejó una vez la foto del registro tirada en el flujo. */
+.app-shell > *:not(.fondo-juego) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Las piezas, ahora translúcidas ── */
+
+.app-shell .wallet-card,
+.app-shell .hist-card,
+.app-shell .afi-card,
+.app-shell .perfil-card,
+.app-shell .modal-card,
+.app-shell .rn-step:not(.rn-done):not(.rn-curr),
+.app-shell .wallet-inner,
+.app-shell .redeem-preview,
+.app-shell .rn-card,
+.app-shell .buy-summary {
+  /* 0,88: por debajo de esto una tabla de compras deja de leerse cómoda
+     sobre la calle. Se ve el fondo, pero manda el contenido. */
+  background: rgba(253, 250, 243, 0.88);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 10px 26px rgba(10, 18, 14, 0.34);
+}
+
+/* Las zonas hundidas, un punto más oscuras que su tarjeta, como siempre. */
+.app-shell .wallet-inner,
+.app-shell .redeem-preview,
+.app-shell .rn-card,
+.app-shell .buy-summary {
+  background: rgba(240, 235, 223, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+
+/* La cabecera y la barra de abajo enmarcan la pantalla: van más opacas, que
+   es lo que las separa del contenido que pasa por debajo al desplazarse. */
+.app-shell .game-header,
+.app-shell .play-bar {
+  background: rgba(253, 250, 243, 0.93);
+}
+
+.app-shell .menu-list {
+  background: rgba(253, 250, 243, 0.97);
+}
+
+/* ── El texto que va SUELTO, fuera de una tarjeta ── */
+
+/* Sobre la calle oscura, la tinta desaparece. Todo lo que no vive dentro de
+   una pieza clara pasa a texto claro con su sombra. */
+.app-shell .wallet-title,
+.app-shell .afi-lema,
+.app-shell .wallet-notice,
+.app-shell .mc-lobby-titulo,
+.app-shell .mc-lobby-ayuda,
+.app-shell .mc-lobby-tickets {
+  color: #f4f7f4;
+  text-shadow: 0 2px 8px rgba(8, 14, 11, 0.75);
+}
+
+.app-shell .wallet-title { color: var(--mc-gold-lit); }
+
+/* ── El vestíbulo del juego ── */
+
+/* Tenía su propio cielo plano y su franja de césped. Con la calle de verdad
+   detrás sobran los dos: el juego ya está ahí, desenfocado, esperando. */
+.mc-lobby {
+  background: transparent;
+  padding-bottom: 150px;
+}
+
+.mc-lobby::after { content: none; }
+
+.mc-escena { background: transparent; }
+
+.mc-premio {
+  background: rgba(253, 250, 243, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 12px 30px rgba(10, 18, 14, 0.4);
+}

@@ -1672,6 +1672,41 @@ console.log('\n10. El estilo de la interfaz');
     'en pantallas cortas el login suelta lastre para que el botón de entrar se vea'
   );
 
+  // ── Las pantallas de dentro: cristal, pero sin pagar el desenfoque ──
+  ok(
+    hay('public', 'escena-difusa.jpg'),
+    'hay una versión ya desenfocada de la calle para el fondo de dentro'
+  );
+  // Es la mitad del argumento: el desenfoque va COCIDO en el archivo, y una
+  // imagen desenfocada no tiene detalle que perder, así que pesa una décima
+  // parte. Si algún día abulta como la nítida, alguien la regeneró sin
+  // desenfocar y el fondo estará costando de más en cada pantalla.
+  const pesoDifusa = fs.statSync(path.join(raiz, 'public', 'escena-difusa.jpg')).size;
+  ok(pesoDifusa < 60 * 1024, 'y pesa poco, que es de lo que se trata', `${Math.round(pesoDifusa / 1024)} KB`);
+
+  const fondoJuego = leer('components', 'layout', 'FondoJuego.tsx');
+  ok(/escena-difusa\.jpg/.test(fondoJuego), 'las pantallas de dentro usan esa foto');
+  // El panel es una herramienta de trabajo: tablas densas y turnos largos
+  // leyendo cifras. Una calle de colores por detrás es ruido puro.
+  ok(
+    /startsWith\('\/admin'\)[\s\S]{0,40}return null/.test(fondoJuego),
+    'pero el panel de administración se queda con su fondo liso'
+  );
+  ok(
+    /:not\(\.fondo-juego\)/.test(css),
+    'y el fondo está exento de la regla que sube todo por encima de él'
+  );
+  ok(
+    /\.app-shell \.wallet-card,[\s\S]{0,600}background: rgba\(253, 250, 243, 0\.88\)/.test(css),
+    'las tarjetas de dentro son translúcidas: se ve la calle detrás'
+  );
+  // Las tarjetas translúcidas pisaron los colores de los tres niveles de
+  // retiro y el nivel alcanzado se quedó en blanco sobre blanco.
+  ok(
+    /\.app-shell \.rn-step:not\(\.rn-done\):not\(\.rn-curr\)/.test(css),
+    'sin borrar el color del nivel de retiro que ya está alcanzado'
+  );
+
   // ── El fallo que apareció al mirar las capturas ──
   // .rn-step no se portó desde La Llave —el CSS se extrajo por uso y esta
   // clase se quedó por el camino—, así que los cuatro textos de cada nivel
