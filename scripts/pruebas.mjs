@@ -590,30 +590,33 @@ console.log('\n6. La escena en 3D');
   // que fallara nada -- ni un error, ni una malla perdida, ni un triángulo de
   // más. Solo un muñeco sin cara. Esto es lo que lo detecta.
   //
-  // Se buscan los vértices por su color: los de piel dan el radio del cráneo,
-  // los de ojo tienen que salirse de él.
-  const radioPorColor = (malla, hex) => {
+  // Se buscan los vértices por su color y se mide hasta dónde llegan HACIA
+  // DELANTE. Antes se medía el radio, que valía mientras el cráneo era una
+  // esfera; con una cabeza cuadrada el radio va a las esquinas y no dice nada
+  // de la cara. Lo que significa "asomar" es alcance en Z, y eso vale para las
+  // dos formas.
+  const alcanceZ = (malla, hex) => {
     const g = malla.geometry;
     const col = g.attributes.color;
     const pos = g.attributes.position;
     const objetivo = new THREE.Color(hex);
-    let max = -1;
+    let max = -Infinity;
     for (let i = 0; i < pos.count; i++) {
       const d =
         Math.abs(col.getX(i) - objetivo.r) +
         Math.abs(col.getY(i) - objetivo.g) +
         Math.abs(col.getZ(i) - objetivo.b);
-      if (d < 0.01) max = Math.max(max, Math.hypot(pos.getX(i), pos.getY(i), pos.getZ(i)));
+      if (d < 0.01) max = Math.max(max, pos.getZ(i));
     }
     return max;
   };
   const craneo = ciudadano.cabeza.children[0];
-  const radioPiel = radioPorColor(craneo, esc.COL.piel);
-  const radioOjo = radioPorColor(craneo, esc.COL.ojo);
-  const radioBoca = radioPorColor(craneo, esc.COL.boca);
-  console.log(`     Cara: cráneo ${radioPiel.toFixed(3)}, ojos ${radioOjo.toFixed(3)}, boca ${radioBoca.toFixed(3)}`);
-  ok(radioOjo > radioPiel, 'Los ojos asoman del cráneo, no están hundidos dentro', `ojos ${radioOjo.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
-  ok(radioBoca > radioPiel * 0.96, 'La boca llega a la superficie de la cara', `boca ${radioBoca.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
+  const zPiel = alcanceZ(craneo, esc.COL.piel);
+  const zOjo = alcanceZ(craneo, esc.COL.ojo);
+  const zBoca = alcanceZ(craneo, esc.COL.boca);
+  console.log(`     Cara: la cara llega a z=${zPiel.toFixed(3)}, los ojos a ${zOjo.toFixed(3)}, la boca a ${zBoca.toFixed(3)}`);
+  ok(zOjo > zPiel, 'Los ojos asoman de la cara, no están hundidos dentro', `ojos ${zOjo.toFixed(3)} contra cara ${zPiel.toFixed(3)}`);
+  ok(zBoca > zPiel, 'La boca asoma de la cara', `boca ${zBoca.toFixed(3)} contra cara ${zPiel.toFixed(3)}`);
 
   // El pelo sustituye a la gorra, y puede volver a cometer su mismo pecado:
   // tapar la cara. La melena se abre en una ventana al frente y el flequillo
@@ -784,17 +787,27 @@ console.log('\n6. La escena en 3D');
   }
   ok(invaden === 0, 'Ni casas ni árboles asoman sobre la calzada', `${invaden} instancias invaden`);
 
-  // ── La acera derecha se queda sin árboles ──
+  // ── Los árboles de la acera derecha, solo en el tramo cercano ──
   // La cámara mira desde +Z sin ladear, así que +X es el lado DERECHO de la
   // pantalla. Un árbol de acera está a 9,7 unidades del eje y los edificios a
   // 23-34: desde la vista cenital la copa se proyecta justo sobre la fachada y
-  // la tapa. La arboleda de acera va solo a la izquierda a propósito, y esto
-  // lo deja escrito para que no vuelva a colarse un árbol a la derecha.
+  // la tapa. Ya pasó una vez y hubo que quitarlos todos.
+  //
+  // La referencia tiene verde a los dos lados, así que vuelven -- pero solo
+  // donde no pueden hacer daño: de z = 4 hacia la cámara, donde la fachada que
+  // taparían ya queda fuera del encuadre. Lo que esta prueba defiende no es
+  // "cero árboles a la derecha", es que ninguno se meta en el tramo LEJANO.
   const deAcera = veg.copas.datos.filter((a) => Math.abs(a.x) < 40);
   const derecha = deAcera.filter((a) => a.x > 0);
-  console.log(`     ${deAcera.length} árboles de acera, ${derecha.length} a la derecha`);
+  const derechaLejos = derecha.filter((a) => a.z < 4);
+  console.log(`     ${deAcera.length} árboles de acera, ${derecha.length} a la derecha (ninguno más allá de z=4)`);
   ok(deAcera.length > 5, 'Sigue habiendo arbolado de acera');
-  ok(derecha.length === 0, 'Ningún árbol de acera tapa los edificios de la derecha', `${derecha.length} árboles`);
+  ok(derecha.length > 0, 'Hay algo de verde también en la acera derecha, como en la referencia');
+  ok(
+    derechaLejos.length === 0,
+    'Ningún árbol de la derecha se mete en el tramo lejano, donde taparía las fachadas',
+    `${derechaLejos.length} árboles con z < 4`
+  );
 
   // Y que efectivamente haya edificios a los dos lados que enseñar.
   let alturaDerecha = 0;

@@ -127,12 +127,23 @@ const ESCALA_CARRETILLA = 1.62;
  * mide esa media y no la deja bajar del 85 %.
  */
 export const COL = {
-  // Calle
-  asfalto: 0x727a8f,
-  asfaltoClaro: 0x878fa4,
-  asfaltoOscuro: 0x5a6276,
-  rodada: 0x565f71,
+  // Calle.
+  //
+  // El asfalto era un GRIS AZULADO claro (0x727a8f). En la referencia es
+  // oscuro y CÁLIDO, casi marrón, y eso hace dos cosas a la vez: da el aire de
+  // calle real castigada por el sol, y sobre todo convierte cada trozo de
+  // basura en un punto de color contra un fondo oscuro. Sobre un gris claro,
+  // media basura se perdía.
+  asfalto: 0x46423d,
+  asfaltoClaro: 0x585349,
+  asfaltoOscuro: 0x37342e,
+  rodada: 0x2f2c27,
+  /** Grietas del asfalto: casi negro, pero no negro. */
+  grieta: 0x24221e,
   linea: 0xf3f6fb,
+  /** La doble línea AMARILLA del centro. Es la señal más reconocible de la
+   *  referencia: dice "esto es una calle" antes que ninguna otra cosa. */
+  lineaAmarilla: 0xf2c11a,
   acera: 0xd3cbb7,
   aceraOscura: 0xb5ab95,
   bordillo: 0xe8dfcc,
@@ -193,6 +204,12 @@ export const COL = {
   comidaCarne: 0xc14c16,
   // Obstáculos de calle
   escombro: 0xa4afc0,
+  /** Contenedor: azul grisáceo oscuro, con la tapa un tono por encima. */
+  contenedor: 0x3f4a5c,
+  contenedorTapa: 0x55617a,
+  /** Los conos de la referencia no son todos naranjas: hay rojos y amarillos. */
+  conoRojo: 0xe01f22,
+  conoAmarillo: 0xf2c118,
   palet: 0xe29834,
   rueda: 0x2a2e38,
   caja: 0xe99d3b,
@@ -214,6 +231,11 @@ export const COL = {
   ojo: 0x1e273f,
   brilloOjo: 0xffffff,
   boca: 0xca613d,
+  /** Las cejas. Llevan color propio, distinto del pelo, y no por estética: la
+   *  prueba que impide que el flequillo tape los ojos mira el cono de la cara
+   *  buscando vértices de PELO, y unas cejas del mismo color saldrían ahí como
+   *  melena tapando la mirada. Son un rasgo, no un mechón. */
+  ceja: 0x3a1d0a,
   // Bolsa: negra como una bolsa de basura de verdad. Lo que impide que se
   // pierda sobre el asfalto gris no es su color, es el LAZO amarillo y el
   // halo que se enciende al acercarse.
@@ -445,17 +467,51 @@ export function crearSuelo(rnd: () => number): Group {
   g.add(juntas);
 
   // ── Pintura ──
-  // Discontinua central. Va a y=0,02 sobre la calzada: separarla en vez de
-  // pintarla en los vértices evita el parpadeo por z-fighting y, sobre todo,
-  // da un borde recto que un plano subdividido no puede dar.
-  const matLinea = mat(COL.linea, { plano: false });
-  const nRayas = Math.floor(LARGO_CALLE / 3.4);
-  const rayas = new InstancedMesh(new BoxGeometry(0.17, 0.02, 1.7), matLinea, nRayas);
-  for (let i = 0; i < nRayas; i++) {
-    poner(rayas, i, 0, 0.02, -LARGO_CALLE / 2 + i * 3.4, 1, 1, 1);
+  // DOBLE LÍNEA AMARILLA continua en el centro, no una discontinua blanca.
+  // Es la señal que más dice "calle" de toda la escena, y en el encuadre de
+  // este juego cae justo por el medio de la pantalla, de arriba abajo: hace de
+  // eje de toda la composición. Va a y=0,02 sobre la calzada; separarla en vez
+  // de pintarla en los vértices evita el parpadeo por z-fighting y da un borde
+  // recto que un plano subdividido no puede dar.
+  g.add(
+    new Mesh(
+      fundir([
+        { geo: new BoxGeometry(0.15, 0.02, LARGO_CALLE).translate(-0.19, 0.02, 0), color: COL.lineaAmarilla },
+        { geo: new BoxGeometry(0.15, 0.02, LARGO_CALLE).translate(0.19, 0.02, 0), color: COL.lineaAmarilla },
+      ]),
+      MAT_FUNDIDO
+    )
+  );
+
+  // ── Grietas ──
+  // Segmentos finos y oscuros, en ángulos sueltos. Sin ellas el asfalto es una
+  // superficie lisa con manchas; con ellas se lee como pavimento viejo. Son
+  // cajas larguísimas y planas, todas en una llamada de dibujo.
+  const nGrietas = 54;
+  const grietas = new InstancedMesh(new BoxGeometry(0.07, 0.02, 1, 1, 1, 1), mat(COL.grieta), nGrietas * 2);
+  for (let i = 0; i < nGrietas; i++) {
+    const x = (rnd() - 0.5) * MEDIA_CALZADA * 1.94;
+    const z = (rnd() - 0.5) * LARGO_CALLE * 0.55;
+    const giro = rnd() * Math.PI;
+    const largo = 1.1 + rnd() * 2.8;
+    poner(grietas, i * 2, x, 0.021, z, 1, 1, largo, giro);
+    // Una segunda rama saliendo de la primera: una grieta recta parece una
+    // raya pintada; lo que la delata como grieta es que se BIFURCA.
+    const rama = 0.5 + rnd() * 1.4;
+    poner(
+      grietas,
+      i * 2 + 1,
+      x + Math.sin(giro) * largo * 0.4,
+      0.021,
+      z + Math.cos(giro) * largo * 0.4,
+      1,
+      1,
+      rama,
+      giro + (rnd() - 0.5) * 1.6
+    );
   }
-  rayas.instanceMatrix.needsUpdate = true;
-  g.add(rayas);
+  grietas.instanceMatrix.needsUpdate = true;
+  g.add(grietas);
 
   return g;
 }
@@ -507,9 +563,13 @@ export function crearCiudad(rnd: () => number): Group {
   const tejas = [COL.tejaA, COL.tejaB, COL.tejaC];
   const lotes: Lote[] = [];
 
+  // En la referencia casi todo son BLOQUES: fachadas planas de varias plantas
+  // que se salen por arriba del encuadre. Las casas bajas con tejado a cuatro
+  // aguas quedan como excepción (una de cada cinco), para que la manzana no
+  // sea una hilera de cajas idénticas.
   const nuevoLote = (lado: number, z: number, ancho: number, retranqueo: number): Lote => {
-    const esEdificio = rnd() > 0.45;
-    const plantas = esEdificio ? 3 + Math.floor(rnd() * 5) : 1 + Math.floor(rnd() * 2);
+    const esEdificio = rnd() > 0.2;
+    const plantas = esEdificio ? 4 + Math.floor(rnd() * 6) : 1 + Math.floor(rnd() * 2);
     const fondo = esEdificio ? 8 + rnd() * 5 : 7 + rnd() * 4.5;
     return {
       x: lado * (LINEA_CASAS + retranqueo + fondo / 2),
@@ -607,15 +667,19 @@ export function crearCiudad(rnd: () => number): Group {
   for (const l of lotes) {
     const xCara = l.x - l.lado * (l.fondo / 2 + 0.06);
     if (l.esEdificio) {
-      const cols = Math.max(2, Math.round(l.ancho / 2.6));
+      // Rejilla DENSA: ventanas pequeñas y juntas. Es lo que da la escala de
+      // la referencia -- un bloque con cuatro ventanones parece una casa
+      // grande; el mismo bloque con veinte ventanas pequeñas parece un
+      // edificio de pisos.
+      const cols = Math.max(2, Math.round(l.ancho / 1.85));
       for (let f = 0; f < l.plantas; f++) {
         for (let c = 0; c < cols; c++) {
           huecos.push({
             x: xCara,
             y: 0.95 + f * 1.55,
             z: l.z + (c - (cols - 1) / 2) * (l.ancho / (cols + 0.5)),
-            alto: 0.85,
-            ancho: 0.95,
+            alto: 0.72,
+            ancho: 0.7,
           });
         }
       }
@@ -904,57 +968,57 @@ const GEO_TORSO = fundir([
 ]);
 
 /**
- * Cabeza con pelo y CARA.
+ * Cabeza CÚBICA con pelo y cara.
  *
- * Dos decisiones aquí, y las dos son de legibilidad, no de anatomía:
+ * Era una esfera. La referencia tiene la cabeza en CAJA, y el cambio pesa
+ * mucho más de lo que parece: a esta distancia una esfera de piel se lee como
+ * un bulto redondo sin orientación, mientras que una caja tiene una CARA
+ * FRONTAL plana -- un rectángulo entero de piel mirando a cámara, con sus
+ * cuatro aristas marcando el contorno. Sobre esa cara plana los ojos y la boca
+ * se colocan como en un cartel, y por eso se leen a treinta píxeles.
  *
- * 1. La cabeza es DESPROPORCIONADA: 0,36 de radio sobre un cuerpo de 1,5. Es
- *    la proporción del dibujo animado, y existe por este motivo exacto: a
- *    tamaño realista, la cara de un personaje visto desde arriba y a veinte
- *    metros ocupa cuatro píxeles y no es nada. Agrandando la cabeza la cara
- *    llega a unos treinta píxeles de ancho en un móvil, que ya es una cara.
+ * Sigue siendo desproporcionada respecto al cuerpo, y por el mismo motivo de
+ * siempre: a escala anatómica no habría cara que ver.
  *
- * 2. Los ojos van POR FUERA del cráneo, no hundidos. Con caras planas y una
- *    sola luz, un ojo embebido queda a la misma iluminación que la mejilla y
- *    desaparece; sacándolo, coge su propio sombreado y se recorta. Es el mismo
- *    truco que usa el reflejo de la bolsa. Ojo con esto al tocar el radio del
- *    cráneo: al pasar de 0,36 a 0,40 los ojos se quedaron DENTRO y la cara
- *    desapareció entera sin que nada fallara.
+ * El pelo ya no es un casquete con una ventana angular, sino cinco tablas
+ * -- techo, nuca, dos patillas y flequillo -- que enmarcan la cara dejando
+ * libre la parte de abajo del frente. Es más simple y es lo que hace la
+ * referencia.
  *
- * Llevaba gorra, y la gorra tapaba justo lo que había que ver. El pelo ocupa
- * su sitio y hace su mismo trabajo: la melena se abre en una VENTANA al frente
- * y el flequillo cae sobre la frente, así que desde la cámara cenital sigue
- * leyéndose de un vistazo hacia dónde mira -- que era para lo que servía la
- * visera -- pero ahora enmarcando una cara en vez de escondiéndola.
+ * Ojos y boca van pegados POR DELANTE de la cara, no empotrados: con caras
+ * planas y una sola luz, un rasgo hundido recibe la misma iluminación que la
+ * mejilla y desaparece. Hay una prueba que lo comprueba, y no mide radios sino
+ * ALCANCE EN Z, que es lo que significa "asomar" en una cabeza cuadrada.
  */
 const GEO_CABEZA = fundir([
-  { geo: new SphereGeometry(0.4, 9, 7), color: COL.piel },
-  // Melena: un casquete que da la vuelta a la cabeza MENOS una ventana al
-  // frente, por donde asoma la cara. En SphereGeometry el ángulo phi se mide
-  // desde -X y el frente cae en phi = pi/2, así que la ventana se abre
-  // centrada ahí: se arranca 0,85 rad más allá y se recorren 2pi - 1,7.
-  { geo: new SphereGeometry(0.425, 12, 8, Math.PI / 2 + 0.85, Math.PI * 2 - 1.7, 0, Math.PI * 0.62).translate(0, 0.02, 0), color: COL.pelo },
-  // Flequillo: cierra esa ventana por arriba y cae sobre la frente, hasta
-  // justo encima de los ojos. Sin él la cabeza quedaría calva por delante.
-  { geo: new SphereGeometry(0.432, 12, 6, Math.PI / 2 - 0.92, 1.84, 0, Math.PI * 0.4).translate(0, 0.02, 0), color: COL.pelo },
-  // Mechones sueltos en el nacimiento del pelo. Asimétricos a propósito: dos
-  // iguales se leen como cuernos, desiguales se leen como un peinado.
-  { geo: new ConeGeometry(0.085, 0.26, 5).rotateX(0.75).translate(-0.14, 0.33, 0.24), color: COL.peloClaro },
-  { geo: new ConeGeometry(0.07, 0.2, 5).rotateX(0.5).rotateZ(-0.3).translate(0.17, 0.36, 0.19), color: COL.peloClaro },
-  { geo: new ConeGeometry(0.075, 0.22, 5).rotateX(-0.6).translate(0.02, 0.36, -0.18), color: COL.peloClaro },
-  // Franja clara sobre la coronilla: el brillo del pelo. Da la dirección del
-  // peinado, que es lo que separa una melena de un casco.
-  { geo: new SphereGeometry(0.435, 10, 5, Math.PI / 2 + 1.1, 1.2, 0, Math.PI * 0.3).translate(0, 0.02, 0), color: COL.peloClaro },
-  // Ojos: almendrados y altos, como los de un dibujo. Van a media altura de
-  // la cara, por debajo del filo de la gorra.
-  { geo: new SphereGeometry(0.095, 7, 5).scale(0.95, 1.4, 0.5).translate(-0.155, -0.01, 0.35), color: COL.ojo },
-  { geo: new SphereGeometry(0.095, 7, 5).scale(0.95, 1.4, 0.5).translate(0.155, -0.01, 0.35), color: COL.ojo },
-  // El brillo del ojo. Un punto claro arriba a un lado: es lo que separa una
-  // mirada de dos manchas negras.
-  { geo: new SphereGeometry(0.038, 6, 4).translate(-0.19, 0.07, 0.39), color: COL.brilloOjo },
-  { geo: new SphereGeometry(0.038, 6, 4).translate(0.12, 0.07, 0.39), color: COL.brilloOjo },
-  // Boca: un trazo corto. Con la cabeza a este tamaño ya se ve.
-  { geo: new BoxGeometry(0.13, 0.035, 0.05).translate(0, -0.2, 0.36), color: COL.boca },
+  // Cráneo: la caja de piel. Un pelo más ancha que alta, como en el dibujo.
+  { geo: new BoxGeometry(0.78, 0.76, 0.7), color: COL.piel },
+
+  // ── Pelo: cinco tablas ──
+  { geo: new BoxGeometry(0.86, 0.16, 0.78).translate(0, 0.4, 0), color: COL.pelo },
+  { geo: new BoxGeometry(0.86, 0.5, 0.09).translate(0, 0.16, -0.39), color: COL.pelo },
+  { geo: new BoxGeometry(0.09, 0.46, 0.78).translate(-0.42, 0.14, 0), color: COL.pelo },
+  { geo: new BoxGeometry(0.09, 0.46, 0.78).translate(0.42, 0.14, 0), color: COL.pelo },
+  // Flequillo: cae sobre la frente hasta justo encima de los ojos. Va
+  // desigual -- más largo a un lado -- porque un flequillo recto se lee como
+  // un casco.
+  { geo: new BoxGeometry(0.5, 0.18, 0.1).translate(-0.17, 0.22, 0.37), color: COL.pelo },
+  { geo: new BoxGeometry(0.42, 0.13, 0.1).translate(0.23, 0.27, 0.37), color: COL.peloClaro },
+
+  // ── Cara ──
+  // Ojos: blanco de la esclerótica y pupila oscura por delante. Cuadrados,
+  // como los del dibujo, y grandes: ocupan casi un tercio del ancho de la
+  // cara cada uno.
+  { geo: new BoxGeometry(0.17, 0.19, 0.04).translate(-0.17, -0.02, 0.37), color: COL.brilloOjo },
+  { geo: new BoxGeometry(0.17, 0.19, 0.04).translate(0.17, -0.02, 0.37), color: COL.brilloOjo },
+  { geo: new BoxGeometry(0.09, 0.13, 0.03).translate(-0.15, -0.04, 0.4), color: COL.ojo },
+  { geo: new BoxGeometry(0.09, 0.13, 0.03).translate(0.19, -0.04, 0.4), color: COL.ojo },
+  // Cejas: dos trazos sobre los ojos. Son lo que le da EXPRESIÓN; sin ellas
+  // la cara es correcta y está vacía.
+  { geo: new BoxGeometry(0.19, 0.045, 0.03).translate(-0.17, 0.12, 0.37), color: COL.ceja },
+  { geo: new BoxGeometry(0.19, 0.045, 0.03).translate(0.17, 0.12, 0.37), color: COL.ceja },
+  // Boca.
+  { geo: new BoxGeometry(0.16, 0.045, 0.03).translate(0, -0.24, 0.37), color: COL.boca },
 ]);
 
 /**
@@ -1050,6 +1114,26 @@ const GEO_CHASIS = fundir([
 
 /** Montoncito acumulado contra el bordillo: varios bultos y una botella
  *  asomando, que es lo que delata que el montón es de basura. */
+/**
+ * Tapa de botella: un disco pequeñísimo con el filo estriado.
+ *
+ * Parece un detalle tonto y es de lo que más se nota. En la referencia el
+ * suelo está sembrado de puntos claros del tamaño de una moneda, y son ellos
+ * los que hacen que la calle se lea SUCIA en vez de "con basura encima": la
+ * basura grande cuenta el qué, y estos puntos cuentan cuánto tiempo lleva ahí.
+ */
+const GEO_TAPA = fundir([
+  { geo: new CylinderGeometry(0.11, 0.115, 0.035, 10).translate(0, 0.018, 0), tono: 1 },
+  { geo: new CylinderGeometry(0.075, 0.075, 0.045, 10).translate(0, 0.022, 0), tono: 0.78 },
+]);
+
+/** Piedra suelta: cascotillo gris del asfalto roto. Va sin color de instancia
+ *  saturado a propósito -- si TODO son puntos de color, ninguno destaca. */
+const GEO_PIEDRA = fundir([
+  { geo: new IcosahedronGeometry(0.13, 0).scale(1.2, 0.75, 1), tono: 1 },
+  { geo: new IcosahedronGeometry(0.08, 0).translate(0.13, 0.02, 0.09), tono: 0.82 },
+]);
+
 const GEO_MONTON = fundir([
   { geo: new IcosahedronGeometry(0.34, 0).scale(1.1, 0.75, 1).translate(0, 0.24, 0), tono: 1 },
   { geo: new IcosahedronGeometry(0.24, 0).translate(0.26, 0.18, 0.14), tono: 0.8 },
@@ -1088,13 +1172,19 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   // Al estrechar la acera hubo que encoger también la copa: la acera es la
   // que decide cuánto sitio hay para un árbol.
   //
-  // Y van SOLO en la acera izquierda. La cámara mira desde +Z sin ladear, así
-  // que el eje +X del mundo es el lado derecho de la pantalla: una hilera de
-  // árboles ahí queda MUCHO más cerca del ojo (a 9,7 unidades) que los
-  // edificios (a 23-34), y desde una vista cenital sus copas se proyectan
-  // justo encima de las fachadas y las tapan enteras. Con arbolado en los dos
-  // lados el barrio no se veía; con uno solo, la izquierda da vegetación y la
-  // derecha enseña los edificios.
+  // La acera IZQUIERDA lleva hilera continua; la DERECHA, solo unos pocos y
+  // solo en la mitad cercana a la cámara.
+  //
+  // No es capricho, es geometría del encuadre. La cámara mira desde +Z sin
+  // ladear, así que el eje +X del mundo es el lado derecho de la pantalla, y
+  // un árbol ahí está a 9,7 unidades del ojo mientras la fachada está a 23-34:
+  // desde una vista cenital su copa se proyecta ENCIMA de los edificios y los
+  // tapa enteros. Ya pasó, y por eso hubo que quitarlos.
+  //
+  // Lo que sí cabe es arbolado en el TRAMO CERCANO (z > 4). Ahí la fachada que
+  // podrían tapar queda por detrás del borde del encuadre, así que no hay nada
+  // que tapar; y la referencia tiene verde a los dos lados, que es lo que hace
+  // que la calle no parezca un decorado con un lado bueno y otro malo.
   const arboles: { x: number; z: number; e: number; fase: number }[] = [];
   const xArbol = -(MEDIA_CALZADA + ANCHO_ACERA * 0.82);
   for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
@@ -1102,6 +1192,14 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
       x: xArbol,
       z,
       e: 0.85 + rnd() * 0.25,
+      fase: rnd() * Math.PI * 2,
+    });
+  }
+  for (let z = 4 + rnd() * 3; z < 40; z += 9 + rnd() * 5) {
+    arboles.push({
+      x: -xArbol,
+      z,
+      e: 0.8 + rnd() * 0.2,
       fase: rnd() * Math.PI * 2,
     });
   }
@@ -1205,29 +1303,45 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
     grupo.add(malla);
   };
 
-  sembrar(GEO_BOTELLA, 34, [
+  sembrar(GEO_BOTELLA, 46, [
     COL.botellaVerde,
     COL.botellaAmbar,
     COL.botellaAzul,
     COL.botellaRoja,
     COL.botellaClara,
   ], 0.13);
-  sembrar(GEO_BRIK, 26, [COL.brikNaranja, COL.brikAmarillo, COL.brikRojo, COL.brikVerde], 0.0);
-  sembrar(GEO_LATA, 30, [COL.lataRoja, COL.lataAzul, COL.lataPlata, COL.brikVerde], 0.1);
-  sembrar(GEO_PLATO, 20, [COL.plato, COL.plato, COL.platoCrema, COL.bandeja], 0.0, {
+  sembrar(GEO_BRIK, 40, [COL.brikNaranja, COL.brikAmarillo, COL.brikRojo, COL.brikVerde], 0.0);
+  sembrar(GEO_LATA, 48, [COL.lataRoja, COL.lataAzul, COL.lataPlata, COL.brikVerde], 0.1);
+  sembrar(GEO_PLATO, 26, [COL.plato, COL.plato, COL.platoCrema, COL.bandeja], 0.0, {
     escalaMin: 0.9,
     escalaMax: 1.35,
   });
-  sembrar(GEO_COMIDA, 34, [
+  sembrar(GEO_COMIDA, 44, [
     COL.comidaTomate,
     COL.comidaMaiz,
     COL.comidaVerde,
     COL.comidaPan,
     COL.comidaCarne,
   ], 0.0, { escalaMin: 0.7, escalaMax: 1.25 });
-  sembrar(GEO_PAPEL, 46, [COL.papel, COL.papel, COL.papelCrema, COL.cartonSuelto], 0.0, {
+  sembrar(GEO_PAPEL, 64, [COL.papel, COL.papel, COL.papelCrema, COL.cartonSuelto], 0.0, {
     escalaMin: 0.75,
     escalaMax: 1.4,
+  });
+
+  // Los dos que rellenan los huecos. Van los últimos y en mucha cantidad: son
+  // el "ruido" de fondo sobre el que destaca todo lo demás.
+  sembrar(GEO_TAPA, 90, [
+    COL.papel,
+    COL.lataRoja,
+    COL.lataAzul,
+    COL.brikVerde,
+    COL.brikAmarillo,
+    COL.papel,
+  ], 0.0, { escalaMin: 0.8, escalaMax: 1.3, radio: 1.4 });
+  sembrar(GEO_PIEDRA, 44, [COL.escombro, COL.escombro, COL.aceraOscura], 0.0, {
+    escalaMin: 0.7,
+    escalaMax: 1.5,
+    radio: 1.4,
   });
 
   // Montoncitos contra el bordillo: es donde se acumula de verdad la basura, y
@@ -1281,13 +1395,23 @@ export function crearObstaculos(obstaculos: WorldObstacle[]): Group {
         sombras.push(...lista);
         break;
 
-      case 'palet': {
-        // Palé tirado: una tabla gruesa, ligeramente girada.
-        malla = new InstancedMesh(new BoxGeometry(1, 0.22, 1), mat(COL.palet), n);
+      case 'carton': {
+        // Cartón aplastado: una lámina finísima tirada en el suelo, con una
+        // solapa levantada. Es de los objetos que más se repiten en la
+        // referencia y el que más "vertedero" aporta, porque es GRANDE y plano:
+        // rompe la calzada en trozos sin ocupar altura.
+        const geo = fundir([
+          { geo: new BoxGeometry(1, 0.045, 1), color: COL.palet },
+          // La solapa doblada. Sin ella una lámina lisa parece una alfombra.
+          { geo: new BoxGeometry(0.42, 0.04, 0.66).rotateX(-0.42).translate(0.22, 0.11, -0.42), color: COL.cartonSuelto },
+          // Un pliegue más claro cruzando: es donde se dobló al aplastarlo.
+          { geo: new BoxGeometry(1, 0.05, 0.06).translate(0, 0.03, 0.1), color: COL.cartonSuelto },
+        ]);
+        malla = new InstancedMesh(geo, MAT_BASURA, n);
         lista.forEach((o, i) => {
-          poner(malla, i, wx(o.x + o.w / 2), 0.12, wz(o.y + o.h / 2), o.w * U, 1, o.h * U * 1.6, 0.2);
+          poner(malla, i, wx(o.x + o.w / 2), 0.03, wz(o.y + o.h / 2), o.w * U, 1, o.h * U, (i % 4) * 0.4);
+          malla.setColorAt(i, _c.set(0xffffff));
         });
-        sombras.push(...lista);
         break;
       }
 
@@ -1324,29 +1448,64 @@ export function crearObstaculos(obstaculos: WorldObstacle[]): Group {
       case 'cono': {
         // Cono de obra: naranja chillón. Es el obstáculo más visible, y eso
         // está bien: es el que más ocupa.
-        malla = new InstancedMesh(new ConeGeometry(0.5, 1, 8), mat(COL.cono), n);
-        lista.forEach((o, i) => {
-          poner(malla, i, wx(o.x + o.w / 2), o.h * U * 0.5, wz(o.y + o.h / 2), o.w * U, o.h * U, o.w * U);
-        });
+        // Con base cuadrada y en tres colores: en la referencia los conos son
+        // rojos y amarillos, no todos naranjas. Van por instancia, así que
+        // siguen costando una sola llamada de dibujo.
+        malla = new InstancedMesh(
+          fundir([
+            { geo: new ConeGeometry(0.5, 1, 4).rotateY(Math.PI / 4), color: 0xffffff },
+            { geo: new BoxGeometry(0.86, 0.09, 0.86).translate(0, -0.46, 0), color: 0xe0e0e0 },
+          ]),
+          MAT_BASURA,
+          n
+        );
+        {
+          const tonos = [COL.cono, COL.conoRojo, COL.conoAmarillo];
+          lista.forEach((o, i) => {
+            poner(malla, i, wx(o.x + o.w / 2), o.h * U * 0.5, wz(o.y + o.h / 2), o.w * U, o.h * U, o.w * U);
+            malla.setColorAt(i, _c.set(tonos[i % tonos.length]));
+          });
+        }
         sombras.push(...lista);
         break;
       }
 
-      case 'charco':
-      default:
-        // El charco NO bloquea: se pisa. Por eso va plano contra el suelo.
-        malla = new InstancedMesh(
-          new CircleGeometry(0.5, 12).rotateX(-Math.PI / 2),
-          new MeshLambertMaterial({ color: COL.charco }),
-          n
-        );
+      case 'contenedor':
+      default: {
+        // Contenedor de basura, con la tapa medio abierta y algo asomando.
+        // Es el obstáculo más alto de la calle y el que ancla la escena: en la
+        // referencia hay dos volcados en la calzada y se ven antes que nada.
+        //
+        // Las paredes van con vuelo hacia arriba (un tronco de pirámide) como
+        // los de verdad, y la tapa cae hacia atrás en vez de estar quitada:
+        // una caja abierta y a escuadra se lee como un cajón, no como un
+        // contenedor.
+        const geo = fundir([
+          { geo: new CylinderGeometry(0.54, 0.46, 0.9, 4).rotateY(Math.PI / 4).translate(0, 0.45, 0), color: COL.contenedor },
+          // Interior en sombra, para que se vea que está abierto y lleno.
+          { geo: new BoxGeometry(0.78, 0.1, 0.78).translate(0, 0.86, 0), color: 0x1d2430 },
+          { geo: new IcosahedronGeometry(0.22, 0).translate(0.14, 0.94, -0.1), color: COL.bolsa },
+          { geo: new IcosahedronGeometry(0.17, 0).translate(-0.18, 0.92, 0.14), color: COL.papelCrema },
+          // Tapa abatida hacia atrás.
+          { geo: new BoxGeometry(1.02, 0.1, 0.98).rotateX(-1.05).translate(0, 1.2, -0.62), color: COL.contenedorTapa },
+          // Reborde superior y las dos ruedas del frente.
+          { geo: new BoxGeometry(1.14, 0.09, 1.1).translate(0, 0.92, 0), color: COL.contenedorTapa },
+          { geo: new CylinderGeometry(0.13, 0.13, 0.1, 8).rotateZ(Math.PI / 2).translate(-0.42, 0.13, 0.4), color: COL.neumatico },
+          { geo: new CylinderGeometry(0.13, 0.13, 0.1, 8).rotateZ(Math.PI / 2).translate(0.42, 0.13, 0.4), color: COL.neumatico },
+        ]);
+        malla = new InstancedMesh(geo, MAT_BASURA, n);
         lista.forEach((o, i) => {
-          poner(malla, i, wx(o.x + o.w / 2), 0.035, wz(o.y + o.h / 2), o.w * U, 1, o.h * U);
+          const e = o.w * U * 0.92;
+          poner(malla, i, wx(o.x + o.w / 2), 0, wz(o.y + o.h / 2), e, e, e, (i % 4) * 0.5 - 0.5);
+          malla.setColorAt(i, _c.set(0xffffff));
         });
+        sombras.push(...lista);
         break;
+      }
     }
 
     malla.instanceMatrix.needsUpdate = true;
+    if (malla.instanceColor) malla.instanceColor.needsUpdate = true;
     g.add(malla);
   }
 

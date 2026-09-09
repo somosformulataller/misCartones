@@ -59,9 +59,14 @@ const BAG_CLEARANCE = 46;
 
 export const TOTAL_BAGS = 5;
 
-/** Lo que estorba en una calle descuidada: escombros, palés tirados, ruedas
- *  viejas, cajas de cartón, conos de obra y charcos. */
-export type ObstacleKind = 'escombro' | 'palet' | 'rueda' | 'caja' | 'cono' | 'charco';
+/**
+ * Lo que estorba en una calle descuidada. La lista sale de la referencia, no
+ * de la imaginación: contenedores de basura volcados, cartones aplastados,
+ * ruedas viejas, cajas, conos y cascotes. Fuera quedaron el palé (no aparece
+ * en ninguna calle así) y el charco (esta calle está seca y castigada por el
+ * sol, no encharcada).
+ */
+export type ObstacleKind = 'escombro' | 'carton' | 'rueda' | 'caja' | 'cono' | 'contenedor';
 
 export interface WorldObstacle {
   x: number;
@@ -108,17 +113,23 @@ function distToRect(px: number, py: number, r: { x: number; y: number; w: number
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// `solid: false` = se puede pisar, solo frena. Hoy solo el charco.
+// `solid: false` = se puede pisar, solo frena. Hoy solo el cartón aplastado,
+// que está tirado plano contra el suelo: bloquear el paso con una lámina de
+// cartón de un centímetro se lee como un fallo, no como un obstáculo.
+//
+// El contenedor hereda el hueco que dejó el charco en la lista, pero al revés:
+// es el obstáculo más GRANDE y sí bloquea. Es lo que pide la referencia, donde
+// hay dos volcados en mitad de la calzada.
 const OBSTACLE_SIZES: Record<ObstacleKind, { w: number; h: number; solid: boolean }> = {
   escombro: { w: 56, h: 42, solid: true },
-  palet: { w: 98, h: 38, solid: true },
+  carton: { w: 112, h: 86, solid: false },
   rueda: { w: 46, h: 40, solid: true },
   caja: { w: 64, h: 54, solid: true },
   cono: { w: 72, h: 64, solid: true },
-  charco: { w: 104, h: 64, solid: false },
+  contenedor: { w: 98, h: 78, solid: true },
 };
 
-const KINDS: ObstacleKind[] = ['escombro', 'palet', 'rueda', 'caja', 'cono', 'charco'];
+const KINDS: ObstacleKind[] = ['escombro', 'carton', 'rueda', 'caja', 'cono', 'contenedor'];
 
 // ── Rejilla de ocupación e inundación ──────────────────────────────────────
 // Se comprueba que exista camino con una rejilla gruesa: cada celda queda
