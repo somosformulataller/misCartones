@@ -72,7 +72,11 @@ export const PUNTOS_A_ENCUADRAR: Vector3[] = [
   new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y)),
   new Vector3(wx(PLAY.x), 0, wz(PLAY.y + PLAY.h)),
   new Vector3(wx(PLAY.x + PLAY.w), 0, wz(PLAY.y + PLAY.h)),
-  new Vector3(wx(PLAY.x), 3.4, wz(PLAY.y)),
+  // Y este ALTO, en el borde del fondo. Sin él los árboles asoman por encima
+  // del encuadre y se ve el vacío detrás. Sube con el ciudadano: mide 4,6 de
+  // alto, y si el punto se quedara por debajo se le cortaría la gorra justo
+  // cuando camina por el fondo de la calle.
+  new Vector3(wx(PLAY.x), 4.9, wz(PLAY.y)),
   // Los dos de la acera, en el borde CERCANO: es el que manda, porque es
   // donde el encuadre es más estrecho. Sin ellos la calle no tiene lados.
   new Vector3(wx(PLAY.x) * MARGEN_LATERAL, 0, wz(PLAY.y + PLAY.h)),

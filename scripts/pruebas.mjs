@@ -412,7 +412,7 @@ console.log('\n6. La escena en 3D');
 {
   const THREE = require('three');
   const { PerspectiveCamera } = THREE;
-  const { distanciaQueEncuadra } = require(
+  const { distanciaQueEncuadra, CENTRO } = require(
     path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js')
   );
   const esc = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'escena.js'));
@@ -531,6 +531,70 @@ console.log('\n6. La escena en 3D');
     `dibujado ${(tam.x / 2).toFixed(2)}, colisiona ${(CITIZEN_RADIUS / 40).toFixed(2)}`
   );
   ok(tam.y > 2.1, 'El ciudadano es lo bastante grande para leerse desde la cámara');
+
+  // ¿Se le ve la CARA? Eso no lo decide el tamaño del muñeco sino el de su
+  // cabeza, y en último término cuántos PÍXELES ocupa esa cabeza en el peor
+  // teléfono de la lista, que es lo único que el jugador experimenta. Una
+  // cabeza a escala anatómica sobre un cuerpo de 4 unidades se queda en cuatro
+  // píxeles y no hay cara que valga; por eso el muñeco es cabezón.
+  const altoCiudadano = tam.y;
+  caja.setFromObject(ciudadano.cabeza).getSize(tam);
+  const anchoCabeza = tam.x;
+
+  // Se proyectan los dos extremos de la cabeza, a su altura real y en el
+  // centro del terreno, y se mide cuántos píxeles hay entre ellos.
+  let peorPx = Infinity;
+  let peorPantalla = '';
+  for (const [nombre, w, h] of PANTALLAS) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    distanciaQueEncuadra(cam);
+    const y = altoCiudadano - anchoCabeza / 2;
+    const izq = new THREE.Vector3(CENTRO.x - anchoCabeza / 2, y, CENTRO.z).project(cam);
+    const der = new THREE.Vector3(CENTRO.x + anchoCabeza / 2, y, CENTRO.z).project(cam);
+    const px = (Math.abs(der.x - izq.x) / 2) * w;
+    if (px < peorPx) { peorPx = px; peorPantalla = nombre; }
+  }
+  console.log(
+    `     Cabeza: ${anchoCabeza.toFixed(2)} de ancho, ${((anchoCabeza / altoCiudadano) * 100).toFixed(0)} % del alto, ${Math.round(peorPx)} px en ${peorPantalla}`
+  );
+  ok(
+    anchoCabeza / altoCiudadano > 0.33,
+    'La cabeza es de dibujo, no anatómica: es lo que permite ponerle cara',
+    `${((anchoCabeza / altoCiudadano) * 100).toFixed(0)} %`
+  );
+  ok(peorPx >= 28, 'La cara se ve en la peor pantalla de la lista', `solo ${Math.round(peorPx)} px de cabeza en ${peorPantalla}`);
+
+  // Y que la cara ESTÉ, además de caber. Los ojos van pegados POR FUERA del
+  // cráneo a propósito: con caras planas y una sola luz, un ojo hundido recibe
+  // la misma iluminación que la mejilla y se borra. Al agrandar el cráneo de
+  // 0,36 a 0,40 los ojos se quedaron dentro y la cara desapareció ENTERA sin
+  // que fallara nada -- ni un error, ni una malla perdida, ni un triángulo de
+  // más. Solo un muñeco sin cara. Esto es lo que lo detecta.
+  //
+  // Se buscan los vértices por su color: los de piel dan el radio del cráneo,
+  // los de ojo tienen que salirse de él.
+  const radioPorColor = (malla, hex) => {
+    const g = malla.geometry;
+    const col = g.attributes.color;
+    const pos = g.attributes.position;
+    const objetivo = new THREE.Color(hex);
+    let max = -1;
+    for (let i = 0; i < pos.count; i++) {
+      const d =
+        Math.abs(col.getX(i) - objetivo.r) +
+        Math.abs(col.getY(i) - objetivo.g) +
+        Math.abs(col.getZ(i) - objetivo.b);
+      if (d < 0.01) max = Math.max(max, Math.hypot(pos.getX(i), pos.getY(i), pos.getZ(i)));
+    }
+    return max;
+  };
+  const craneo = ciudadano.cabeza.children[0];
+  const radioPiel = radioPorColor(craneo, esc.COL.piel);
+  const radioOjo = radioPorColor(craneo, esc.COL.ojo);
+  const radioBoca = radioPorColor(craneo, esc.COL.boca);
+  console.log(`     Cara: cráneo ${radioPiel.toFixed(3)}, ojos ${radioOjo.toFixed(3)}, boca ${radioBoca.toFixed(3)}`);
+  ok(radioOjo > radioPiel, 'Los ojos asoman del cráneo, no están hundidos dentro', `ojos ${radioOjo.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
+  ok(radioBoca > radioPiel * 0.96, 'La boca llega a la superficie de la cara', `boca ${radioBoca.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
 
   // La carretilla es el DESTINO: la entrega salta al entrar en CART_RADIUS, así
   // que si se dibujara más pequeña que ese radio la bolsa se depositaría sola

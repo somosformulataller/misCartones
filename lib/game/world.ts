@@ -32,7 +32,7 @@ export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 // ciudadano y las bolsas se modelan a este tamaño exacto. Si el muñeco se
 // dibujara más grande que su radio, atravesaría visiblemente los obstáculos;
 // si la bolsa se dibujara más grande que el suyo, se recogería "desde lejos".
-export const CITIZEN_RADIUS = 34;
+export const CITIZEN_RADIUS = 48;
 export const BAG_RADIUS = 36;
 export const CART_RADIUS = 100;
 

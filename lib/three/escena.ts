@@ -93,7 +93,7 @@ const LARGO_CALLE = 220;
  * LEERSE, no estar a escala arquitectónica, así que se agranda hasta que su
  * ancho coincide con CITIZEN_RADIUS, el radio con el que choca de verdad.
  */
-const ESCALA_CIUDADANO = 1.76;
+const ESCALA_CIUDADANO = 2.4;
 
 /**
  * Lo mismo para la carretilla, y por el mismo motivo.
@@ -184,6 +184,11 @@ export const COL = {
   pantalon: 0x2f4bc9,
   piel: 0xffc48f,
   gorra: 0x2b3a57,
+  // La cara. El ojo no es negro puro: a esta escala un negro absoluto sobre
+  // piel clara vibra y se lee como un agujero.
+  ojo: 0x23293a,
+  brilloOjo: 0xffffff,
+  boca: 0xb56b52,
   // Bolsa: negra como una bolsa de basura de verdad. Lo que impide que se
   // pierda sobre el asfalto gris no es su color, es el LAZO amarillo y el
   // halo que se enciende al acercarse.
@@ -835,12 +840,42 @@ const GEO_TORSO = fundir([
   { geo: new BoxGeometry(0.66, 0.08, 0.44).translate(0, 0.78, 0), color: COL.reflectante },
 ]);
 
-/** Cabeza con gorra. La visera es lo que da la lectura de "hacia dónde mira"
- *  desde la cámara cenital, que es justo el ángulo del juego. */
+/**
+ * Cabeza con gorra y CARA.
+ *
+ * Dos decisiones aquí, y las dos son de legibilidad, no de anatomía:
+ *
+ * 1. La cabeza es DESPROPORCIONADA: 0,36 de radio sobre un cuerpo de 1,5. Es
+ *    la proporción del dibujo animado, y existe por este motivo exacto: a
+ *    tamaño realista, la cara de un personaje visto desde arriba y a veinte
+ *    metros ocupa cuatro píxeles y no es nada. Agrandando la cabeza la cara
+ *    llega a unos treinta píxeles de ancho en un móvil, que ya es una cara.
+ *
+ * 2. Los ojos van POR FUERA del cráneo, no hundidos. Con caras planas y una
+ *    sola luz, un ojo embebido queda a la misma iluminación que la mejilla y
+ *    desaparece; sacándolo, coge su propio sombreado y se recorta. Es el mismo
+ *    truco que usa el reflejo de la bolsa. Ojo con esto al tocar el radio del
+ *    cráneo: al pasar de 0,36 a 0,40 los ojos se quedaron DENTRO y la cara
+ *    desapareció entera sin que nada fallara.
+ *
+ * La visera sigue siendo lo que dice HACIA DÓNDE MIRA desde la cámara cenital,
+ * que es justo el ángulo del juego; ahora además enmarca la cara.
+ */
 const GEO_CABEZA = fundir([
-  { geo: new SphereGeometry(0.27, 8, 6), color: COL.piel },
-  { geo: new SphereGeometry(0.28, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.06, 0), color: COL.gorra },
-  { geo: new BoxGeometry(0.36, 0.05, 0.26).translate(0, 0.08, 0.26), color: COL.gorra },
+  { geo: new SphereGeometry(0.4, 9, 7), color: COL.piel },
+  // Gorra: casquete y visera, las dos más grandes que antes en proporción.
+  { geo: new SphereGeometry(0.415, 9, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.08, 0), color: COL.gorra },
+  { geo: new BoxGeometry(0.54, 0.07, 0.36).translate(0, 0.11, 0.4), color: COL.gorra },
+  // Ojos: almendrados y altos, como los de un dibujo. Van a media altura de
+  // la cara, por debajo del filo de la gorra.
+  { geo: new SphereGeometry(0.095, 7, 5).scale(0.95, 1.4, 0.5).translate(-0.155, -0.01, 0.35), color: COL.ojo },
+  { geo: new SphereGeometry(0.095, 7, 5).scale(0.95, 1.4, 0.5).translate(0.155, -0.01, 0.35), color: COL.ojo },
+  // El brillo del ojo. Un punto claro arriba a un lado: es lo que separa una
+  // mirada de dos manchas negras.
+  { geo: new SphereGeometry(0.038, 6, 4).translate(-0.19, 0.07, 0.39), color: COL.brilloOjo },
+  { geo: new SphereGeometry(0.038, 6, 4).translate(0.12, 0.07, 0.39), color: COL.brilloOjo },
+  // Boca: un trazo corto. Con la cabeza a este tamaño ya se ve.
+  { geo: new BoxGeometry(0.13, 0.035, 0.05).translate(0, -0.2, 0.36), color: COL.boca },
 ]);
 
 /**
@@ -1419,7 +1454,7 @@ export function crearCiudadano(): CiudadanoVista {
   // su contenido: cráneo, copa de la gorra y visera.
   const cabeza = new Group();
   cabeza.add(new Mesh(GEO_CABEZA, MAT_FUNDIDO));
-  cabeza.position.y = 1.36;
+  cabeza.position.y = 1.44;
   cuerpo.add(cabeza);
 
   // La bolsa al hombro, con un cartón asomando: la promesa de lo que lleva
