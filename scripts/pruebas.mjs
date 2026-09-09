@@ -671,6 +671,51 @@ console.log('\n6. La escena en 3D');
   ok(tamTolva.z / tamTolva.x > 1.15, 'La tolva es más larga que ancha: en planta no es un cuadrado', `${(tamTolva.z / tamTolva.x).toFixed(2)}`);
   ok(anchoDel < anchoTras * 0.65, 'La tolva se estrecha hacia delante: en planta es un trapecio', `${anchoDel.toFixed(2)} contra ${anchoTras.toFixed(2)}`);
 
+  // ── El presupuesto de luz ──
+  // Sin mapeo de tonos, todo lo que pase de 1 se recorta canal a canal y el
+  // color se va hacia el blanco. Esta escena ya vivió eso: sumaba 2,8 y la
+  // calle entera salía desteñida. Al subir la luz hay que comprobar que no se
+  // vuelve a cruzar esa línea, y sobre todo en el ASFALTO, que es la mayor
+  // parte de la pantalla: una superficie horizontal no recibe el sol entero,
+  // solo su componente vertical, así que el número que importa no es la suma
+  // de las luces sino lo que de verdad le llega al suelo.
+  const luzTotal = esc.LUZ.hemisferio + esc.LUZ.sol;
+  const [sx3, sy3, sz3] = esc.LUZ.posicionSol;
+  const nDotL = sy3 / Math.hypot(sx3, sy3, sz3);
+  const luzSuelo = esc.LUZ.hemisferio + esc.LUZ.sol * nDotL;
+
+  // Qué se mira y qué no. Un rojo o un naranja saturados tienen un canal ya en
+  // el tope y se recortan con cualquier luz por encima de 1: eso no es un
+  // fallo, es lo que significa "saturado", y pasaba igual antes de subir nada.
+  // Lo que sí arruina una escena es que se quemen las SUPERFICIES GRANDES --
+  // el asfalto, las aceras, las fachadas, los tejados -- porque son las que
+  // ocupan la pantalla y las que hacen que todo se vea desteñido.
+  //
+  // La línea de la calzada queda fuera de la lista a propósito: es blanca de
+  // fábrica y que se recorte a blanco puro es exactamente lo que tiene que
+  // pasarle.
+  const GRANDES = [
+    'asfalto', 'asfaltoClaro', 'asfaltoOscuro', 'rodada', 'acera', 'aceraOscura',
+    'bordillo', 'suelo', 'paredA', 'paredB', 'paredC', 'paredD', 'paredE',
+    'tejaA', 'tejaB', 'tejaC', 'azotea',
+  ];
+  const seRecorta = (hex, luz) => {
+    const c = new THREE.Color(hex); // Color.set ya convierte de sRGB a lineal
+    return Math.max(c.r, c.g, c.b) * luz > 1.001;
+  };
+  const quemados = GRANDES.filter((n) => seRecorta(esc.COL[n], luzSuelo));
+  console.log(
+    `     Luz: ${luzTotal.toFixed(2)} en total, ${luzSuelo.toFixed(2)} en el asfalto;` +
+      ` ${quemados.length} de ${GRANDES.length} superficies grandes se queman`
+  );
+  ok(luzTotal <= 1.45, 'La luz total no pasa del techo a partir del cual la escena se lava', `${luzTotal.toFixed(2)}`);
+  ok(GRANDES.every((n) => esc.COL[n] !== undefined), 'La lista de superficies grandes sigue existiendo en la paleta');
+  ok(
+    quemados.length === 0,
+    'Ninguna superficie grande se quema a blanco con la luz de la escena',
+    `se queman: ${quemados.join(', ')}`
+  );
+
   // ── Nada tapa la zona de juego ──
   // La cámara mira desde arriba: cualquier cosa que asome sobre la calzada
   // puede esconder una bolsa. Las copas de los árboles son la trampa clásica,

@@ -49,6 +49,7 @@ import {
   crearObstaculos,
   crearSuelo,
   crearVegetacion,
+  LUZ,
   sx,
   sy,
   wx,
@@ -149,33 +150,27 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Este fondo casi no se ve: con la inclinación de 52° y un campo visual de
   // 42°, hasta el rayo más alto de la cámara apunta 31° POR DEBAJO del
   // horizonte, así que todo lo que se ve es suelo. Queda como respaldo.
-  scene.background = new Color(0xb9c2d0);
+  scene.background = new Color(LUZ.fondo);
   // Neblina de mediodía, del mismo tono que la losa lejana. Es lo que funde el
   // borde de la escena con la lejanía: como termina antes de donde acaba esa
   // losa, ese borde NUNCA llega a verse. Y al ser del color del suelo urbano,
   // el horizonte se lee como barrio que sigue, no como cielo metiéndose en la
   // escena. Los valores de aquí son solo el arranque: se recalculan por
   // pantalla más abajo.
-  const niebla = new Fog(0xb9c2d0, 60, 90);
+  const niebla = new Fog(LUZ.fondo, 60, 90);
   scene.fog = niebla;
 
   const camera = new PerspectiveCamera(42, 1, 0.5, 120);
 
   // ── Luz ──
-  // La suma de TODAS las luces se queda por debajo de ~1,15. Es lo que
-  // decide si los colores se ven vivos o lavados: en cuanto la iluminación
-  // pasa de 1, el resultado se satura hacia el BLANCO y se come el color del
-  // material. Antes sumaban 2,8 y por eso todo se veía desteñido.
-  // La saturación se consigue en la PALETA (ver COL en escena.ts), no
-  // subiendo las luces.
-  // El color de abajo es el rebote del suelo: sobre asfalto es un gris cálido,
-  // no el verde de pasto que había cuando esto era un prado.
-  const hemi = new HemisphereLight(0xdff1ff, 0x9a9382, 0.42);
+  // El presupuesto de luz está en LUZ (escena.ts), donde las pruebas pueden
+  // leerlo y comprobar que no se pasa del techo a partir del cual los blancos
+  // se recortan y la calle vuelve a verse lavada. La saturación se consigue en
+  // la PALETA (ver COL en escena.ts), no subiendo las luces.
+  const hemi = new HemisphereLight(LUZ.cielo, LUZ.suelo, LUZ.hemisferio);
   scene.add(hemi);
-  // Luz casi blanca, apenas cálida: una direccional muy amarilla ensucia el
-  // asfalto hacia el marrón y apaga las fachadas.
-  const sol = new DirectionalLight(0xfffdf4, 0.72);
-  sol.position.set(-8, 14, 6);
+  const sol = new DirectionalLight(LUZ.color, LUZ.sol);
+  sol.position.set(...LUZ.posicionSol);
   scene.add(sol);
 
   // ── Escena ────────────────────────────────────────────────────────────────

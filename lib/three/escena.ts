@@ -125,11 +125,19 @@ export const COL = {
   bordillo: 0xe6e0d2,
   suelo: 0x9aa1ad,
   // Casas: el color de la escena vive aquí. Un barrio se lee por sus fachadas.
-  paredA: 0xf5a23c,
-  paredB: 0xf2d84e,
+  // Las dos fachadas más claras bajan un peldaño al subir la luz: a 0xf5a23c y
+  // 0xf2d84e su canal rojo se recortaba sobre el asfalto y las dos se iban
+  // hacia el amarillo blanquecino. Es la misma retirada que la de paredE, y es
+  // lo que hay que hacer siempre que sube la exposición: no dejar que la luz
+  // decida el color, decidirlo en la paleta.
+  paredA: 0xe59637,
+  paredB: 0xe4cb44,
   paredC: 0xe0654a,
   paredD: 0x63c9dd,
-  paredE: 0xf2efe2,
+  // Bajada al subir la luz: a 0xf2efe2 esta fachada se recortaba a blanco puro
+  // sobre el asfalto y perdía su tono crema. Cuando sube la exposición hay que
+  // retirar las pinturas casi blancas, no dejarlas quemarse.
+  paredE: 0xe4dfd0,
   tejaA: 0xd8543a,
   tejaB: 0xb8452f,
   tejaC: 0x8f97a6,
@@ -238,13 +246,51 @@ export const COL = {
 const mat = (color: number, opts: { plano?: boolean } = {}) =>
   new MeshLambertMaterial({ color, flatShading: opts.plano ?? true });
 
+/**
+ * El presupuesto de luz de la escena. Vive aquí, y no en game.ts, para que las
+ * pruebas puedan leerlo: game.ts necesita un DOM y no se puede cargar en node.
+ *
+ * Sin mapeo de tonos, todo lo que pase de 1 se recorta canal a canal y el
+ * color se va hacia el blanco. Estuvo en 1,14 justo por eso -- antes sumaba
+ * 2,8 y la calle entera salía desteñida.
+ *
+ * Ahora suma 1,38, y la subida va casi toda al HEMISFÉRICO. Es deliberado:
+ * el hemisférico es relleno, levanta las caras que NO miran al sol, que son
+ * las que estaban oscuras; subir el sol en su lugar habría quemado las caras
+ * que ya estaban al límite sin arreglar ninguna sombra. Una calle de día se
+ * ve clara porque el cielo entero ilumina, no porque el sol pegue más fuerte.
+ *
+ * El techo son 1,45: por encima se recortan los blancos de verdad (la línea
+ * de la calzada, el bordillo, la franja del chaleco) y vuelve el lavado.
+ */
+export const LUZ = {
+  hemisferio: 0.6,
+  sol: 0.78,
+  /** Rebote del suelo. Sobre asfalto es un gris cálido, no el verde de pasto
+   *  que había cuando esto era un prado. Sube con el hemisférico. */
+  suelo: 0xaea795,
+  cielo: 0xdff1ff,
+  /** Casi blanca, apenas cálida: una direccional muy amarilla ensucia el
+   *  asfalto hacia el marrón y apaga las fachadas. */
+  color: 0xfffdf4,
+  /** Cielo y niebla. Sube con el resto o la calle queda más clara que el
+   *  fondo y el horizonte se ve como un corte. */
+  fondo: 0xc6cfdb,
+  /** De dónde viene el sol. Está aquí y no en game.ts porque decide cuánta luz
+   *  recibe de verdad el asfalto -- que es la mayor parte de la pantalla -- y
+   *  la prueba del presupuesto necesita ese número, no una suposición. */
+  posicionSol: [-8, 14, 6] as const,
+} as const;
+
 /** Mancha de sombra: sustituye a las sombras en tiempo real, que en móvil
  *  cuestan redibujar la escena entera por cada luz. Azulada, no negra: una
- *  sombra neutra sobre asfalto gris ensucia; esta se lee como sombra de sol. */
+ *  sombra neutra sobre asfalto gris ensucia; esta se lee como sombra de sol.
+ *  Se aclara al subir la luz: una sombra tan densa como antes, con la escena
+ *  más iluminada, se lee como un agujero en el asfalto. */
 const MAT_SOMBRA = new MeshBasicMaterial({
   color: 0x1e2433,
   transparent: true,
-  opacity: 0.26,
+  opacity: 0.19,
   depthWrite: false,
 });
 
