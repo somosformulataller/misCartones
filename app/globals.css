@@ -58,19 +58,30 @@ canvas {
    LAS PANTALLAS DE FUERA DEL JUEGO
    (registro, billetera, compra, referidos, perfil, panel)
 
-   ESTILO: la interfaz de Minecraft, en la paleta de ESTA calle.
+   ESTILO: bloques, pero de este siglo.
 
-   La escena del juego es voxel: cubos, caras planas, cero curvas. Una
-   billetera de esquinas redondeadas y degradados suaves después de eso se
-   lee como si fueran dos aplicaciones pegadas, así que la interfaz se hace
-   con el mismo idioma: retícula de píxeles, biseles duros de dos tonos,
-   sombra de texto desplazada un píxel, y ni una esquina redonda.
+   La escena del juego es voxel, así que la interfaz tiene que serlo también:
+   piezas macizas, retícula, un rótulo de píxeles. Lo que NO se copia es la
+   GUI original de Minecraft, que es de 2011 y por dentro es Windows 95 —
+   bisel de dos tonos, contorno negro en cada elemento, campos de texto
+   negros hundidos. Eso no se ve retro, se ve viejo.
 
-   Lo que NO se copia es el gris frío del inventario de Minecraft. La piedra
-   de aquí es la ACERA de la escena (0xd3cbb7), cálida y con sol; los biseles
-   oscuros salen del asfalto (0x46423d), y el oro es la raya del centro de la
-   calzada (0xf2c11a). Es la GUI de Minecraft construida con los materiales
-   de esta calle, no una captura de otro juego pegada encima.
+   Lo que se conserva de aquel idioma:
+     · la retícula y las piezas macizas, sin nada traslúcido;
+     · el LABIO de abajo, que es lo que hace que un botón sea un objeto que
+       se hunde y no un rectángulo que cambia de color;
+     · la fuente de píxeles, pero SOLO en rótulos, botones y cifras;
+     · el suelo de césped y tierra, y las nubes escalonadas.
+
+   Lo que se moderniza:
+     · superficies claras y cálidas en vez de piedra gris;
+     · una esquina apenas redondeada (6 px) en vez de la esquina viva;
+     · sombras suaves y cortas en vez del contorno negro;
+     · campos de texto claros, no huecos negros;
+     · el texto corrido en la fuente del sistema, que se lee sin esfuerzo.
+
+   La paleta sale de la escena: la acera para las superficies, la raya del
+   centro de la calzada para el oro, la copa de los árboles para el verde.
 
    Todo el CSS que sigue (3.000 líneas heredadas de La Llave Correcta) está
    escrito contra estas variables, así que cambiarlas aquí gira las nueve
@@ -78,70 +89,73 @@ canvas {
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── La piedra: la acera de la escena ── */
-  --mc-stone:      #c9c1ad;  /* cara de los paneles */
-  --mc-stone-lit:  #ece5d2;  /* bisel de arriba y la izquierda (luz) */
-  --mc-stone-dim:  #8e8676;  /* bisel de abajo y la derecha (sombra) */
-  --mc-stone-2:    #b8b09b;  /* superficie hundida: campos, filas alternas */
-  --mc-ink:        #211d18;  /* el contorno negro que lleva TODO en Minecraft */
-  --mc-void:       #2d2822;  /* interior de un campo de texto */
+  /* ── Superficies: la acera de la escena, aclarada hasta ser papel ── */
+  --mc-panel:   #fdfaf3;  /* cara de las tarjetas */
+  --mc-panel-2: #f2ede1;  /* filas alternas, zonas hundidas */
+  --mc-panel-3: #e7e0cf;  /* separadores */
+  --mc-borde:   #d5cdb8;
+  --mc-stone:   var(--mc-panel);   /* nombres viejos, valores nuevos */
+  --mc-stone-2: var(--mc-panel-2);
+
+  --mc-ink:    #1f2a26;  /* texto principal */
+  --mc-ink-2:  #4f5c56;
+  --mc-ink-3:  #7f8b84;
 
   /* ── El oro: la raya del centro de la calzada ── */
-  --mc-gold:       #f2c11a;
-  --mc-gold-lit:   #ffe071;
-  --mc-gold-dim:   #a87c05;
+  --mc-gold:      #f7bd1e;
+  --mc-gold-lit:  #ffd964;
+  --mc-gold-lip:  #c08704;  /* el labio de abajo del botón */
 
   /* ── El verde: la copa de los árboles ── */
-  --mc-grass:      #59a832;
-  --mc-grass-lit:  #8fdc5c;
-  --mc-grass-dim:  #2f6b18;
+  --mc-grass:     #4faa3f;
+  --mc-grass-lit: #7ed36a;
+  --mc-grass-lip: #2c6b22;
 
   /* ── El rojo: la teja de las fachadas ── */
-  --mc-red:        #cf3a20;
-  --mc-red-lit:    #ff7a5c;
-  --mc-red-dim:    #7d1c0a;
+  --mc-red:     #e04a2f;
+  --mc-red-lit: #ff8064;
+  --mc-red-lip: #9d2c14;
 
-  --mc-sky:        #7fd4f5;
+  --mc-sky: #79cdf0;
 
-  /* El grosor del píxel de la interfaz. Todos los biseles, contornos y
-     sombras son múltiplos de esto: si algún día la interfaz se ve a otra
-     escala, se cambia aquí y la retícula sigue cuadrando. */
-  --mc-px: 3px;
+  /* La esquina. Apenas 6 px: lo justo para que no corte, no tanto como para
+     dejar de ser un bloque. Es el ajuste que más separa "moderno" de "viejo". */
+  --mc-radio: 6px;
+  --mc-radio-boton: 12px;
 
-  /* La sombra del texto NO es el grosor del bisel. A 3 px, sobre una letra
-     de 13 px, se lee como una segunda palabra detrás en gris. */
-  --mc-sombra-texto: 2px 2px 0 rgba(20, 16, 12, 0.55);
+  /* El labio: el grosor del canto inferior de las piezas que se pulsan. */
+  --mc-labio: 4px;
 
-  /* Las variables de siempre, ahora con valores de piedra. Los nombres NO
-     cambian: es lo que permite que las 3.000 líneas de abajo sigan
-     funcionando sin tocarlas una por una. */
-  --bg-primary:       #b8b09b;
-  --bg-surface:       var(--mc-stone);
-  --bg-surface-2:     var(--mc-stone-2);
-  --bg-surface-glass: var(--mc-stone);
-  --border-subtle:    var(--mc-stone-dim);
-  --border-gold:      var(--mc-gold-dim);
+  /* Las variables de siempre. Los nombres NO cambian: es lo que permite que
+     las 3.000 líneas de abajo sigan funcionando sin tocarlas una por una. */
+  --bg-primary:       #eef4f7;
+  --bg-surface:       var(--mc-panel);
+  --bg-surface-2:     var(--mc-panel-2);
+  --bg-surface-glass: var(--mc-panel);
+  --border-subtle:    var(--mc-borde);
+  --border-gold:      var(--mc-gold-lip);
 
   --gold-1: var(--mc-gold);
   --gold-2: var(--mc-gold-lit);
-  --gold-3: var(--mc-gold-dim);
+  --gold-3: var(--mc-gold-lip);
 
-  --green-win:  #2f7d1c;
-  --green-mid:  #1d6b8a;
-  --red-lose:   #a92a12;
+  --green-win:  #2f8b28;
+  --green-mid:  #1c7ea3;
+  --red-lose:   #c03a1f;
   --red-mid:    var(--mc-red);
 
-  /* Texto: tinta sobre piedra. */
-  --text-primary:   #211d18;
-  --text-secondary: #4a4238;
-  --text-muted:     #6d6355;
+  --text-primary:   var(--mc-ink);
+  --text-secondary: var(--mc-ink-2);
+  --text-muted:     var(--mc-ink-3);
 
-  /* La de píxeles manda en la interfaz; la del sistema queda para los
-     párrafos largos, donde una fuente de píxeles cansa la vista. */
+  /* LA decisión tipográfica: el texto corrido va en la fuente del sistema y
+     la de píxeles se reserva para rótulos, botones, etiquetas y cifras.
+     Con TODO en píxeles la pantalla se leía como un terminal antiguo; con la
+     mezcla, la de píxeles se nota como una elección y no como una limitación. */
   --font-pixel-stack: var(--font-pixel), "Courier New", ui-monospace, monospace;
-  --font-ui:      var(--font-pixel-stack);
+  --font-ui:      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-pixel-stack);
-  --font-lectura: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-lectura: var(--font-ui);
 
   --space-xs:  4px;
   --space-sm:  8px;
@@ -150,20 +164,20 @@ canvas {
   --space-xl:  32px;
   --space-2xl: 56px;
 
-  /* Cero. En Minecraft no existe una sola esquina redonda, y estas cuatro
-     variables son la mitad del trabajo: el resto lo remata la regla global
-     del final del archivo. */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
+  --radius-sm: var(--mc-radio);
+  --radius-md: var(--mc-radio);
+  --radius-lg: var(--mc-radio);
+  --radius-xl: var(--mc-radio-boton);
 
-  /* Sombras DURAS: un bloque de color desplazado, sin desenfoque. Un halo
-     difuminado es lo único que rompe del todo la ilusión de píxel. */
-  --shadow-gold:  var(--mc-px) var(--mc-px) 0 rgba(33, 29, 24, 0.45);
-  --shadow-green: var(--mc-px) var(--mc-px) 0 rgba(33, 29, 24, 0.45);
-  --shadow-red:   var(--mc-px) var(--mc-px) 0 rgba(33, 29, 24, 0.45);
-  --shadow-card:  calc(var(--mc-px) * 2) calc(var(--mc-px) * 2) 0 rgba(33, 29, 24, 0.55);
+  /* Sombras CORTAS y con color, no halos grises. Una sombra larga y difusa
+     flota; una corta apoya la pieza sobre la de abajo. */
+  --shadow-gold:  0 var(--mc-labio) 0 0 var(--mc-gold-lip);
+  --shadow-green: 0 var(--mc-labio) 0 0 var(--mc-grass-lip);
+  --shadow-red:   0 var(--mc-labio) 0 0 var(--mc-red-lip);
+  --shadow-card:  0 2px 0 0 var(--mc-borde), 0 10px 22px rgba(31, 42, 38, 0.13);
+
+  /* La sombra del texto, solo para lo que va sobre color o sobre la escena. */
+  --mc-sombra-texto: 0 2px 0 rgba(20, 26, 22, 0.28);
 }
 
 /* El armazón: cabecera arriba, contenido que crece, barra amarilla abajo.
@@ -3767,37 +3781,33 @@ select.ref-input { appearance: auto; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   LA CAPA DE MINECRAFT
+   LA CAPA DE BLOQUES
 
    Va al FINAL del archivo a propósito: llega después de las 3.000 líneas
-   heredadas y las corrige por orden de cascada, sin tener que editarlas una
-   por una. Lo que hay aquí son cinco cosas y nada más:
+   heredadas y las corrige por cascada, sin editarlas una por una.
 
-     1. La retícula   — nada de esquinas redondas, nada de desenfoques.
-     2. El bisel      — dos tonos por pieza: luz arriba-izquierda, sombra
-                        abajo-derecha, contorno negro alrededor. Es LA forma
-                        de Minecraft, y es lo único que hay que respetar si
-                        algún día se añade un componente nuevo.
-     3. Los botones   — el oro para lo que hay que tocar, la piedra para lo
-                        demás, y se HUNDEN al pulsarlos.
-     4. Los campos    — huecos oscuros excavados en la piedra.
-     5. El texto      — sombra dura de un píxel, nunca difuminada.
+   La idea, en una frase: **una pieza es un bloque macizo con un labio
+   debajo.** Eso es todo. El labio —el canto más oscuro del borde inferior—
+   es lo que hace que un botón sea un objeto que se hunde al pulsarlo, y es
+   lo único que hacía falta conservar de la GUI original de Minecraft. El
+   bisel de dos tonos y el contorno negro que la acompañaban se han quitado:
+   son de Windows 95 y es lo que hacía que la app se viera vieja.
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── 1 · La retícula ──────────────────────────────────────────────────── */
 
-/* En Minecraft no hay una sola esquina redonda. Son 3.000 líneas heredadas
-   con radios literales repartidos por todas partes; una regla global cuesta
-   una línea y no deja ninguna suelta. */
+/* Una esquina apenas redondeada, la misma en todo. Son 3.000 líneas
+   heredadas con radios literales de 10, 18, 26, 40 y 999 px repartidos por
+   todas partes; una regla global los pone a todos de acuerdo. */
 *,
 *::before,
 *::after {
-  border-radius: 0 !important;
+  border-radius: var(--mc-radio) !important;
 }
 
-/* Y ningún desenfoque: un halo difuminado es lo único que rompe del todo la
-   ilusión de píxel. Las sombras siguen existiendo, pero como bloques de
-   color desplazados (ver el token --shadow-card). */
+/* Ningún desenfoque de fondo. No es purismo: `backdrop-filter` sobre una
+   lista larga es de las cosas más caras que puede pedirle una página a un
+   teléfono de gama baja, que es el teléfono de casi todos los jugadores. */
 * {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
@@ -3805,8 +3815,6 @@ select.ref-input { appearance: auto; }
 
 img,
 canvas {
-  /* Una imagen escalada con suavizado dentro de una interfaz de píxeles se
-     ve borrosa al lado de todo lo demás. */
   image-rendering: pixelated;
 }
 
@@ -3815,44 +3823,74 @@ body {
   font-size: 15px;
   line-height: 1.6;
   color: var(--text-primary);
+  letter-spacing: 0.005em;
 }
 
-/* Los párrafos largos vuelven a la fuente del sistema. Una fuente de píxeles
-   es preciosa en un botón y agotadora en tres líneas seguidas de texto. */
-.auth-note,
-.instalar-pwa__nota,
-.instalar-pwa__pasos,
-.terminos-cuerpo,
-.terminos-cuerpo p,
-.terminos-cuerpo li {
-  font-family: var(--font-lectura);
-  font-size: 0.82rem;
+/* ── 2 · Dónde manda la fuente de píxeles ─────────────────────────────── */
+
+/* Rótulos, botones, etiquetas y cifras. El texto corrido NO: con todo en
+   píxeles la pantalla se leía como un terminal de los ochenta. Reservada,
+   se nota como una elección. */
+h1, h2, h3,
+.form-label,
+.wallet-card-title,
+.wallet-inner-title,
+.buy-title,
+.pay-data-title,
+.terms-title,
+.rn-nivel,
+.stat-label,
+.mc-cifra {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
 }
 
-/* ── 2 · El bisel ─────────────────────────────────────────────────────── */
+/* Las cifras, siempre en píxeles y en columna: son lo que el jugador viene
+   a mirar y lo que compara de un renglón al siguiente. */
+.wallet-big,
+.stat-value,
+.top-value,
+.qty-number,
+.mc-cifra,
+.mc-premio-cifra {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
 
-/* Una pieza de piedra: cara clara, luz arriba a la izquierda, sombra abajo a
-   la derecha, y el contorno negro que en Minecraft lleva absolutamente todo.
-   Se aplica con box-shadow y no con border para que el bisel no coma del
-   ancho: los formularios heredados cuentan con su relleno tal cual. */
-.mc-piedra,
+/* ── 3 · Las piezas: tarjetas y paneles ───────────────────────────────── */
+
+/* Papel cálido, un filo fino y una sombra CORTA. Una sombra larga y difusa
+   hace flotar; una corta apoya la pieza sobre la de abajo, que es lo que
+   queremos en una interfaz hecha de bloques. */
+.mc-pieza,
 .auth-card,
 .wallet-card,
 .hist-card,
 .modal-card,
 .admin-card,
 .afi-card,
-.perfil-card {
-  background: var(--mc-stone);
+.perfil-card,
+.stat-card,
+.admin-side {
+  background: var(--mc-panel);
   border: 0;
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
+    inset 0 0 0 1px var(--mc-borde),
     var(--shadow-card);
 }
 
-/* ── 3 · Los botones ──────────────────────────────────────────────────── */
+/* Las zonas hundidas dentro de una tarjeta (resúmenes, filas alternas) se
+   distinguen por tono, no por un marco más. */
+.wallet-inner,
+.redeem-preview,
+.rn-card,
+.buy-summary {
+  background: var(--mc-panel-2);
+  border: 0;
+  box-shadow: inset 0 0 0 1px var(--mc-borde);
+}
+
+/* ── 4 · Los botones ──────────────────────────────────────────────────── */
 
 .btn-submit,
 .btn-primary,
@@ -3861,85 +3899,77 @@ body {
 .btn-mini,
 .header-select,
 .afi-volver,
+.afi-copiar,
 .play-bar-btn,
 .play-bar-recomendar,
+.qty-btn,
 .instalar-pwa__boton,
 .instalar-pwa__cerrar,
 .mc-boton {
   position: relative;
-  font-family: var(--font-ui);
+  border: 0;
+  border-radius: var(--mc-radio-boton) !important;
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.02em;
-  border: 0;
   cursor: pointer;
-  /* Sin transición de color: en Minecraft un botón cambia de golpe. Lo único
-     que se mueve es el propio botón al hundirse. */
-  transition: transform 60ms steps(1, end);
-  text-shadow: var(--mc-sombra-texto);
+  text-shadow: none;
+  transition:
+    transform 90ms ease,
+    box-shadow 90ms ease,
+    background-color 120ms ease;
 }
 
-/* El oro: lo que hay que tocar. Uno por pantalla, no más. */
+/* El oro: lo que hay que tocar. Uno por pantalla. */
 .btn-submit,
 .btn-primary,
 .play-bar-btn,
 .mc-boton {
   background: var(--mc-gold);
-  color: #2b2004;
-  /* Sin sombra: es tinta oscura sobre oro. La sombra dura de Minecraft va
-     debajo del texto CLARO; bajo uno oscuro solo lo emborrona. */
-  text-shadow: none;
-  padding: 14px 18px;
-  font-size: 0.95rem;
+  color: #3d2c02;
+  padding: 14px 20px;
+  font-size: 0.98rem;
+  /* El LABIO. Es la única pieza que sobrevive de la GUI vieja, y es la que
+     hace que esto sea un objeto y no un rectángulo de color. */
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-gold-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-gold-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
-    0 calc(var(--mc-px) + 1px) 0 var(--mc-px) rgba(33, 29, 24, 0.35);
+    0 var(--mc-labio) 0 0 var(--mc-gold-lip),
+    0 8px 16px rgba(31, 42, 38, 0.16);
 }
 
-/* La piedra: todo lo demás. */
+/* Lo neutro: todo lo demás. Papel con filo, mismo labio en gris. */
 .btn-secondary,
 .btn-login,
 .btn-mini,
 .header-select,
 .afi-volver,
+.afi-copiar,
+.qty-btn,
 .play-bar-recomendar,
-.instalar-pwa__boton,
-.instalar-pwa__cerrar {
-  background: var(--mc-stone);
+.instalar-pwa__boton {
+  background: var(--mc-panel);
   color: var(--text-primary);
-  text-shadow: none;
+  padding: 12px 18px;
+  font-size: 0.9rem;
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
-    0 calc(var(--mc-px) + 1px) 0 var(--mc-px) rgba(33, 29, 24, 0.3);
+    inset 0 0 0 2px var(--mc-borde),
+    0 var(--mc-labio) 0 0 var(--mc-borde),
+    0 6px 12px rgba(31, 42, 38, 0.1);
 }
 
 .instalar-pwa__cerrar {
   background: var(--mc-grass);
-  color: #f3fff0;
-  text-shadow: var(--mc-sombra-texto);
+  color: #f4fff1;
+  padding: 14px 20px;
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-grass-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-grass-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
-    0 calc(var(--mc-px) + 1px) 0 var(--mc-px) rgba(33, 29, 24, 0.3);
+    0 var(--mc-labio) 0 0 var(--mc-grass-lip),
+    0 8px 16px rgba(31, 42, 38, 0.16);
 }
 
-/* Al pasar por encima, la pieza se ACLARA. Es lo que hace Minecraft: el
-   botón bajo el cursor se ilumina, no crece ni se mueve. */
 .btn-submit:hover:not(:disabled),
 .btn-primary:hover:not(:disabled),
 .play-bar-btn:hover:not(:disabled),
 .mc-boton:hover:not(:disabled) {
   background: var(--mc-gold-lit);
-  transform: none;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 #fff2b8,
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-gold-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
-    0 calc(var(--mc-px) + 1px) 0 var(--mc-px) rgba(33, 29, 24, 0.35);
 }
 
 .btn-secondary:hover:not(:disabled),
@@ -3947,15 +3977,17 @@ body {
 .btn-mini:hover:not(:disabled),
 .header-select:hover,
 .afi-volver:hover,
+.afi-copiar:hover,
+.qty-btn:hover:not(:disabled),
 .play-bar-recomendar:hover,
 .instalar-pwa__boton:hover {
-  background: var(--mc-stone-lit);
+  background: #fffdf7;
   opacity: 1;
+  transform: none;
 }
 
-/* Y al pulsar se HUNDE: la luz y la sombra se intercambian, la base
-   desaparece y la pieza baja. Es el gesto que hace que un botón plano se
-   sienta un objeto. */
+/* Al pulsar, la pieza BAJA hasta comerse su propio labio. Es el gesto
+   entero: nada de cambiar de color y quedarse quieto. */
 .btn-submit:active:not(:disabled),
 .btn-primary:active:not(:disabled),
 .btn-secondary:active:not(:disabled),
@@ -3963,230 +3995,242 @@ body {
 .btn-mini:active:not(:disabled),
 .header-select:active,
 .afi-volver:active,
-.play-bar-recomendar:active,
+.afi-copiar:active,
+.qty-btn:active:not(:disabled),
 .play-bar-btn:active:not(:disabled),
+.play-bar-recomendar:active,
 .instalar-pwa__boton:active,
 .instalar-pwa__cerrar:active,
 .mc-boton:active:not(:disabled) {
-  transform: translate(1px, var(--mc-px));
+  transform: translateY(var(--mc-labio));
   box-shadow:
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-lit),
-    inset var(--mc-px) var(--mc-px) 0 0 rgba(33, 29, 24, 0.35),
-    0 0 0 var(--mc-px) var(--mc-ink);
+    inset 0 0 0 2px var(--mc-borde),
+    0 0 0 0 var(--mc-borde),
+    0 2px 5px rgba(31, 42, 38, 0.14);
 }
 
 .btn-submit:disabled,
 .btn-primary:disabled,
 .btn-secondary:disabled,
 .btn-mini:disabled,
+.qty-btn:disabled,
 .play-bar-btn:disabled,
 .mc-boton:disabled {
-  background: #9a9384;
-  color: #5b5449;
+  background: #e8e3d6;
+  color: #a3aca6;
   opacity: 1;
-  text-shadow: none;
   cursor: not-allowed;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 #ada698,
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 #6f695d,
-    0 0 0 var(--mc-px) var(--mc-ink);
+  transform: none;
+  box-shadow: 0 var(--mc-labio) 0 0 #d3ccbc;
 }
 
-/* El teclado tiene que ver dónde está. El contorno va FUERA del contorno
-   negro, así que no tapa el bisel. */
+/* El teclado tiene que ver dónde está, y el anillo va por fuera del filo. */
 .btn-submit:focus-visible,
 .btn-primary:focus-visible,
 .btn-secondary:focus-visible,
 .btn-login:focus-visible,
 .btn-mini:focus-visible,
+.header-select:focus-visible,
 .instalar-pwa__boton:focus-visible,
 .instalar-pwa__cerrar:focus-visible,
-.form-input:focus-visible,
 .mc-boton:focus-visible {
-  outline: var(--mc-px) solid #fff;
-  outline-offset: var(--mc-px);
+  outline: 3px solid var(--mc-grass);
+  outline-offset: 3px;
 }
 
-/* ── 4 · Los campos ───────────────────────────────────────────────────── */
+/* ── 5 · Los campos ───────────────────────────────────────────────────── */
 
-/* Un hueco excavado en la piedra: fondo oscuro y el bisel al revés (sombra
-   arriba, luz abajo), que es lo que lo hunde en vez de levantarlo. */
+/* Blancos y con filo, no huecos negros excavados. El campo negro hundido es
+   probablemente lo que más envejecía la pantalla, y además el texto que uno
+   escribe se lee peor en claro sobre oscuro. */
 .form-input,
 .auth-page .form-input,
 select.form-input,
-textarea.form-input {
-  background: var(--mc-void);
-  color: #f0ece4;
+textarea.form-input,
+.ref-input,
+.afi-link,
+.wallet-amount-input {
+  background: #fff;
+  color: var(--text-primary);
   border: 0;
-  padding: 12px 14px;
+  padding: 13px 14px;
   font-family: var(--font-ui);
-  font-size: 0.9rem;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 rgba(0, 0, 0, 0.55),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+  font-size: 0.95rem;
+  box-shadow: inset 0 0 0 2px var(--mc-borde);
+  transition: box-shadow 120ms ease;
 }
 
-.form-input::placeholder {
-  color: #8c8478;
+.form-input::placeholder,
+.afi-link::placeholder {
+  color: var(--mc-ink-3);
 }
 
 .form-input:focus,
-.auth-page .form-input:focus {
-  background: #1c1813;
+.auth-page .form-input:focus,
+.ref-input:focus,
+.wallet-amount-input:focus {
   outline: none;
+  background: #fff;
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 rgba(0, 0, 0, 0.55),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-gold);
+    inset 0 0 0 2px var(--mc-gold),
+    0 0 0 4px rgba(247, 189, 30, 0.22);
 }
 
 .form-label {
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
 }
 
-/* ── 5 · Avisos ───────────────────────────────────────────────────────── */
+/* ── 6 · Avisos ───────────────────────────────────────────────────────── */
 
 .auth-error,
-.auth-success {
+.auth-success,
+.mc-aviso {
   font-family: var(--font-ui);
-  font-size: 0.78rem;
-  line-height: 1.6;
-  padding: 10px 12px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  padding: 12px 14px;
   border: 0;
-  text-shadow: var(--mc-sombra-texto);
+  text-shadow: none;
 }
 
-.auth-error {
-  background: var(--mc-red);
-  color: #fff0ec;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-red-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-red-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+.auth-error,
+.mc-aviso-malo {
+  background: #fdeae5;
+  color: #8f2611;
+  box-shadow: inset 0 0 0 2px #f3b8a8, 0 3px 0 0 #f3b8a8;
 }
 
 .auth-success {
-  background: var(--mc-grass);
-  color: #f2fff0;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-grass-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-grass-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+  background: #e9f7e4;
+  color: #256b1c;
+  box-shadow: inset 0 0 0 2px #a9dc9b, 0 3px 0 0 #a9dc9b;
 }
 
-/* ── 6 · La cabecera y su menú ────────────────────────────────────────── */
+/* ── 7 · La cabecera y su menú ────────────────────────────────────────── */
 
 .game-header {
-  background: var(--mc-stone);
+  background: var(--mc-panel);
   border: 0;
   box-shadow:
-    inset 0 var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset 0 calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 var(--mc-px) 0 0 var(--mc-ink);
+    0 1px 0 0 var(--mc-borde),
+    0 4px 14px rgba(31, 42, 38, 0.08);
 }
 
 .menu-list {
-  background: var(--mc-stone);
+  background: var(--mc-panel);
   border: 0;
+  padding: 6px;
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
-    var(--shadow-card);
+    inset 0 0 0 1px var(--mc-borde),
+    0 12px 26px rgba(31, 42, 38, 0.18);
 }
 
 .menu-item {
   font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--text-primary);
 }
 
 .menu-item:hover {
-  background: var(--mc-gold);
-  color: #2b2004;
+  background: var(--mc-panel-2);
+  color: var(--text-primary);
 }
 
 .menu-item-danger:hover {
-  background: var(--mc-red);
-  color: #fff0ec;
+  background: #fdeae5;
+  color: #8f2611;
 }
 
-/* ── 7 · La pantalla de entrar ────────────────────────────────────────── */
+/* ── 8 · La pantalla de entrar ────────────────────────────────────────── */
 
-/* Minecraft oscurece el mundo cuando se abre una pantalla, para que la GUI
-   sea lo único que se lee. La calle sigue ahí detrás, un poco apagada. */
+/* La calle sigue detrás, un punto más apagada: es lo que hace Minecraft al
+   abrir una pantalla, y lo que deja que el formulario mande. */
 .auth-page::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(20, 16, 12, 0.26);
+  background: rgba(20, 30, 26, 0.22);
   pointer-events: none;
   z-index: 0;
 }
 
 .auth-card {
-  padding: 26px 22px;
-  gap: 18px;
+  padding: 28px 24px;
+  gap: 20px;
   max-width: 400px;
 }
 
-/* El nombre del juego, arriba del todo: oro con sombra dura, como el rótulo
-   de un cartel de madera. Es lo primero que ve alguien que llegó por un
-   enlace de WhatsApp y todavía no sabe dónde está. */
-.mc-rotulo {
+.mc-marca {
   position: relative;
   z-index: 1;
-  margin: 0 0 2px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+/* El nombre del juego: oro con su canto, como el rótulo de un cartel. */
+.mc-rotulo {
+  margin: 0;
   text-align: center;
-  font-family: var(--font-ui);
-  font-size: 1.6rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.15;
-  letter-spacing: 0.01em;
   color: var(--mc-gold);
-  /* UNA sola sombra, y del mismo oro oscuro. Con dos —y la segunda a 6 px—
-     el título se leía como la palabra escrita dos veces. */
-  text-shadow: 4px 4px 0 var(--mc-gold-dim);
+  text-shadow: 0 3px 0 var(--mc-gold-lip), 0 6px 14px rgba(20, 30, 26, 0.35);
+}
+
+/* El texto amarillo inclinado del menú de Minecraft. Es la única broma de
+   la pantalla y por eso funciona: dice que esto es un juego antes de que se
+   lea una sola etiqueta. */
+.mc-splash {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  color: #ffe86b;
+  text-shadow: 0 2px 0 rgba(20, 30, 26, 0.45);
+  transform: rotate(-8deg);
+  animation: mc-splash-latido 1.8s ease-in-out infinite;
+}
+
+@keyframes mc-splash-latido {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50%      { transform: rotate(-8deg) scale(1.08); }
 }
 
 .mc-rotulo-sub {
-  position: relative;
-  z-index: 1;
   margin: 0;
   text-align: center;
   font-family: var(--font-ui);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #f2ede2;
-  text-shadow: var(--mc-sombra-texto);
+  color: #f4f8f5;
+  text-shadow: 0 2px 6px rgba(20, 30, 26, 0.55);
 }
 
+/* El icono de la app como logo: el mismo dibujo que queda en la pantalla de
+   inicio del teléfono al instalarla. */
 .auth-logo {
-  filter: none;
   display: block;
-  width: 64px;
-  height: 64px;
+  width: 68px;
+  height: 68px;
   margin: 0 auto var(--space-sm);
-  /* El contorno negro de siempre, para que el icono sea una pieza más de la
-     interfaz y no una pegatina encima. */
-  box-shadow:
-    0 0 0 var(--mc-px) var(--mc-ink),
-    var(--shadow-card);
+  filter: none;
+  box-shadow: 0 6px 16px rgba(31, 42, 38, 0.28);
 }
 
 .auth-title {
-  font-family: var(--font-ui);
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   font-weight: 700;
-  /* Se quita el degradado recortado sobre el texto: en la interfaz de
-     Minecraft ningún color transiciona. */
   background: none;
   -webkit-background-clip: initial;
   -webkit-text-fill-color: initial;
@@ -4196,19 +4240,19 @@ textarea.form-input {
 
 .auth-subtitle {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
 
 .auth-switch,
 .auth-forgot {
   font-family: var(--font-ui);
-  font-size: 0.72rem;
+  font-size: 0.85rem;
 }
 
 .auth-switch a,
 .auth-forgot a {
-  color: var(--mc-grass-dim);
+  color: var(--green-win);
   font-weight: 700;
 }
 
@@ -4217,181 +4261,90 @@ textarea.form-input {
   color: var(--mc-red);
 }
 
-/* ── 8 · Instalar la app ──────────────────────────────────────────────── */
+/* ── 9 · Instalar la app ──────────────────────────────────────────────── */
 
 .instalar-pwa {
   border-top: 0;
-  /* La línea que lo separa del formulario, en piedra: dos píxeles, uno
-     oscuro y uno claro, que es como Minecraft dibuja una división. */
-  box-shadow:
-    inset 0 var(--mc-px) 0 0 var(--mc-stone-dim),
-    inset 0 calc(var(--mc-px) * 2) 0 0 var(--mc-stone-lit);
+  box-shadow: inset 0 1px 0 0 var(--mc-borde);
   padding-top: 20px;
 }
 
-.instalar-pwa__boton {
-  padding: 11px 18px;
-  font-size: 0.8rem;
+.instalar-pwa__nota {
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--text-muted);
 }
 
 .instalar-pwa__hoja {
-  background: var(--mc-stone);
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+  background: var(--mc-panel);
+  box-shadow: 0 -10px 40px rgba(20, 30, 26, 0.35);
 }
 
 .instalar-pwa__titulo {
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.instalar-pwa__pasos {
   font-family: var(--font-ui);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
 }
 
 .instalar-pwa__fondo {
-  background: rgba(20, 16, 12, 0.6);
+  background: rgba(20, 30, 26, 0.55);
 }
 
-/* ── 9 · La barra de abajo y el resto de superficies heredadas ────────── */
+/* ── 10 · El oro sobre fondo claro ────────────────────────────────────── */
 
-/* Cualquier cosa que siguiera pintándose como vidrio traslúcido pasa a ser
-   piedra maciza. Sobre el cielo de la calle, un panel semitransparente en
-   una interfaz de bloques se ve como un error de dibujado. */
-.wallet-card,
-.hist-card,
-.modal-card,
-.admin-card,
-.afi-card,
-.perfil-card,
-.menu-list,
-.game-header {
-  backdrop-filter: none;
-}
-
-/* Las cifras: en Minecraft los números de la interfaz van en blanco con su
-   sombra, y aquí son lo que el jugador viene a mirar. */
-.mc-cifra {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #fff8e1;
-  text-shadow: var(--mc-sombra-texto);
-}
-
-/* Quien pidió menos movimiento tampoco ve hundirse los botones. */
-@media (prefers-reduced-motion: reduce) {
-  .btn-submit,
-  .btn-primary,
-  .btn-secondary,
-  .btn-login,
-  .btn-mini,
-  .mc-boton {
-    transition: none;
-  }
-}
-
-/* ── 10 · El rótulo del menú principal ────────────────────────────────── */
-
-.mc-marca {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  justify-items: center;
-  gap: 4px;
-  margin-bottom: 4px;
-}
-
-/* El texto amarillo inclinado que Minecraft pone junto a su logo. Late
-   despacio, como el original. */
-.mc-splash {
-  margin: 2px 0 0;
-  font-family: var(--font-ui);
-  font-size: 0.62rem;
-  color: #ffe86b;
-  text-shadow: 2px 2px 0 rgba(20, 16, 12, 0.75);
-  transform: rotate(-8deg);
-  transform-origin: center;
-  animation: mc-splash-latido 1.6s ease-in-out infinite;
-}
-
-@keyframes mc-splash-latido {
-  0%, 100% { transform: rotate(-8deg) scale(1); }
-  50%      { transform: rotate(-8deg) scale(1.09); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mc-splash { animation: none; }
-}
-
-/* ── 11 · El oro necesita su contorno ─────────────────────────────────── */
-
-/* Hay medio centenar de reglas heredadas que pintan texto en oro. Sobre el
-   fondo casi negro del juego hermano eso brillaba; sobre nuestra piedra
-   clara y sobre el cielo se apaga hasta desaparecer.
-   Minecraft resuelve esto igual desde siempre: el texto dorado SIEMPRE lleva
-   su sombra dura detrás. Con ella el mismo oro se lee sobre cualquier cosa,
-   y de paso es lo que le da el aire de rótulo. */
+/* Medio centenar de reglas heredadas pintan texto en oro. Sobre el fondo
+   casi negro del juego hermano brillaba; sobre papel claro se apaga. En vez
+   de la sombra dura de antes —que a este tamaño se leía como la palabra
+   escrita dos veces— el oro de los textos baja un tono. */
 .wallet-title,
-.wallet-big,
 .wallet-hold strong,
-.qty-number,
 .pay-data-title,
 .terms-title,
 .admin-link,
-.play-bar-flash,
 .afi-premio,
 .afi-stat-oro .afi-stat-n,
-.stat-value,
-.top-value,
-.profile-avatar-letter,
-.pavatar,
 .status-pendiente,
 .origen-huella-cab strong {
-  text-shadow: var(--mc-sombra-texto);
+  color: #b07f04;
+  text-shadow: none;
 }
 
-/* Las cifras grandes: además del contorno, un oro más encendido. Es lo que
-   el jugador viene a mirar, y tiene que ganarle a la piedra. */
+/* Las cifras grandes sí conservan su oro encendido y un canto muy corto:
+   son el único sitio de la app donde un número tiene que gritar. */
 .wallet-big,
 .stat-value,
-.top-value {
+.top-value,
+.mc-premio-cifra {
   color: var(--mc-gold);
-  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 var(--mc-gold-lip);
 }
 
-/* ── 12 · La barra de abajo ───────────────────────────────────────────── */
+/* ── 11 · La barra de abajo ───────────────────────────────────────────── */
 
-/* Vive fuera de las tarjetas, pegada al borde de la pantalla, así que se
-   apoya en el suelo con una franja de piedra y no flotando en el aire. */
 .play-bar {
-  background: var(--mc-stone-2);
-  box-shadow:
-    inset 0 var(--mc-px) 0 0 var(--mc-stone-lit),
-    0 calc(var(--mc-px) * -1) 0 0 var(--mc-ink);
+  background: var(--mc-panel);
+  box-shadow: 0 -1px 0 0 var(--mc-borde), 0 -6px 18px rgba(31, 42, 38, 0.1);
 }
 
 .play-bar-btn,
 .play-bar-recomendar {
-  font-family: var(--font-ui);
-  font-weight: 700;
-  /* Heredaban la fuente por su cuenta y se quedaban en la serif del
-     navegador, que al lado de la retícula de píxeles canta muchísimo. */
   font-size: 0.92rem;
-  padding: 13px 16px;
 }
 
 .play-bar-cost {
-  font-family: var(--font-ui);
-  background: var(--mc-void);
-  color: #ffe071;
-  padding: 3px 8px;
-  box-shadow: 0 0 0 2px var(--mc-ink);
+  font-family: var(--font-display);
+  background: rgba(61, 44, 2, 0.16);
+  color: #3d2c02;
+  padding: 3px 9px;
+  box-shadow: none;
 }
 
-/* ── 13 · Que nada se salga de su caja ────────────────────────────────── */
+/* ── 12 · Que nada se salga de su caja ────────────────────────────────── */
 
-/* La fuente de píxeles es MÁS ANCHA que la del sistema a igual tamaño. Todo
-   lo que estaba calculado al milímetro con la anterior —los tres niveles de
-   retiro, las pestañas del panel— se desbordaba por la derecha. */
 .rn-bar { flex-wrap: wrap; }
 
 .rn-nivel {
@@ -4401,12 +4354,10 @@ textarea.form-input {
 
 .rn-partidas,
 .rn-desbloquea {
-  font-size: 0.62rem;
-  line-height: 1.4;
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
-/* Regla general: en una interfaz de bloques, un texto que se sale de su
-   bloque se lee como una pieza mal colocada. */
 .wallet-card,
 .hist-card,
 .admin-card,
@@ -4417,11 +4368,8 @@ textarea.form-input {
   overflow-wrap: anywhere;
 }
 
-/* ── 14 · La pantalla de juego, antes y después de la partida ─────────── */
+/* ── 13 · La pantalla de juego, antes y después de la partida ─────────── */
 
-/* Cielo plano y suelo de hierba, como el menú de Minecraft. Antes era un
-   degradado de cielo a lima: bonito, pero un degradado suave detrás de una
-   escena de cubos es justo lo que delata que la interfaz es de otro sitio. */
 .mc-escena {
   background: var(--mc-sky);
 }
@@ -4433,28 +4381,28 @@ textarea.form-input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 24px 20px 132px;
+  gap: 22px;
+  padding: 24px 20px 140px;
   text-align: center;
-  background: var(--mc-sky);
+  background: linear-gradient(180deg, #8fd8f5 0%, var(--mc-sky) 60%);
 }
 
-/* El suelo: hierba, tierra y la sombra bajo el borde. Tres franjas planas,
-   que es exactamente como se ve un bloque de césped de canto. */
+/* El suelo: césped, tierra y su sombra. Tres franjas planas, que es como se
+   ve un bloque de césped de canto. */
 .mc-lobby::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 108px;
+  height: 116px;
   background:
     linear-gradient(180deg,
-      var(--mc-grass-lit) 0, var(--mc-grass-lit) 8px,
-      var(--mc-grass) 8px, var(--mc-grass) 26px,
-      #7a5230 26px, #7a5230 60px,
-      #63421f 60px, #63421f 100%);
-  box-shadow: inset 0 var(--mc-px) 0 0 rgba(33, 29, 24, 0.35);
+      var(--mc-grass-lit) 0, var(--mc-grass-lit) 9px,
+      var(--mc-grass) 9px, var(--mc-grass) 30px,
+      #8a5c34 30px, #8a5c34 66px,
+      #6f4826 66px, #6f4826 100%);
+  box-shadow: inset 0 3px 0 0 rgba(31, 42, 38, 0.18);
   z-index: 0;
 }
 
@@ -4466,40 +4414,39 @@ textarea.form-input {
 .mc-lobby-texto {
   display: grid;
   gap: 10px;
-  max-width: 22rem;
+  max-width: 23rem;
 }
 
 .mc-lobby-titulo {
   margin: 0;
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-size: 1.7rem;
   font-weight: 700;
-  line-height: 1.2;
-  color: #fffdf5;
-  text-shadow: 4px 4px 0 rgba(20, 16, 12, 0.55);
+  line-height: 1.25;
+  color: #10322a;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.45);
 }
 
 .mc-lobby-ayuda {
   margin: 0;
-  font-family: var(--font-lectura);
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: #10261f;
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: #17392f;
 }
 
 .mc-lobby-tickets {
   margin: 0;
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.85rem;
-  color: #fffdf5;
-  text-shadow: var(--mc-sombra-texto);
+  font-size: 0.8rem;
+  color: #17392f;
 }
 
 .mc-boton-grande {
-  padding: 16px 44px;
-  font-size: 1.2rem;
-  letter-spacing: 0.08em;
+  padding: 17px 46px;
+  font-size: 1.15rem;
+  letter-spacing: 0.1em;
 }
 
 .mc-lobby-botones {
@@ -4509,137 +4456,145 @@ textarea.form-input {
   justify-content: center;
 }
 
-/* El premio, al terminar. Es la única cifra de todo el juego que se enseña
-   a este tamaño, así que se le da el trato de rótulo: oro con su contorno. */
+/* El premio, al terminar: la única cifra de todo el juego a este tamaño. */
 .mc-premio {
   display: grid;
-  gap: 6px;
-  padding: 18px 26px;
-  background: var(--mc-stone);
+  gap: 8px;
+  padding: 22px 30px;
+  background: var(--mc-panel);
   box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink),
+    inset 0 0 0 1px var(--mc-borde),
     var(--shadow-card);
 }
 
 .mc-premio-rotulo {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: 0.68rem;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.18em;
   color: var(--text-secondary);
 }
 
 .mc-premio-cifra {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: 3rem;
+  font-size: 3.1rem;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  color: var(--mc-gold);
-  text-shadow: 4px 4px 0 var(--mc-gold-dim);
 }
 
-.mc-aviso {
-  margin: 0;
-  padding: 10px 14px;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  box-shadow: 0 0 0 var(--mc-px) var(--mc-ink);
-}
+/* ── 14 · Remates ─────────────────────────────────────────────────────── */
 
-.mc-aviso-malo {
-  background: var(--mc-red);
-  color: #fff0ec;
-  text-shadow: var(--mc-sombra-texto);
-}
-
-/* ── 15 · Últimos remates ─────────────────────────────────────────────── */
-
-/* El título del lobby llevaba la sombra a 4 px y a este cuerpo se separaba
-   tanto que se leía la frase dos veces. */
-.mc-lobby-titulo {
-  text-shadow: 3px 3px 0 rgba(20, 16, 12, 0.5);
-}
-
-/* Y el renglón de los tickets iba en blanco sobre el cielo, que es claro:
-   tinta oscura y sin sombra se lee mejor que blanco con contorno. */
-.mc-lobby-tickets {
-  color: #10261f;
-  text-shadow: none;
-}
-
-/* Los botones de cantidad de la compra: piedra, como los demás. Eran dos
-   recuadros planos con el borde dorado, lo único de la pantalla que no
-   parecía tocable. */
 .qty-btn {
-  background: var(--mc-stone);
-  border: 0;
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-weight: 700;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+  padding: 10px 0;
+  font-size: 1.2rem;
 }
 
-.qty-btn:hover:not(:disabled) { background: var(--mc-stone-lit); }
-
-.qty-btn:active:not(:disabled) {
-  transform: translate(1px, 2px);
-  box-shadow:
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-lit),
-    inset var(--mc-px) var(--mc-px) 0 0 rgba(33, 29, 24, 0.35),
-    0 0 0 var(--mc-px) var(--mc-ink);
-}
-
-/* Adjuntar el comprobante: una CASILLA de inventario. Un recuadro de línea
-   discontinua es la convención de la web para «suelta el archivo aquí»; el
-   hueco excavado es la de este juego, y además dice mejor que ahí falta
-   meter algo. */
+/* Adjuntar el comprobante: una casilla vacía que pide que le metan algo,
+   no un recuadro de línea discontinua como cualquier formulario web. */
 .proof-attach {
   border: 0;
-  background: var(--mc-stone-2);
-  color: var(--text-primary);
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-dim),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-lit),
-    0 0 0 var(--mc-px) var(--mc-ink);
+  background: var(--mc-panel-2);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 2px var(--mc-borde);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
-.proof-attach:hover { background: var(--mc-stone); }
-
-/* El enlace de referido, en su hueco oscuro como cualquier otro campo. */
-.afi-link {
-  background: var(--mc-void);
-  color: #f0ece4;
-  border: 0;
-  padding: 10px 12px;
-  font-family: var(--font-ui);
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 rgba(0, 0, 0, 0.55),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+.proof-attach:hover {
+  background: #fffdf7;
+  box-shadow: inset 0 0 0 2px var(--mc-gold);
 }
 
-/* El botón de enviar de la compra vive pegado al pie del modal y se montaba
-   encima del último párrafo. */
+/* El botón de enviar vive pegado al pie del modal y se montaba encima del
+   último párrafo. */
 .buy-modal { padding-bottom: 18px; }
 .buy-submit { margin-top: 10px; }
 
-/* Las tarjetas de cifras del panel y la fila de pestañas: les faltaba el
-   bisel y quedaban como rectángulos de piedra pegados al fondo. */
-.stat-card,
-.admin-side {
-  background: var(--mc-stone);
-  border: 0;
-  box-shadow:
-    inset var(--mc-px) var(--mc-px) 0 0 var(--mc-stone-lit),
-    inset calc(var(--mc-px) * -1) calc(var(--mc-px) * -1) 0 0 var(--mc-stone-dim),
-    0 0 0 var(--mc-px) var(--mc-ink);
+/* Quien pidió menos movimiento no ve hundirse nada. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-submit,
+  .btn-primary,
+  .btn-secondary,
+  .btn-login,
+  .btn-mini,
+  .qty-btn,
+  .mc-boton {
+    transition: none;
+  }
+  .mc-splash { animation: none; }
 }
+
+/* ── 15 · Los tres niveles de retiro ──────────────────────────────────── */
+
+/* `.rn-step` nunca se portó desde La Llave: el CSS se extrajo por uso y esta
+   clase se quedó por el camino, así que los cuatro textos de cada nivel
+   caían en la misma línea, pegados —«NIVEL 1menos de 30 partidasDesbloquea:
+   1 retiro»—. Lleva roto desde el porte.
+   Se reescribe en el estilo de aquí: tres piezas en fila, cada una con su
+   labio, y sin el chevron recortado de allá, que a este tamaño y con las
+   esquinas ya suaves solo ensuciaba el borde. */
+.rn-step {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  text-align: center;
+  background: var(--mc-panel-2);
+  color: var(--text-secondary);
+  box-shadow:
+    inset 0 0 0 1px var(--mc-borde),
+    0 2px 0 0 var(--mc-borde);
+}
+
+/* Alcanzado: cada nivel con su color, para que se lea el avance de un
+   vistazo sin tener que comparar los textos. */
+.rn-1.rn-done, .rn-1.rn-curr {
+  background: var(--mc-grass);
+  color: #f5fff2;
+  box-shadow: 0 var(--mc-labio) 0 0 var(--mc-grass-lip);
+}
+.rn-2.rn-done, .rn-2.rn-curr {
+  background: #ef9b2f;
+  color: #fff8ef;
+  box-shadow: 0 var(--mc-labio) 0 0 #b46806;
+}
+.rn-3.rn-done, .rn-3.rn-curr {
+  background: var(--mc-gold);
+  color: #3d2c02;
+  box-shadow: 0 var(--mc-labio) 0 0 var(--mc-gold-lip);
+}
+
+/* El nivel en el que está: un filo claro por dentro. */
+.rn-curr { outline: 2px solid rgba(255, 255, 255, 0.6); outline-offset: -4px; }
+.rn-lock { color: var(--text-muted); }
+
+.rn-badge {
+  width: 24px;
+  height: 24px;
+  background: rgba(31, 42, 38, 0.16);
+  margin-bottom: 2px;
+}
+.rn-lock .rn-badge { background: rgba(31, 42, 38, 0.08); }
+
+.rn-nivel { font-family: var(--font-display); font-size: 0.62rem; }
+.rn-partidas { font-size: 0.72rem; line-height: 1.35; }
+.rn-desbloquea { font-size: 0.66rem; opacity: 0.95; }
+
+/* ── 16 · Dos remates de la pantalla de entrar ────────────────────────── */
+
+/* La separación de «Descargar la app» iba como sombra interior y la regla
+   global de los radios la redondeaba: salía un rectángulo con esquinas
+   flotando sobre la tarjeta en vez de una línea. */
+.instalar-pwa {
+  box-shadow: none;
+  border-top: 1px solid var(--mc-borde);
+}
+
+/* Y las nubes cruzaban por encima del rótulo. Se estrechan y se van a los
+   lados: el cielo se nota, el título se lee. */
+.fc-nube-1 { top: 46px; left: 1%;  width: 72px; }
+.fc-nube-2 { top: 60px; right: 1%; width: 56px; opacity: 0.65; }

@@ -1545,58 +1545,74 @@ console.log('\n9. La PWA (instalable en el teléfono)');
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// 10. El estilo de Minecraft
+// 10. El estilo: bloques, pero de este siglo
 // ════════════════════════════════════════════════════════════════════════════
-console.log('\n10. El estilo de Minecraft');
+console.log('\n10. El estilo de la interfaz');
 
 {
   const leer = (...p) => fs.readFileSync(path.join(raiz, ...p), 'utf8');
   const css = leer('app', 'globals.css');
 
   // ── La retícula ──
-  // Estas tres reglas son las que sostienen TODO lo demás. Si alguien las
-  // quita para arreglar un componente suelto, la interfaz entera vuelve a
-  // parecerse a una página web cualquiera y no a la escena del juego.
+  // Un solo radio para toda la app. Las 3.000 líneas heredadas traen radios
+  // literales de 10, 18, 26, 40 y 999 px; sin esta regla conviven cinco
+  // formas distintas en la misma pantalla.
   ok(
-    /\*,\s*\n\*::before,\s*\n\*::after \{\s*\n\s*border-radius: 0 !important;/.test(css),
-    'ni una esquina redonda en toda la interfaz'
+    /\*,\s*\n\*::before,\s*\n\*::after \{\s*\n\s*border-radius: var\(--mc-radio\) !important;/.test(css),
+    'una sola esquina, la misma en toda la interfaz'
   );
+  // Apenas redondeada: lo justo para no cortar, no tanto como para dejar de
+  // ser un bloque. Es el ajuste que más separa «moderno» de «viejo».
+  const radio = css.match(/--mc-radio:\s*(\d+)px/);
+  ok(radio && +radio[1] > 0 && +radio[1] <= 10, 'la esquina es suave, no viva ni redonda', radio?.[1]);
   ok(
     /backdrop-filter: none !important/.test(css),
-    'ni un desenfoque: rompen la ilusión de píxel'
-  );
-  ok(
-    /--radius-sm: 0px;[\s\S]{0,120}--radius-xl: 0px;/.test(css),
-    'los cuatro radios heredados valen cero'
+    'ningún desenfoque de fondo: es lo más caro que se le puede pedir a un teléfono flojo'
   );
 
-  // ── El bisel: dos tonos y contorno negro, la forma de Minecraft ──
-  for (const v of ['--mc-stone', '--mc-stone-lit', '--mc-stone-dim', '--mc-ink', '--mc-px']) {
-    ok(css.includes(v + ':'), `está definida la variable ${v}`);
-  }
+  // ── El labio: lo ÚNICO que se conserva de la GUI vieja de Minecraft ──
+  // Es lo que hace que un botón sea un objeto que se hunde. El bisel de dos
+  // tonos y el contorno negro que lo acompañaban se quitaron: son de
+  // Windows 95 y hacían que la app se viera vieja, no retro.
+  ok(css.includes('--mc-labio:'), 'las piezas que se pulsan tienen labio');
   ok(
-    /--shadow-card:\s*calc\(var\(--mc-px\)/.test(css),
-    'las sombras son bloques desplazados, no halos difuminados'
+    /transform: translateY\(var\(--mc-labio\)\)/.test(css),
+    'y al pulsarlas BAJAN hasta comerse su propio labio'
+  );
+  ok(
+    !/inset .* 0 0 var\(--mc-stone-lit\)/.test(css),
+    'no queda el bisel de dos tonos de Windows 95'
   );
 
-  // ── La fuente ──
+  // ── La paleta sale de la escena ──
+  ok(css.includes('--mc-panel:'), 'las superficies son papel cálido, no piedra gris');
+  ok(css.includes('#f7bd1e'), 'el oro es la raya del centro de la calzada');
+  ok(css.includes('--mc-grass:'), 'el verde es la copa de los árboles');
+
+  // ── La tipografía ──
   const layout = leer('app', 'layout.tsx');
-  ok(/Pixelify_Sans/.test(layout), 'la interfaz va en una fuente de píxeles');
-  ok(
-    /next\/font\/google/.test(layout),
-    'la fuente se sirve desde nuestro dominio, no desde Google'
-  );
+  ok(/Pixelify_Sans/.test(layout), 'hay una fuente de píxeles');
+  ok(/next\/font\/google/.test(layout), 'y se sirve desde nuestro dominio, no desde Google');
   // Se probó Silkscreen y sus minúsculas son versalitas: TODA la pantalla
   // salía gritando en mayúsculas.
   ok(!/Silkscreen\(/.test(layout), 'no se usa una fuente que solo tiene mayúsculas');
+  // Y la de píxeles NO manda en el texto corrido: con todo en píxeles la
+  // pantalla se lee como un terminal de los ochenta.
   ok(
-    /--font-lectura/.test(css) && /\.instalar-pwa__nota,/.test(css),
-    'los párrafos largos vuelven a la fuente del sistema, que se lee mejor'
+    /--font-ui:\s*ui-sans-serif/.test(css),
+    'el texto corrido va en la fuente del sistema'
+  );
+  ok(
+    /--font-display:\s*var\(--font-pixel-stack\)/.test(css),
+    'la de píxeles queda para rótulos, botones y cifras'
   );
 
-  // ── La paleta sale de la escena, no de una captura de Minecraft ──
-  ok(css.includes('#c9c1ad'), 'la piedra es la acera de la escena');
-  ok(css.includes('#f2c11a'), 'el oro es la raya del centro de la calzada');
+  // ── Los campos ──
+  // El hueco negro excavado era lo que más envejecía la pantalla.
+  ok(
+    /\.form-input,[\s\S]{0,400}background: #fff;/.test(css),
+    'los campos de texto son claros, no huecos negros'
+  );
 
   // ── El login ──
   const login = leer('app', 'auth', 'login', 'page.tsx');
@@ -1607,10 +1623,19 @@ console.log('\n10. El estilo de Minecraft');
     'el logo del login es el icono de la app, el mismo que queda en el teléfono'
   );
 
-  // ── La pantalla de juego ya no usa clases sueltas de Tailwind ──
+  // ── La pantalla de juego ──
   const juego = leer('app', '(main)', 'juego', 'page.tsx');
-  ok(!/rounded-3xl|bg-gradient-to-b/.test(juego), 'la pantalla de juego no tiene degradados ni bordes redondos');
+  ok(!/rounded-3xl|bg-gradient-to-b/.test(juego), 'la pantalla de juego no lleva clases sueltas de Tailwind');
   ok(/mc-boton/.test(juego), 'su botón es el de la interfaz, no uno propio');
+
+  // ── El fallo que apareció al mirar las capturas ──
+  // .rn-step no se portó desde La Llave —el CSS se extrajo por uso y esta
+  // clase se quedó por el camino—, así que los cuatro textos de cada nivel
+  // de retiro caían pegados en la misma línea.
+  ok(
+    /\.rn-step \{[\s\S]{0,200}flex-direction: column;/.test(css),
+    'los tres niveles de retiro se apilan en columna y no se pegan en una línea'
+  );
 }
 
 console.log(
