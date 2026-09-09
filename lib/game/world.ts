@@ -32,15 +32,18 @@ export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 // ciudadano y las bolsas se modelan a este tamaño exacto. Si el muñeco se
 // dibujara más grande que su radio, atravesaría visiblemente los obstáculos;
 // si la bolsa se dibujara más grande que el suyo, se recogería "desde lejos".
-export const CITIZEN_RADIUS = 28;
+export const CITIZEN_RADIUS = 34;
 export const BAG_RADIUS = 36;
-export const CART_RADIUS = 62;
+export const CART_RADIUS = 76;
 
 // La separación mínima entre bolsas y la holgura con los obstáculos suben con
 // el radio de la bolsa: con bolsas de 36 y una separación de 90 quedarían a
 // 18 px de distancia entre bordes, prácticamente pegadas.
 const MIN_BAG_GAP = 108;
-const MIN_CART_DIST = 150;
+// Y la distancia mínima a la carretilla sube con CART_RADIUS: con una tolva de
+// 76 y una bolsa de 36, a 150 la bolsa saldría PEGADA a la carretilla y el
+// viaje duraría cero.
+const MIN_CART_DIST = 172;
 const MAX_CART_DIST = 620;
 /** Holgura entre una bolsa y cualquier obstáculo */
 const BAG_CLEARANCE = 46;

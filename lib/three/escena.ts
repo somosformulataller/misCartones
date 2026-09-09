@@ -93,7 +93,18 @@ const LARGO_CALLE = 220;
  * LEERSE, no estar a escala arquitectónica, así que se agranda hasta que su
  * ancho coincide con CITIZEN_RADIUS, el radio con el que choca de verdad.
  */
-const ESCALA_CIUDADANO = 1.45;
+const ESCALA_CIUDADANO = 1.76;
+
+/**
+ * Lo mismo para la carretilla, y por el mismo motivo.
+ *
+ * Ensanchar el encuadre para que entraran las fachadas alejó la cámara un 24 %
+ * en móvil, y los dos elementos que el jugador tiene que localizar de un
+ * vistazo — el muñeco y su destino — quedaron demasiado pequeños en pantalla.
+ * Como el radio de entrega es CART_RADIUS, la carretilla se agranda hasta que
+ * su tolva vuelve a llenar ese radio: lo que se ve sigue siendo lo que cuenta.
+ */
+const ESCALA_CARRETILLA = 1.23;
 
 /**
  * Paleta ANIME. Los colores están deliberadamente sobresaturados respecto a lo
@@ -1188,6 +1199,10 @@ export interface CarretillaVista {
 
 export function crearCarretilla(): CarretillaVista {
   const grupo = new Group();
+  // Nada del bucle de animación escribe la escala de este grupo (solo toca la
+  // opacidad del aura y la visibilidad de las capas), así que aquí sí puede ir
+  // sobre el propio grupo, al contrario que en el ciudadano.
+  grupo.scale.setScalar(ESCALA_CARRETILLA);
 
   const sombra = new Mesh(new CircleGeometry(1.5, 14).rotateX(-Math.PI / 2), MAT_SOMBRA);
   sombra.position.y = 0.025;
