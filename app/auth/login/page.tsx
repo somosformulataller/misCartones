@@ -200,7 +200,13 @@ export default function LoginPage() {
         <div className="auth-card">
           <div className="auth-header">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="auth-logo" src="/icon-192.png" alt="" width={64} height={64} />
+            <img
+              className="auth-ilustracion"
+              src="/ciudadano-carretilla.png"
+              alt=""
+              width={600}
+              height={420}
+            />
             <h1 className="auth-title">Cuentas no disponibles</h1>
             <p className="auth-subtitle">
               El registro no está configurado en este servidor todavía.
@@ -225,7 +231,6 @@ export default function LoginPage() {
         <p className="mc-splash" aria-hidden>
           ¡La basura paga!
         </p>
-        <p className="mc-rotulo-sub">Recoge · Entrega · Cobra</p>
       </div>
 
       <motion.div
@@ -236,10 +241,18 @@ export default function LoginPage() {
       >
         {/* Header */}
         <div className="auth-header">
-          {/* El icono de la app, no un emoji: es el mismo dibujo que queda
-              en la pantalla de inicio al instalarla. */}
+          {/* El ciudadano del juego con la carretilla llena de bolsas y de
+              monedas. Se dibuja por código (scripts/generar-ilustracion.mjs)
+              con los colores exactos de la escena, así que es literalmente el
+              mismo muñeco que se ve dentro. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="auth-logo" src="/icon-192.png" alt="" width={64} height={64} />
+          <img
+            className="auth-ilustracion"
+            src="/ciudadano-carretilla.png"
+            alt=""
+            width={600}
+            height={420}
+          />
           <h1 className="auth-title">
             {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
           </h1>

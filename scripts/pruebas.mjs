@@ -1551,6 +1551,7 @@ console.log('\n10. El estilo de la interfaz');
 
 {
   const leer = (...p) => fs.readFileSync(path.join(raiz, ...p), 'utf8');
+  const hay = (...p) => fs.existsSync(path.join(raiz, ...p));
   const css = leer('app', 'globals.css');
 
   // ── La retícula ──
@@ -1619,14 +1620,57 @@ console.log('\n10. El estilo de la interfaz');
   ok(/mc-rotulo/.test(login), 'el login enseña el nombre del juego, no solo un formulario');
   ok(/mc-splash/.test(login), 'y el texto amarillo inclinado del menú de Minecraft');
   ok(
-    /icon-192\.png/.test(login),
-    'el logo del login es el icono de la app, el mismo que queda en el teléfono'
+    /ciudadano-carretilla\.png/.test(login),
+    'el login lo preside el ciudadano con la carretilla llena'
+  );
+  ok(
+    hay('public', 'ciudadano-carretilla.png') && hay('scripts', 'generar-ilustracion.mjs'),
+    'y esa ilustración se dibuja por código, no es un binario suelto'
   );
 
   // ── La pantalla de juego ──
   const juego = leer('app', '(main)', 'juego', 'page.tsx');
   ok(!/rounded-3xl|bg-gradient-to-b/.test(juego), 'la pantalla de juego no lleva clases sueltas de Tailwind');
   ok(/mc-boton/.test(juego), 'su botón es el de la interfaz, no uno propio');
+
+  // ── Las pantallas de acceso: cristal sobre la calle de verdad ──
+  ok(
+    hay('public', 'escena-fondo.jpg') && hay('scripts', 'foto-escena.mjs'),
+    'el fondo del acceso es un fotograma REAL del motor, y hay con qué rehacerlo'
+  );
+  const fondo = leer('components', 'auth', 'FondoCalle.tsx');
+  ok(/escena-fondo\.jpg/.test(fondo), 'la pantalla de acceso enseña esa foto');
+  ok(
+    /\.auth-card \{[^}]*backdrop-filter: blur\([^;]*!important/.test(css),
+    'la tarjeta es de cristal: se ve el juego a través'
+  );
+  // El desenfoque está apagado en TODA la app —cuesta demasiado en un teléfono
+  // flojo— con un `* { backdrop-filter: none !important }`. El CSS heredado
+  // trae quince desenfoques más, pero esa regla los deja muertos: los únicos
+  // que llegan a la pantalla son los que llevan !important. Tiene que haber
+  // exactamente UNO; si aparece un segundo, alguien levantó la regla.
+  const vivos = (css.match(/backdrop-filter: blur\([^;]*!important/g) || []).length;
+  ok(vivos === 1, 'y es la ÚNICA excepción viva a la regla de no desenfocar', String(vivos));
+  // Al declarar backdrop-filter y -webkit-backdrop-filter juntos, el compilador
+  // de CSS los fusiona y se queda solo con el -webkit-, que Chrome ya no usa:
+  // el cristal desaparecía sin que nada fallara. Los prefijos los pone él.
+  ok(
+    !/-webkit-backdrop-filter:[^;]*!important/.test(css),
+    'sin prefijos a mano: el compilador los fusiona y se come el bueno'
+  );
+  // La excepción de "todo va por encima del fondo" iba por nombre de clase.
+  // Al renombrar el fondo se quedó dentro de la regla, perdió su position
+  // fixed y empujaba el formulario media pantalla hacia abajo.
+  ok(
+    /:not\(\.fondo-escena\)/.test(css),
+    'el fondo está exento de la regla que sube todo por encima de él'
+  );
+  // El inicio de sesión tiene que caber sin desplazar la pantalla, también en
+  // un teléfono corto. (El registro sí puede desplazarse: son ocho campos.)
+  ok(
+    /@media \(max-height: 700px\)[\s\S]{0,400}\.instalar-pwa__nota \{ display: none/.test(css),
+    'en pantallas cortas el login suelta lastre para que el botón de entrar se vea'
+  );
 
   // ── El fallo que apareció al mirar las capturas ──
   // .rn-step no se portó desde La Llave —el CSS se extrajo por uso y esta

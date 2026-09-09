@@ -1888,104 +1888,6 @@ select.ref-input { appearance: auto; }
    EL FONDO DE LAS PANTALLAS DE ACCESO (components/auth/FondoCalle.tsx)
    ══════════════════════════════════════════════════════════════════════════ */
 
-.fondo-calle {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.fc-cielo {
-  position: absolute;
-  inset: 0;
-  /* Los mismos tres colores que LUZ.fondo y el degradado del body. */
-  background: linear-gradient(180deg, #9ee0fa 0%, #c6cfdb 46%, #868ca0 100%);
-}
-
-.fc-sol {
-  position: absolute;
-  top: -80px;
-  right: -60px;
-  width: 280px;
-  height: 280px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 246, 205, 0.95) 0%, rgba(255, 232, 150, 0) 70%);
-}
-
-.fc-nube {
-  position: absolute;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  filter: none;
-}
-/* Los dos pisos de arriba. Sin ellos la nube es una barra; con ellos es la
-   escalera de bloques de Minecraft, que es lo mismo que se ve en la escena. */
-.fc-nube::before,
-.fc-nube::after {
-  content: "";
-  position: absolute;
-  height: 20px;
-  background: inherit;
-}
-.fc-nube::before { top: -20px; left: 20%; right: 42%; }
-.fc-nube::after  { top: -40px; left: 42%; right: 16%; }
-
-/* Bien arriba, fuera de la columna del rótulo: una nube cruzando el título
-   se lee como un panel suelto, no como cielo. */
-.fc-nube-1 { top: 58px; left: 2%;  width: 86px; }
-.fc-nube-2 { top: 96px; right: 2%; width: 64px; opacity: 0.7; }
-
-/* La calzada en fuga: un trapecio hecho con clip-path. El asfalto es el
-   0x46423d de la escena — oscuro y CÁLIDO, que es lo que hace que la calle
-   parezca castigada por el sol y no un suelo de estudio. */
-.fc-calzada {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 62%;
-  background: linear-gradient(180deg, #585349 0%, #46423d 55%, #37342e 100%);
-  clip-path: polygon(32% 0, 68% 0, 100% 100%, 0 100%);
-}
-
-/* La doble raya amarilla del centro. Es la señal que más dice «calle» de
-   toda la escena, y por eso está también aquí: quien llega del enlace de un
-   amigo ve la misma calle en el registro que dentro del juego. */
-.fc-linea {
-  position: absolute;
-  bottom: 0;
-  top: 0;
-  width: 1.1%;
-  background: #f2c11a;
-  opacity: 0.9;
-}
-.fc-linea-izq { left: 48.2%;  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
-.fc-linea-der { left: 50.7%; clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%); }
-
-.fc-acera {
-  position: absolute;
-  bottom: 0;
-  height: 62%;
-  width: 34%;
-  background: linear-gradient(180deg, #b9b3a4 0%, #9c9689 100%);
-  z-index: -1;
-}
-.fc-acera-izq { left: 0; }
-.fc-acera-der { right: 0; }
-
-/* Antes este velo era casi opaco, porque la tarjeta era traslúcida y el
-   texto caía justo sobre la raya amarilla. Ahora la tarjeta es piedra
-   maciza y el velo solo apagaba la calle hasta dejarla en niebla. */
-.fc-velo {
-  position: absolute;
-  inset: 0;
-  /* Apenas un aliento de luz en el horizonte, para que el cielo y el
-     asfalto no choquen. El oscurecido de verdad lo pone .auth-page::after,
-     que es el mismo gesto que hace Minecraft al abrir una pantalla. */
-  background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%);
-}
-
 /* La tarjeta de acceso va POR ENCIMA del fondo. */
 .auth-page {
   position: relative;
@@ -1996,7 +1898,12 @@ select.ref-input { appearance: auto; }
   justify-content: center;
   padding: var(--space-lg) var(--space-md);
 }
-.auth-page > *:not(.fondo-calle) {
+/* Todo lo de la pantalla va POR ENCIMA del fondo… menos el fondo. La
+   excepción iba por nombre de clase y al renombrarlo (.fondo-calle →
+   .fondo-escena) la foto se quedó dentro de la regla: perdía su
+   `position: fixed`, caía al flujo y empujaba el formulario media pantalla
+   hacia abajo. */
+.auth-page > *:not(.fondo-escena) {
   position: relative;
   z-index: 1;
 }
@@ -3809,8 +3716,10 @@ select.ref-input { appearance: auto; }
    lista larga es de las cosas más caras que puede pedirle una página a un
    teléfono de gama baja, que es el teléfono de casi todos los jugadores. */
 * {
+  /* Sin el prefijo: al declarar los dos, el compilador de CSS los fusiona y
+     se queda SOLO con el -webkit-, que Chrome ya no usa. Los prefijos que
+     hagan falta los pone él. */
   backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 img,
@@ -4594,7 +4503,164 @@ textarea.form-input,
   border-top: 1px solid var(--mc-borde);
 }
 
-/* Y las nubes cruzaban por encima del rótulo. Se estrechan y se van a los
-   lados: el cielo se nota, el título se lee. */
-.fc-nube-1 { top: 46px; left: 1%;  width: 72px; }
-.fc-nube-2 { top: 60px; right: 1%; width: 56px; opacity: 0.65; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LAS PANTALLAS DE ACCESO: CRISTAL SOBRE LA CALLE DE VERDAD
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.fondo-escena {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #2f2c27;
+}
+
+.fondo-escena-foto {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Es un fotograma de un motor voxel: escalado con suavizado se convierte en
+     una mancha borrosa y pierde justo lo que la hace reconocible. */
+  image-rendering: pixelated;
+}
+
+/* El velo. Detrás hay una calle llena de basura de colores y encima va un
+   formulario de cristal: sin esto, una etiqueta cae sobre una botella roja y
+   deja de leerse. Más oscuro abajo, que es donde está el formulario. */
+.fondo-escena-velo {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 22, 18, 0.34) 0%,
+    rgba(14, 22, 18, 0.5) 45%,
+    rgba(14, 22, 18, 0.62) 100%
+  );
+}
+
+/* Ya no hace falta el oscurecido que ponía la propia pantalla: lo hace el
+   velo del fondo, que además va por debajo de la tarjeta. */
+.auth-page::after { content: none; }
+
+/* ── La tarjeta de cristal ── */
+
+.auth-card {
+  /* Translúcida de verdad: se ve la calle a través. El 0,7 es el punto en el
+     que todavía se distingue el juego detrás y el texto ya se lee cómodo;
+     por debajo, las etiquetas empiezan a pelearse con la basura del suelo. */
+  background: rgba(253, 250, 243, 0.7) !important;
+  /* La capa de bloques apaga el desenfoque en TODA la app, porque sobre una
+     lista larga es de lo más caro que se le puede pedir a un teléfono flojo.
+     Aquí es una sola pieza, quieta, en una pantalla sin nada más: es el único
+     sitio donde sale a cuenta, y es lo que hace que esto sea cristal y no un
+     rectángulo semitransparente. */
+  backdrop-filter: blur(18px) saturate(1.2) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 18px 44px rgba(10, 18, 14, 0.42);
+}
+
+/* Los campos, algo más opacos que la tarjeta: es donde se escribe. */
+.auth-page .form-input {
+  background: rgba(255, 255, 255, 0.88);
+}
+.auth-page .form-input:focus {
+  background: #fff;
+}
+
+/* Lo que va sobre la foto, fuera de la tarjeta, necesita su sombra. */
+.mc-marca { text-shadow: 0 2px 10px rgba(10, 18, 14, 0.5); }
+
+/* ── La ilustración ── */
+
+/* El ciudadano con la carretilla llena preside las dos pantallas. Es lo
+   primero que se ve y cuenta el juego entero sin una palabra: recoges basura,
+   te llevas monedas. */
+.auth-ilustracion {
+  display: block;
+  width: min(232px, 78%);
+  height: auto;
+  margin: 0 auto 4px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 10px rgba(10, 18, 14, 0.3));
+}
+
+/* Compacto, para que «Entrar a jugar» se vea sin desplazar la pantalla. Es
+   el botón por el que se entra: si hay que buscarlo con el dedo, sobra todo
+   lo de arriba. */
+.auth-card {
+  padding: 22px 20px;
+  gap: 16px;
+}
+
+.auth-ilustracion {
+  width: min(196px, 62%);
+  margin-bottom: 0;
+}
+
+.auth-title { font-size: 1rem; }
+.auth-subtitle { font-size: 0.82rem; }
+
+.instalar-pwa {
+  padding-top: 14px;
+  gap: 4px;
+}
+.instalar-pwa__nota { font-size: 0.72rem; }
+
+/* ── El inicio de sesión tiene que caber en la pantalla ───────────────── */
+
+/* Sin desplazar: es la primera pantalla y el botón de entrar no puede quedar
+   por debajo del borde. (El registro sí puede desplazarse — son ocho campos
+   y no hay forma honesta de meterlos en un teléfono corto sin apretujarlos.)
+   Todo lo de aquí gana altura sin tocar los blancos táctiles de 48 px. */
+.auth-page {
+  padding: 14px var(--space-md);
+  gap: 10px;
+}
+
+.auth-card {
+  padding: 18px 18px 20px;
+  gap: 12px;
+}
+
+.auth-header { display: grid; gap: 2px; }
+
+.auth-form { gap: 12px; }
+.form-group { gap: 4px; }
+
+.form-input,
+.auth-page .form-input {
+  padding: 11px 13px;
+}
+
+.instalar-pwa {
+  padding-top: 12px;
+  gap: 3px;
+}
+.instalar-pwa__boton { padding: 10px 16px; min-height: 44px; }
+
+.auth-forgot,
+.auth-switch { margin: -8px 0; }
+.auth-switch a,
+.auth-forgot a { padding: 10px; }
+
+/* En pantallas cortas (un teléfono de 640-740 px de alto, que aquí son
+   muchos) la ilustración cede el sitio: es lo único de la pantalla que se
+   puede encoger sin que nada deje de leerse ni de tocarse. */
+@media (max-height: 800px) {
+  .auth-ilustracion { width: min(150px, 48%); }
+  .mc-rotulo { font-size: 1.45rem; }
+}
+
+@media (max-height: 700px) {
+  .auth-ilustracion { width: min(118px, 40%); }
+  /* La explicación de «Descargar la app» se va: dos renglones para decir lo
+     que el botón ya dice, y aquí cada renglón decide si el jugador ve el
+     botón de entrar o tiene que buscarlo desplazando. */
+  .instalar-pwa__nota { display: none; }
+  .auth-subtitle { display: none; }
+  .mc-rotulo { font-size: 1.25rem; }
+  .mc-splash { font-size: 0.52rem; }
+}

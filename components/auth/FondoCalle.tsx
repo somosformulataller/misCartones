@@ -1,40 +1,25 @@
 'use client';
 
 /**
- * El fondo de las pantallas de acceso: la misma calle de mediodía que hay
- * dentro del juego, vista de lejos y quieta.
+ * El fondo de las pantallas de acceso: un fotograma REAL del juego.
  *
- * No es decoración. Quien llega aquí viene de un enlace de WhatsApp y todavía
- * no ha visto nada: si el registro tuviera el aspecto de un formulario
- * cualquiera y el juego otro, la primera pantalla no contaría de qué va esto.
- * Los colores salen de la escena real — el cielo de LUZ.fondo, el asfalto
- * cálido oscuro, la doble raya amarilla del centro.
+ * Antes era la calle dibujada a mano en CSS —cuatro degradados y unas cajas—
+ * y se notaba: era una aproximación de la escena, no la escena. Ahora es una
+ * foto de una partida de verdad, tomada del propio motor
+ * (`scripts/foto-escena.mjs` la vuelve a hacer si la calle cambia), así que
+ * quien llega por un enlace de WhatsApp ve exactamente el juego al que va a
+ * entrar antes de escribir su correo.
  *
- * Todo es CSS: son cuatro degradados y unas cuantas cajas. Cargar aquí el
- * three.js entero costaría un segundo de espera antes de poder escribir el
- * correo, y a cambio se vería lo mismo.
+ * Encima va un velo oscuro. No es estética: el formulario es de cristal y
+ * detrás hay una calle llena de basura de colores. Sin el velo, el texto cae
+ * sobre una botella roja y deja de leerse.
  */
 export default function FondoCalle() {
   return (
-    <div className="fondo-calle" aria-hidden>
-      {/* Cielo y sol */}
-      <div className="fc-cielo" />
-      <div className="fc-sol" />
-      <div className="fc-nube fc-nube-1" />
-      <div className="fc-nube fc-nube-2" />
-
-      {/* La calzada, en fuga hacia el horizonte */}
-      <div className="fc-calzada">
-        <div className="fc-linea fc-linea-izq" />
-        <div className="fc-linea fc-linea-der" />
-      </div>
-
-      {/* Las dos aceras con su bordillo */}
-      <div className="fc-acera fc-acera-izq" />
-      <div className="fc-acera fc-acera-der" />
-
-      {/* Velo: sin él, el formulario se lee sobre el amarillo de la raya */}
-      <div className="fc-velo" />
+    <div className="fondo-escena" aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/escena-fondo.jpg" alt="" className="fondo-escena-foto" />
+      <div className="fondo-escena-velo" />
     </div>
   );
 }
