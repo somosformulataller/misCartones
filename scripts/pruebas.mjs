@@ -596,6 +596,34 @@ console.log('\n6. La escena en 3D');
   ok(radioOjo > radioPiel, 'Los ojos asoman del cráneo, no están hundidos dentro', `ojos ${radioOjo.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
   ok(radioBoca > radioPiel * 0.96, 'La boca llega a la superficie de la cara', `boca ${radioBoca.toFixed(3)} contra cráneo ${radioPiel.toFixed(3)}`);
 
+  // El pelo sustituye a la gorra, y puede volver a cometer su mismo pecado:
+  // tapar la cara. La melena se abre en una ventana al frente y el flequillo
+  // se corta justo encima de los ojos, pero eso son tres ángulos escritos a
+  // mano en una esfera y basta cambiar uno para dejar al muñeco con el pelo
+  // por delante de los ojos. Se comprueba que NINGÚN vértice de pelo cae
+  // dentro del cono de la cara: 35° a cada lado del frente, desde la altura
+  // de las cejas hacia abajo.
+  const invadenLaCara = (malla, hexes) => {
+    const g = malla.geometry;
+    const col = g.attributes.color;
+    const pos = g.attributes.position;
+    const objetivos = hexes.map((h) => new THREE.Color(h));
+    let n = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const esPelo = objetivos.some(
+        (o) =>
+          Math.abs(col.getX(i) - o.r) + Math.abs(col.getY(i) - o.g) + Math.abs(col.getZ(i) - o.b) < 0.01
+      );
+      if (!esPelo) continue;
+      const y = pos.getY(i);
+      if (y > 0.12 || y < -0.3) continue;
+      if (Math.abs(Math.atan2(pos.getX(i), pos.getZ(i))) < 0.61) n++;
+    }
+    return n;
+  };
+  const peloEnLaCara = invadenLaCara(craneo, [esc.COL.pelo, esc.COL.peloClaro]);
+  ok(peloEnLaCara === 0, 'El pelo enmarca la cara, no la tapa', `${peloEnLaCara} vértices de pelo delante de los ojos`);
+
   // La carretilla es el DESTINO: la entrega salta al entrar en CART_RADIUS, así
   // que si se dibujara más pequeña que ese radio la bolsa se depositaría sola
   // antes de llegar, y si se dibujara más grande el ciudadano se metería

@@ -183,7 +183,11 @@ export const COL = {
   reflectante: 0xeef4f8,
   pantalon: 0x2f4bc9,
   piel: 0xffc48f,
-  gorra: 0x2b3a57,
+  // Pelo en dos tonos. Uno solo, a esta distancia y con caras planas, se lee
+  // como un casco; el tono claro por encima da la dirección del peinado, que
+  // es lo que lo convierte en pelo.
+  pelo: 0x3a2416,
+  peloClaro: 0x6b452a,
   // La cara. El ojo no es negro puro: a esta escala un negro absoluto sobre
   // piel clara vibra y se lee como un agujero.
   ojo: 0x23293a,
@@ -841,7 +845,7 @@ const GEO_TORSO = fundir([
 ]);
 
 /**
- * Cabeza con gorra y CARA.
+ * Cabeza con pelo y CARA.
  *
  * Dos decisiones aquí, y las dos son de legibilidad, no de anatomía:
  *
@@ -858,14 +862,30 @@ const GEO_TORSO = fundir([
  *    cráneo: al pasar de 0,36 a 0,40 los ojos se quedaron DENTRO y la cara
  *    desapareció entera sin que nada fallara.
  *
- * La visera sigue siendo lo que dice HACIA DÓNDE MIRA desde la cámara cenital,
- * que es justo el ángulo del juego; ahora además enmarca la cara.
+ * Llevaba gorra, y la gorra tapaba justo lo que había que ver. El pelo ocupa
+ * su sitio y hace su mismo trabajo: la melena se abre en una VENTANA al frente
+ * y el flequillo cae sobre la frente, así que desde la cámara cenital sigue
+ * leyéndose de un vistazo hacia dónde mira -- que era para lo que servía la
+ * visera -- pero ahora enmarcando una cara en vez de escondiéndola.
  */
 const GEO_CABEZA = fundir([
   { geo: new SphereGeometry(0.4, 9, 7), color: COL.piel },
-  // Gorra: casquete y visera, las dos más grandes que antes en proporción.
-  { geo: new SphereGeometry(0.415, 9, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.08, 0), color: COL.gorra },
-  { geo: new BoxGeometry(0.54, 0.07, 0.36).translate(0, 0.11, 0.4), color: COL.gorra },
+  // Melena: un casquete que da la vuelta a la cabeza MENOS una ventana al
+  // frente, por donde asoma la cara. En SphereGeometry el ángulo phi se mide
+  // desde -X y el frente cae en phi = pi/2, así que la ventana se abre
+  // centrada ahí: se arranca 0,85 rad más allá y se recorren 2pi - 1,7.
+  { geo: new SphereGeometry(0.425, 12, 8, Math.PI / 2 + 0.85, Math.PI * 2 - 1.7, 0, Math.PI * 0.62).translate(0, 0.02, 0), color: COL.pelo },
+  // Flequillo: cierra esa ventana por arriba y cae sobre la frente, hasta
+  // justo encima de los ojos. Sin él la cabeza quedaría calva por delante.
+  { geo: new SphereGeometry(0.432, 12, 6, Math.PI / 2 - 0.92, 1.84, 0, Math.PI * 0.4).translate(0, 0.02, 0), color: COL.pelo },
+  // Mechones sueltos en el nacimiento del pelo. Asimétricos a propósito: dos
+  // iguales se leen como cuernos, desiguales se leen como un peinado.
+  { geo: new ConeGeometry(0.085, 0.26, 5).rotateX(0.75).translate(-0.14, 0.33, 0.24), color: COL.peloClaro },
+  { geo: new ConeGeometry(0.07, 0.2, 5).rotateX(0.5).rotateZ(-0.3).translate(0.17, 0.36, 0.19), color: COL.peloClaro },
+  { geo: new ConeGeometry(0.075, 0.22, 5).rotateX(-0.6).translate(0.02, 0.36, -0.18), color: COL.peloClaro },
+  // Franja clara sobre la coronilla: el brillo del pelo. Da la dirección del
+  // peinado, que es lo que separa una melena de un casco.
+  { geo: new SphereGeometry(0.435, 10, 5, Math.PI / 2 + 1.1, 1.2, 0, Math.PI * 0.3).translate(0, 0.02, 0), color: COL.peloClaro },
   // Ojos: almendrados y altos, como los de un dibujo. Van a media altura de
   // la cara, por debajo del filo de la gorra.
   { geo: new SphereGeometry(0.095, 7, 5).scale(0.95, 1.4, 0.5).translate(-0.155, -0.01, 0.35), color: COL.ojo },
