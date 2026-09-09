@@ -18,9 +18,20 @@
 import { PerspectiveCamera, Vector3 } from 'three';
 import { PLAY } from '../game/world';
 
-/** Inclinación de la cámara sobre el horizonte. 52° deja ver el volumen de
- *  los objetos sin perder la lectura cenital que necesita el juego. */
-export const PITCH = (52 * Math.PI) / 180;
+/**
+ * Inclinación de la cámara sobre el horizonte.
+ *
+ * Estuvo en 52°, y a esa altura lo que llega de cada objeto es casi solo su
+ * PLANTA: la carretilla se leía como un cuadrado por más volumen que tuviera
+ * el modelo, y el ciudadano como un sombrero con hombros. A 45° se ve un buen
+ * trozo de costado de todo — el cuenco de la carretilla, la rueda de canto, el
+ * chaleco del barrendero, las fachadas — sin perder la lectura cenital que el
+ * juego necesita para que se entienda dónde está cada bolsa.
+ *
+ * Cuesta casi nada de encuadre: la cámara se aleja de 66,1 a 67,2 unidades en
+ * el móvil más estrecho, un 1,7 %.
+ */
+export const PITCH = (45 * Math.PI) / 180;
 
 /** Margen: 0,97 deja un respiro para que nada roce el borde exacto. */
 const MARGEN = 0.97;

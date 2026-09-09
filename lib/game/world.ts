@@ -250,7 +250,9 @@ function intento(seed: number): World | null {
       const rect = { x, y, w: size.w, h: size.h };
       // Nunca encima de una bolsa ni pisando la boca de la carretilla.
       if (bags.some((b) => distToRect(b.x, b.y, rect) < BAG_CLEARANCE)) continue;
-      if (distToRect(cart.x, cart.y, rect) < CART_RADIUS + 30) continue;
+      // +70 y no +30: los mangos sobresalen por detrás de la tolva, y un palé
+      // atravesado encima de ellos se ve como un fallo de colocación.
+      if (distToRect(cart.x, cart.y, rect) < CART_RADIUS + 70) continue;
       if (obstacles.some((o) => distToRect(o.x + o.w / 2, o.y + o.h / 2, rect) < 40)) continue;
       obstacles.push({ ...rect, kind, solid: size.solid });
       break;

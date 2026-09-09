@@ -104,7 +104,7 @@ const ESCALA_CIUDADANO = 1.76;
  * Como el radio de entrega es CART_RADIUS, la carretilla se agranda hasta que
  * su tolva vuelve a llenar ese radio: lo que se ve sigue siendo lo que cuenta.
  */
-const ESCALA_CARRETILLA = 1.55;
+const ESCALA_CARRETILLA = 1.62;
 
 /**
  * Paleta ANIME. Los colores están deliberadamente sobresaturados respecto a lo
@@ -197,15 +197,23 @@ export const COL = {
   // Cartones
   carton: 0xffab33,
   cartonDorado: 0xffd60a,
-  // Carretilla. Con dos colores (naranja y metal) salía una caja sobre un
-  // palo. Lo que la hace legible desde arriba son los CONTRASTES: el interior
-  // en sombra contra el labio iluminado del borde, y el caucho negro de la
-  // rueda y los puños contra el metal claro del bastidor.
+  // Carretilla.
+  //
+  // Era NARANJA, y ese era medio problema: naranja son también los conos de
+  // obra y el chaleco del ciudadano. El destino de la partida competía en
+  // color con un obstáculo y con el propio jugador. Ahora es FUCSIA, que no lo
+  // usa nada más en la escena: sobre el asfalto gris no hay forma de
+  // confundirla, y el halo amarillo que se enciende al cargar una bolsa
+  // contrasta con ella en vez de fundirse.
+  //
+  // La otra mitad son los CONTRASTES internos: el fondo en sombra contra el
+  // labio claro del borde (es lo que dibuja el contorno desde arriba) y el
+  // caucho negro de la rueda y los puños contra el metal del bastidor.
   metal: 0xd8e0e8,
   metalOscuro: 0x97a2b0,
-  tolva: 0xff6a10,
-  tolvaOscura: 0xb84205,
-  tolvaBorde: 0xffab55,
+  tolva: 0xff2f8f,
+  tolvaOscura: 0x9c1257,
+  tolvaBorde: 0xffb3d8,
   neumatico: 0x25272e,
   llanta: 0xe9eef4,
   puno: 0x2b3a57,
@@ -833,65 +841,92 @@ const GEO_CABEZA = fundir([
 /**
  * La carretilla, pieza a pieza.
  *
- * La anterior era un prisma naranja CERRADO sobre dos barras: desde la cámara
- * cenital no se distinguía de una caja, y menos aún con un montón de cartones
- * encima tapándole la tapa. Lo que identifica una carretilla desde arriba son
- * cuatro cosas, y ninguna estaba:
+ * Ha pasado por tres versiones y el fallo de las dos primeras era el mismo:
+ * DESDE ARRIBA SE VEÍA UN CUADRADO. Da igual el volumen que tenga el modelo si
+ * su PLANTA es un cuadrado, porque la cámara mira casi a plomo y la planta es
+ * casi todo lo que llega. Un cuadrado naranja sobre el asfalto es una caja.
  *
- *   1. La tolva está ABIERTA y se le ve el fondo. Por eso ahora son paredes
- *      (cilindro de 4 lados sin tapas) más un suelo en sombra: el contraste
- *      entre el interior oscuro y el borde iluminado es lo que dice "cuenco".
- *   2. Tiene LABIO: un aro que sobresale por todo el filo superior. Es el
- *      detalle que más lee a esta distancia, porque dibuja el contorno entero
- *      de la tolva con una línea clara.
- *   3. Se ESTRECHA EN PUNTA hacia delante, sobre la rueda. Una caja recta es
- *      un cajón; el morro en cuña es lo que la convierte en carretilla.
- *   4. UNA rueda delante y DOS mangos detrás. Esa asimetría es su firma: no
- *      hay ningún otro objeto de la calle con esa planta.
+ * Lo que se ve desde arriba de una carretilla de verdad es un TRAPECIO que se
+ * estrecha hasta una rueda. Así que la tolva ya no es un prisma de cuatro
+ * lados iguales: mide 2,00 de ancho por detrás y 0,80 por delante sobre 2,90
+ * de largo, y de esa punta sale la rueda sola, separada. Esa silueta no se
+ * parece a nada más en la calle.
  *
- * Todo va fundido en una sola geometría (una llamada de dibujo). El montón de
- * cartones NO va aquí: cada capa aparece por separado según avanza la partida.
+ * Lo demás sostiene esa lectura:
+ *   · Está ABIERTA, con el fondo en sombra: se lee como cuenco, no como bulto.
+ *   · Tiene LABIO claro sobresaliendo por todo el filo, que es lo que dibuja
+ *     el contorno del trapecio desde arriba. Sin él, el borde se pierde.
+ *   · Los largueros CONVERGEN hacia la rueda acompañando al trapecio, en vez
+ *     de ir paralelos como dos raíles.
+ *   · UNA rueda delante y DOS puños detrás: esa asimetría es su firma.
+ *
+ * El chasis va aparte de la tolva porque la tolva es la BOCA DE ENTREGA, y es
+ * ella la que la prueba mide contra CART_RADIUS; los mangos sobresalen por
+ * detrás a propósito, que es justo por donde se acerca quien empuja.
  */
-const GEO_CARRETILLA = fundir([
-  // ── Tolva ──
-  // Paredes abiertas y abocinadas: más anchas arriba que abajo, como una
-  // carretilla de verdad, y sin tapas para que se vea el fondo.
-  { geo: new CylinderGeometry(1.02, 0.74, 0.76, 4, 1, true).rotateY(Math.PI / 4).translate(0, 0.86, 0.3), color: COL.tolva },
-  // Fondo, en sombra. Es lo que da profundidad al cuenco.
-  { geo: new BoxGeometry(1.5, 0.12, 1.9).translate(0, 0.53, 0.3), color: COL.tolvaOscura },
-  // Labio del borde: sobresale un poco y va más claro. Dibuja el contorno.
-  { geo: new CylinderGeometry(1.1, 1.02, 0.13, 4, 1, true).rotateY(Math.PI / 4).translate(0, 1.28, 0.3), color: COL.tolvaBorde },
-  // Morro en cuña. El cono se gira para que la punta mire hacia delante y se
-  // achata en altura, porque la boca de una carretilla es ancha y baja.
-  { geo: new ConeGeometry(0.8, 0.98, 4).rotateY(Math.PI / 4).rotateX(-Math.PI / 2).scale(1, 0.55, 1).translate(0, 0.86, -1.02), color: COL.tolva },
-  { geo: new ConeGeometry(0.84, 0.2, 4).rotateY(Math.PI / 4).rotateX(-Math.PI / 2).scale(1, 0.55, 1).translate(0, 1.24, -0.98), color: COL.tolvaBorde },
 
-  // ── Bastidor ──
-  // Los dos largueros van de la rueda a los puños, por DEBAJO de la tolva:
-  // ella se apoya encima, que es como se sostiene una carretilla.
-  { geo: new BoxGeometry(0.13, 0.13, 2.94).translate(-0.66, 0.44, -0.02), color: COL.metal },
-  { geo: new BoxGeometry(0.13, 0.13, 2.94).translate(0.66, 0.44, -0.02), color: COL.metal },
-  // Travesaño delantero, donde se atornilla la horquilla de la rueda.
-  { geo: new BoxGeometry(1.44, 0.1, 0.14).translate(0, 0.44, -0.98), color: COL.metalOscuro },
+/** Semiancho trasero, semiancho delantero y semilargo de la tolva. El trapecio
+ *  entero se deriva de estos tres números. */
+const TOLVA_TRAS = 1.0;
+const TOLVA_DEL = 0.4;
+const TOLVA_Z = 1.45;
 
-  // ── Rueda: una sola, delante. Es la firma de la carretilla ──
-  // Horquilla: las dos pletinas que bajan del bastidor al eje.
-  { geo: new BoxGeometry(0.09, 0.46, 0.12).translate(-0.26, 0.44, -1.3), color: COL.metalOscuro },
-  { geo: new BoxGeometry(0.09, 0.46, 0.12).translate(0.26, 0.44, -1.3), color: COL.metalOscuro },
-  // Neumático y llanta: el caucho negro contra el metal claro del buje es lo
-  // que hace que se lea como rueda y no como un cilindro cualquiera.
-  { geo: new CylinderGeometry(0.44, 0.44, 0.24, 12).rotateZ(Math.PI / 2).translate(0, 0.44, -1.3), color: COL.neumatico },
-  { geo: new CylinderGeometry(0.19, 0.19, 0.27, 8).rotateZ(Math.PI / 2).translate(0, 0.44, -1.3), color: COL.llanta },
+/**
+ * Las cuatro paredes del trapecio a una altura dada. `fuera` las separa hacia
+ * afuera, que es como se saca el labio del borde con la misma forma.
+ */
+function contornoTolva(y: number, alto: number, fuera: number, color: number) {
+  const tras = TOLVA_TRAS + fuera;
+  const del = TOLVA_DEL + fuera;
+  const z = TOLVA_Z + fuera;
+  // Los laterales van inclinados: se giran el mismo ángulo que la pendiente
+  // del trapecio, o quedarían huecos en las esquinas.
+  const largo = Math.hypot(tras - del, 2 * z);
+  const ang = Math.atan2(tras - del, 2 * z);
+  const gr = 0.13;
+  return [
+    { geo: new BoxGeometry(tras * 2, alto, gr).translate(0, y, z), color },
+    { geo: new BoxGeometry(del * 2, alto, gr).translate(0, y, -z), color },
+    { geo: new BoxGeometry(gr, alto, largo).rotateY(ang).translate((tras + del) / 2, y, 0), color },
+    { geo: new BoxGeometry(gr, alto, largo).rotateY(-ang).translate(-(tras + del) / 2, y, 0), color },
+  ];
+}
 
-  // ── Mangos y patas ──
-  // Puños de goma oscura en las puntas: dicen "esto se agarra por aquí".
-  { geo: new CylinderGeometry(0.12, 0.12, 0.5, 8).rotateX(Math.PI / 2).translate(-0.66, 0.44, 1.28), color: COL.puno },
-  { geo: new CylinderGeometry(0.12, 0.12, 0.5, 8).rotateX(Math.PI / 2).translate(0.66, 0.44, 1.28), color: COL.puno },
-  // Patas traseras con pie: lo que la mantiene de pie mientras se carga.
-  { geo: new BoxGeometry(0.11, 0.46, 0.11).translate(-0.6, 0.21, 0.95), color: COL.metalOscuro },
-  { geo: new BoxGeometry(0.11, 0.46, 0.11).translate(0.6, 0.21, 0.95), color: COL.metalOscuro },
-  { geo: new BoxGeometry(0.16, 0.1, 0.4).translate(-0.6, 0.05, 1.0), color: COL.metalOscuro },
-  { geo: new BoxGeometry(0.16, 0.1, 0.4).translate(0.6, 0.05, 1.0), color: COL.metalOscuro },
+/** La tolva: el cuenco trapezoidal. Es la boca de entrega. */
+const GEO_TOLVA = fundir([
+  // Fondo, en sombra. En tres escalones que siguen la pendiente del trapecio:
+  // un rectángulo se asomaría por fuera de las paredes en la parte estrecha.
+  { geo: new BoxGeometry(1.8, 0.1, 0.99).translate(0, 0.53, 0.97), color: COL.tolvaOscura },
+  { geo: new BoxGeometry(1.4, 0.1, 0.99).translate(0, 0.53, 0), color: COL.tolvaOscura },
+  { geo: new BoxGeometry(1.0, 0.1, 0.99).translate(0, 0.53, -0.97), color: COL.tolvaOscura },
+  ...contornoTolva(0.9, 0.72, 0, COL.tolva),
+  // Labio: sobresale 0,09 y va claro. Es el contorno.
+  ...contornoTolva(1.29, 0.14, 0.09, COL.tolvaBorde),
+]);
+
+/** El chasis: largueros, rueda, puños y patas. */
+const GEO_CHASIS = fundir([
+  // Largueros: convergen hacia la rueda, siguiendo al trapecio.
+  { geo: new BoxGeometry(0.14, 0.14, 3.6).rotateY(0.17).translate(0.6, 0.42, 0.05), color: COL.metal },
+  { geo: new BoxGeometry(0.14, 0.14, 3.6).rotateY(-0.17).translate(-0.6, 0.42, 0.05), color: COL.metal },
+  // Travesaño delantero: donde se atornilla la horquilla de la rueda.
+  { geo: new BoxGeometry(1.0, 0.1, 0.14).translate(0, 0.42, -1.2), color: COL.metalOscuro },
+  // Horquilla: las dos pletinas que bajan al eje.
+  { geo: new BoxGeometry(0.09, 0.5, 0.13).translate(-0.28, 0.46, -1.7), color: COL.metalOscuro },
+  { geo: new BoxGeometry(0.09, 0.5, 0.13).translate(0.28, 0.46, -1.7), color: COL.metalOscuro },
+  // Rueda: neumático negro y buje claro. El contraste es lo que la hace rueda
+  // y no un cilindro. Va SOLA delante, separada de la tolva: ese hueco es la
+  // parte de la silueta que más dice "carretilla".
+  { geo: new CylinderGeometry(0.46, 0.46, 0.26, 14).rotateZ(Math.PI / 2).translate(0, 0.46, -1.78), color: COL.neumatico },
+  { geo: new CylinderGeometry(0.2, 0.2, 0.29, 8).rotateZ(Math.PI / 2).translate(0, 0.46, -1.78), color: COL.llanta },
+  // Puños de goma en las puntas: dicen por dónde se agarra.
+  { geo: new CylinderGeometry(0.13, 0.13, 0.52, 8).rotateX(Math.PI / 2).translate(-0.9, 0.42, 1.72), color: COL.puno },
+  { geo: new CylinderGeometry(0.13, 0.13, 0.52, 8).rotateX(Math.PI / 2).translate(0.9, 0.42, 1.72), color: COL.puno },
+  // Patas con pie: lo que la mantiene de pie mientras se carga.
+  { geo: new BoxGeometry(0.11, 0.44, 0.11).translate(-0.76, 0.2, 1.2), color: COL.metalOscuro },
+  { geo: new BoxGeometry(0.11, 0.44, 0.11).translate(0.76, 0.2, 1.2), color: COL.metalOscuro },
+  { geo: new BoxGeometry(0.16, 0.1, 0.4).translate(-0.76, 0.05, 1.25), color: COL.metalOscuro },
+  { geo: new BoxGeometry(0.16, 0.1, 0.4).translate(0.76, 0.05, 1.25), color: COL.metalOscuro },
 ]);
 
 /** Montoncito acumulado contra el bordillo: varios bultos y una botella
@@ -1254,6 +1289,8 @@ export function crearBolsa(): BolsaVista {
 
 export interface CarretillaVista {
   grupo: Group;
+  /** La tolva sola. La prueba la mide contra CART_RADIUS. */
+  tolva: Mesh;
   aura: Mesh;
   capas: Mesh[];
 }
@@ -1277,18 +1314,30 @@ export function crearCarretilla(): CarretillaVista {
   aura.position.y = 0.055;
   grupo.add(aura);
 
-  // Tolva, rueda, mangos y patas: nada de esto se mueve por separado, así que
-  // va fundido en una sola malla en vez de seis.
-  grupo.add(new Mesh(GEO_CARRETILLA, MAT_FUNDIDO));
+  // Aparcada EN DIAGONAL, no a escuadra con la calle. Un objeto alineado con
+  // los ejes de la pantalla enseña una sola cara y se lee como un icono
+  // plano; girada, se le ven a la vez el costado del cuenco y la rueda de
+  // canto, que son las dos señales que dicen "carretilla". Y de paso es como
+  // se queda una carretilla de verdad cuando alguien la suelta.
+  grupo.rotation.y = -0.36;
+
+  // Dos mallas fundidas, no dieciocho: la tolva por un lado (que es lo que
+  // mide la prueba contra CART_RADIUS) y el chasis por otro.
+  const tolva = new Mesh(GEO_TOLVA, MAT_FUNDIDO);
+  grupo.add(tolva);
+  grupo.add(new Mesh(GEO_CHASIS, MAT_FUNDIDO));
 
   // Montón que crece con cada entrega: el marcador de progreso del juego.
   const capas: Mesh[] = [];
   for (let i = 0; i < 5; i++) {
     const ultima = i === 4;
+    // Van en la mitad ANCHA del trapecio, no centrados: así el morro y la
+    // rueda siguen despejados y la silueta se lee aunque esté llena.
     const c = new Mesh(
-      new BoxGeometry(1.5 - i * 0.1, 0.24, 1.5 - i * 0.1),
+      new BoxGeometry(1.32 - i * 0.09, 0.24, 1.2 - i * 0.08),
       mat(ultima ? COL.cartonDorado : COL.carton)
     );
+    c.position.z = 0.5;
     // Arranca DENTRO de la tolva (su fondo está a 0,59) y va asomando por
     // encima del labio: así el montón se lee como carga, no como una tapa.
     c.position.y = 0.74 + i * 0.21;
@@ -1298,7 +1347,7 @@ export function crearCarretilla(): CarretillaVista {
     capas.push(c);
   }
 
-  return { grupo, aura, capas };
+  return { grupo, tolva, aura, capas };
 }
 
 // ── Ciudadano ───────────────────────────────────────────────────────────────

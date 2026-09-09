@@ -471,6 +471,38 @@ console.log('\n6. La escena en 3D');
   ok(llamadas <= 70, 'La escena cabe en 70 llamadas de dibujo', `son ${llamadas}`);
   ok(triangulos <= 120_000, 'La escena cabe en 120k triángulos', `son ${Math.round(triangulos)}`);
 
+  // La carretilla está APARCADA EN DIAGONAL, así que hay que medirla en SU
+  // eje, no en el del mundo. Una caja envolvente alineada con los ejes se
+  // infla hasta la diagonal del objeto cuando este va girado: daría 3,09 de
+  // radio donde hay 2,60, y una planta cuadrada donde hay un trapecio. Es el
+  // mismo error que ya falseó la invasión de las copas de los árboles.
+  //
+  // Se mide la geometría en local y se multiplica por la escala del grupo.
+  const escalaDe = (malla) => {
+    malla.updateWorldMatrix(true, false);
+    return new THREE.Vector3().setFromMatrixScale(malla.matrixWorld).x;
+  };
+  const medidaPropia = (malla) => {
+    malla.geometry.computeBoundingBox();
+    const t = malla.geometry.boundingBox.getSize(new THREE.Vector3());
+    return t.multiplyScalar(escalaDe(malla));
+  };
+
+  // Ancho de la tolva a una profundidad dada de su propio eje, en fracción de
+  // su largo (-1 = morro, +1 = trasera). Recorre los vértices reales: una caja
+  // envolvente solo da el rectángulo que lo encierra todo y es ciega justo a
+  // lo que aquí importa, que es la conicidad.
+  const anchoTolvaEn = (malla, frac) => {
+    const pos = malla.geometry.attributes.position;
+    const b = malla.geometry.boundingBox;
+    const zBuscado = (b.min.z + b.max.z) / 2 + (frac * (b.max.z - b.min.z)) / 2;
+    let max = 0;
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getZ(i) - zBuscado) < 0.25) max = Math.max(max, Math.abs(pos.getX(i)));
+    }
+    return max * 2 * escalaDe(malla);
+  };
+
   // ── Lo que se ve es lo que choca ──
   // Si el dibujo fuera más grande que el radio de la simulación, el jugador
   // vería atravesar cosas; si fuera más pequeño, recogería bolsas "desde
@@ -505,17 +537,28 @@ console.log('\n6. La escena en 3D');
   // antes de llegar, y si se dibujara más grande el ciudadano se metería
   // DENTRO de la carretilla antes de que pasara nada.
   //
-  // Se mide la malla del chasis, no el grupo: el grupo lleva además la sombra
-  // y el aura, que son manchas en el suelo y desbordan a propósito.
-  const tolva = carretilla.grupo.children.find((c) => c.isMesh && c.geometry.attributes.color);
-  caja.setFromObject(tolva).getSize(tam);
-  const radioCarretilla = Math.max(tam.x, tam.z) / 2;
-  console.log(`     Carretilla: ${radioCarretilla.toFixed(2)} de radio`);
+  // Se mide la TOLVA sola: es la boca donde cae la bolsa. Los mangos salen por
+  // detrás a propósito -- una carretilla se empuja desde entre los mangos, así
+  // que el ciudadano tiene que poder meterse ahí sin haber entregado todavía.
+  const tamTolva = medidaPropia(carretilla.tolva);
+  const radioCarretilla = Math.max(tamTolva.x, tamTolva.z) / 2;
+  console.log(`     Carretilla: ${radioCarretilla.toFixed(2)} de radio, planta ${tamTolva.x.toFixed(2)} x ${tamTolva.z.toFixed(2)}`);
   ok(
     Math.abs(radioCarretilla - CART_RADIUS / 40) < 0.2,
     'La carretilla se dibuja del tamaño con el que se entrega',
     `dibujada ${radioCarretilla.toFixed(2)}, entrega a ${(CART_RADIUS / 40).toFixed(2)}`
   );
+
+  // La prueba que faltaba, y el motivo de que hubiera que rehacerla dos veces:
+  // desde una cámara casi cenital lo que llega es la PLANTA. Una planta
+  // cuadrada es una caja, diga lo que diga el volumen. Se exige que la tolva
+  // sea claramente más larga que ancha, y que se ESTRECHE hacia delante: eso
+  // es un trapecio, y un trapecio con una rueda delante es una carretilla.
+  const anchoTras = anchoTolvaEn(carretilla.tolva, 0.9);
+  const anchoDel = anchoTolvaEn(carretilla.tolva, -0.9);
+  console.log(`     Planta de la tolva: ${anchoTras.toFixed(2)} de ancho atrás, ${anchoDel.toFixed(2)} delante`);
+  ok(tamTolva.z / tamTolva.x > 1.15, 'La tolva es más larga que ancha: en planta no es un cuadrado', `${(tamTolva.z / tamTolva.x).toFixed(2)}`);
+  ok(anchoDel < anchoTras * 0.65, 'La tolva se estrecha hacia delante: en planta es un trapecio', `${anchoDel.toFixed(2)} contra ${anchoTras.toFixed(2)}`);
 
   // ── Nada tapa la zona de juego ──
   // La cámara mira desde arriba: cualquier cosa que asome sobre la calzada
