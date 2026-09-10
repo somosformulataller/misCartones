@@ -24,7 +24,6 @@ import {
   Plane,
   Raycaster,
   Scene,
-  Sprite,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -48,7 +47,6 @@ import {
   crearBolsa,
   crearCarretilla,
   crearCiudad,
-  crearEtiquetaValor,
   crearCiudadano,
   crearObstaculos,
   crearSuelo,
@@ -107,20 +105,6 @@ const RITMO_APAGAR = 1.8;
 // vez de 60, para que el teléfono no se caliente mientras espera.
 const FPS_APAGADA = 24;
 
-// Dónde flota el valor de cada bolsa, respecto al centro de la carretilla y en
-// orden de entrega: tres arriba y dos debajo, en zigzag, como el portallaves de
-// La Llave. Con etiquetas de 3,4 de ancho: 3,8 entre columnas para que no se
-// toquen de lado, y 3,2 entre filas porque la cámara inclinada aplasta la
-// profundidad (una unidad de Z ocupa menos pantalla que una de ancho).
-const ETIQUETAS: readonly [number, number, number][] = [
-  [-3.8, 1.6, -6.0],
-  [0, 1.6, -6.0],
-  [3.8, 1.6, -6.0],
-  [-1.9, 1.6, -2.8],
-  [1.9, 1.6, -2.8],
-];
-
-
 export interface ResultadoEntrega {
   monto: number;
   finished: boolean;
@@ -143,8 +127,6 @@ export interface GameOptions {
   reducedMotion?: boolean;
   /** false = calle apagada: en penumbra, sin responder al dedo ni al teclado. */
   encendida?: boolean;
-  /** Valor de las bolsas ya entregadas, en orden de entrega (partida reanudada). */
-  montosPrevios?: number[];
   /** Píxeles CSS que tapa la interfaz por arriba (el marcador), medidos desde
    *  el borde de arriba del lienzo. El ciudadano no se mete debajo. */
   tapadoArriba?: () => number;
@@ -287,24 +269,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   };
   pintarCarretilla();
 
-  // ── El valor de cada bolsa, sobre la carretilla ──
-  // Como las llaves colgadas en la puerta de La Llave, cada una con su valor:
-  // al vaciar una bolsa, su monto se queda flotando junto a ella toda la
-  // partida. Los de una partida reanudada llegan del servidor, ya cobrados.
   const centroCarretilla = new Vector3(wx(world.cart.x), 0, wz(world.cart.y));
-  const etiquetas: (Sprite | null)[] = ETIQUETAS.map(() => null);
-  function ponerEtiqueta(i: number, monto: number, salto: boolean) {
-    if (i < 0 || i >= ETIQUETAS.length || etiquetas[i]) return;
-    const e = crearEtiquetaValor(`+$${monto.toFixed(2)}`);
-    const [dx, dy, dz] = ETIQUETAS[i];
-    e.position.set(centroCarretilla.x + dx, dy, centroCarretilla.z + dz);
-    if (salto && !reduced) e.scale.set(0.01, 0.005, 1);
-    mundo.add(e);
-    etiquetas[i] = e;
-  }
-  (opts.montosPrevios ?? []).forEach((m, i) => {
-    if (i < entregadas) ponerEtiqueta(i, Number(m), false);
-  });
 
   // La carretilla en la pantalla, en píxeles CSS: de ahí salen las monedas.
   const _enPantalla = new Vector3();
@@ -631,7 +596,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       });
     } else {
       bolsa.vista.grupo.visible = false;
-      ponerEtiqueta(n, res.monto, true);
       const origenPantalla = carretillaEnPantalla();
       opts.callbacks.onCredit?.(res.monto, entregadas, origenPantalla);
       if (res.finished) {
@@ -877,22 +841,13 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     const objetivoAura = sim.cargando !== null ? 0.45 + Math.sin(sim.tiempo / 200) * 0.2 : 0;
     auraMat.opacity += (objetivoAura - auraMat.opacity) * 0.12;
 
-    // Bolsas de la carretilla y sus valores: el salto con que entran.
+    // Bolsas de la carretilla: el salto con que entran.
     for (const c of cart.capas) {
       if (!c.visible) continue;
       const base = c.userData.escala as number;
       if (c.scale.x !== base) {
         const k = c.scale.x + (base - c.scale.x) * 0.22;
         c.scale.setScalar(Math.abs(base - k) < 0.002 ? base : k);
-      }
-    }
-    for (const e of etiquetas) {
-      if (!e) continue;
-      const base = e.userData.escala as number;
-      if (e.scale.x !== base) {
-        const k0 = e.scale.x + (base - e.scale.x) * 0.2;
-        const k = Math.abs(base - k0) < 0.004 ? base : k0;
-        e.scale.set(k, k / 2, 1);
       }
     }
 
@@ -1041,14 +996,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
 
     // Liberar TODA la memoria de la GPU: geometrías, materiales y el contexto.
     scene.traverse((o) => {
-      // Los Sprite comparten UNA geometría interna de three: liberarla desde
-      // una etiqueta la rompería para todas. Se liberan su textura y su material.
-      if ((o as Sprite).isSprite) {
-        const sm = (o as Sprite).material;
-        sm.map?.dispose();
-        sm.dispose();
-        return;
-      }
       const m = o as unknown as {
         geometry?: { dispose(): void };
         material?: { dispose(): void } | { dispose(): void }[];

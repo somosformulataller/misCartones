@@ -5400,3 +5400,51 @@ textarea.form-input,
     0 var(--mc-labio) 0 3px #2d7a24,
     0 0 22px rgba(126, 211, 106, 0.55);
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL VALOR DE CADA BOLSA, DEBAJO DE SU CASILLA
+
+   Antes flotaba sobre la carretilla, en la escena, y tapaba la calle. Ahora
+   cada casilla amarilla lleva su monto debajo. Las casillas reservan el alto
+   del monto desde el principio: si no, la pieza crecería al cobrar la primera
+   bolsa y todo lo de debajo daría un salto.
+   ══════════════════════════════════════════════════════════════════════════ */
+.hud-bolsas {
+  align-items: flex-start;
+  gap: 4px;
+  padding: 7px 8px 5px;
+  border-radius: 16px;
+}
+
+.hud-bolsa-casilla {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 34px;
+}
+
+/* Fuente de LECTURA, no la de píxeles del marcador: a este tamaño la de
+   píxeles confunde los dígitos (+$0.15 se leía «+$0.13», +$1.20 «+$1.80»). */
+.hud-bolsa-valor {
+  font-family: var(--font-lectura);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--mc-gold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 #2f2a21;
+  animation: hud-valor-entra 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes hud-valor-entra {
+  from { opacity: 0; transform: translateY(-4px) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-bolsa-valor { animation: none; }
+}

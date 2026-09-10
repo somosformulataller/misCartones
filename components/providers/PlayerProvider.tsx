@@ -189,7 +189,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await supabaseRef.current?.auth.signOut();
     setPlayer(null);
-    router.push('/');
+    // Directo al login: ya no hay portada por la que pasar.
+    router.push('/auth/login');
     router.refresh();
   }, [router]);
 

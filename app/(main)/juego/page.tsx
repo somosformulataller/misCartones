@@ -83,7 +83,9 @@ export default function JuegoPage() {
   const [seed, setSeed] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [yaEntregadas, setYaEntregadas] = useState<number[]>([]);
-  const [montosPrevios, setMontosPrevios] = useState<number[]>([]);
+  // Valor de cada bolsa cobrada, en orden de entrega: el marcador lo pone
+  // debajo de su casilla.
+  const [montos, setMontos] = useState<number[]>([]);
   const [entregadas, setEntregadas] = useState(0);
   const [cargandoBolsa, setCargandoBolsa] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -121,7 +123,7 @@ export default function JuegoPage() {
       setSessionId(id);
       setSeed(worldSeed);
       setYaEntregadas(previas);
-      setMontosPrevios(montos);
+      setMontos(montos);
       setEntregadas(previas.length);
       // Lo ya cobrado en esa partida YA ESTÁ en el saldo que se ve: se cobró
       // antes de cerrar la app. Al final solo suben las monedas de lo que falta;
@@ -239,7 +241,7 @@ export default function JuegoPage() {
     premio.current = null;
     setEntregadas(0);
     setYaEntregadas([]);
-    setMontosPrevios([]);
+    setMontos([]);
     setSessionId(data.session_id);
     setSeed(data.world_seed);
     setEstado('jugando');
@@ -293,18 +295,24 @@ export default function JuegoPage() {
     [sessionId]
   );
 
-  // Cada bolsa vaciada: su valor se queda sobre la carretilla (lo pinta el
-  // motor), salta un puñado de monedas y un aviso dice cuánto dio. El saldo
+  // Cada bolsa vaciada: su valor sale debajo de su casilla del marcador, salta
+  // un puñado de monedas y un aviso dice cuánto dio. El saldo
   // NO se mueve, igual que con las llaves 1-4 de La Llave.
   const onCredit = useCallback(
     (...args: [number, number, Punto]) => {
-      const [monto, , origen] = args;
+      const [monto, total, origen] = args;
       secuencia.current += 1;
       const id = secuencia.current;
       setSalto({ id, ...origen });
       setTimeout(() => setSalto((s) => (s && s.id === id ? null : s)), SALTO_MS + 250);
       setAvisoBolsa({ id, monto });
       setTimeout(() => setAvisoBolsa((a) => (a && a.id === id ? null : a)), 2600);
+      // `total` es cuántas van entregadas: esta bolsa es la casilla total - 1.
+      setMontos((m) => {
+        const n = [...m];
+        n[total - 1] = monto;
+        return n;
+      });
       tono(1046, 0.12, 0.35);
       setTimeout(() => tono(1568, 0.18, 0.3), 110);
     },
@@ -401,7 +409,6 @@ export default function JuegoPage() {
           key={sessionId ?? 'escaparate'}
           seed={seed}
           alreadyDeposited={yaEntregadas}
-          montosPrevios={montosPrevios}
           muted={muted}
           encendida={estado === 'jugando'}
           callbacks={{ onDeposit, onCredit, onState, onFinished, onError: setError }}
@@ -415,6 +422,7 @@ export default function JuegoPage() {
           pulso={pulso}
           bolsasEntregadas={entregadas}
           totalBolsas={TOTAL_BAGS}
+          montos={montos}
           cargando={cargandoBolsa}
           muted={muted}
           onToggleMute={() => setMuted((m) => !m)}

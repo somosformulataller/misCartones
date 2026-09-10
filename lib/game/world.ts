@@ -42,20 +42,24 @@ export const PLAY = { x: 52, y: 212, w: 616, h: 950 } as const;
 export const CITIZEN_RADIUS = 48; // ancho DIBUJADO (brazos y cabeza incluidos)
 export const CITIZEN_BODY_RADIUS = 32; // el TORSO: lo que choca con las cosas
 export const CITIZEN_FEET_RADIUS = 26; // los PIES: lo único que pisa la calle
-export const BAG_RADIUS = 36;
+// Era 36. Se agrandó para que las bolsas se vean bien sobre la calle: la
+// escena escala su modelo con este mismo número.
+export const BAG_RADIUS = 48;
 export const CART_RADIUS = 100;
 
 // La separación mínima entre bolsas y la holgura con los obstáculos suben con
 // el radio de la bolsa: con bolsas de 36 y una separación de 90 quedarían a
-// 18 px de distancia entre bordes, prácticamente pegadas.
-const MIN_BAG_GAP = 108;
+// 18 px de distancia entre bordes, prácticamente pegadas. Se calculan a partir
+// del radio para que agrandar la bolsa no las pegue: 36 px entre bordes.
+const MIN_BAG_GAP = BAG_RADIUS * 2 + 36;
 // Y la distancia mínima a la carretilla sube con CART_RADIUS: con una tolva de
 // 100 y una bolsa de 36, cualquier valor por debajo de 136 pondría la bolsa
 // DENTRO de la carretilla y el viaje duraría cero pasos.
 const MIN_CART_DIST = 205;
 const MAX_CART_DIST = 620;
-/** Holgura entre una bolsa y cualquier obstáculo */
-const BAG_CLEARANCE = 46;
+/** Holgura entre el centro de una bolsa y cualquier obstáculo: su radio y
+ *  10 px de aire. */
+const BAG_CLEARANCE = BAG_RADIUS + 10;
 
 export const TOTAL_BAGS = 5;
 

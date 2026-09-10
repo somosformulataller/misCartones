@@ -12,6 +12,9 @@ interface Props {
   pulso: number;
   bolsasEntregadas: number;
   totalBolsas: number;
+  /** Valor de cada bolsa ya cobrada, en orden de entrega: va debajo de su
+   *  casilla. Antes flotaba sobre la carretilla y tapaba la calle. */
+  montos: number[];
   cargando: boolean;
   muted: boolean;
   onToggleMute: () => void;
@@ -23,8 +26,8 @@ interface Props {
  * navegador es más nítido, se escala solo con el sistema y no gasta texturas.
  *
  * El contador es el SALDO, como el «TU SALDO» de La Llave, y no lo recogido en
- * la partida. Durante la partida se queda quieto —el valor de cada bolsa se ve
- * encima de ella, en la carretilla— y al vaciar la última suben las monedas y
+ * la partida. Durante la partida se queda quieto —el valor de cada bolsa sale
+ * debajo de su casilla— y al vaciar la última suben las monedas y
  * cada llegada suma su parte. No salta: sube suavizado y se enciende mientras
  * llegan.
  *
@@ -40,6 +43,7 @@ export default function Hud({
   pulso,
   bolsasEntregadas,
   totalBolsas,
+  montos,
   cargando,
   muted,
   onToggleMute,
@@ -112,7 +116,13 @@ export default function Hud({
         aria-label={`${bolsasEntregadas} de ${totalBolsas} bolsas entregadas`}
       >
         {Array.from({ length: totalBolsas }, (_, i) => (
-          <span key={i} className={`hud-bolsa${i < bolsasEntregadas ? ' hud-bolsa-llena' : ''}`} />
+          <span key={i} className="hud-bolsa-casilla">
+            <span className={`hud-bolsa${i < bolsasEntregadas ? ' hud-bolsa-llena' : ''}`} />
+            {/* El valor sale cuando el servidor confirma la bolsa, no antes. */}
+            {i < bolsasEntregadas && montos[i] !== undefined && (
+              <span className="hud-bolsa-valor">+${Number(montos[i]).toFixed(2)}</span>
+            )}
+          </span>
         ))}
       </div>
 

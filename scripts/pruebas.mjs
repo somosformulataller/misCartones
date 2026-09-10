@@ -535,6 +535,30 @@ console.log('\n6. La escena en 3D');
     `dibujada ${radioBolsa.toFixed(2)}, colisiona ${(BAG_RADIUS / 40).toFixed(2)}`
   );
   ok(tam.y > 1.7, 'La bolsa es alta: se ve como una bolsa, no como un bulto', `${tam.y.toFixed(2)}`);
+  ok(BAG_RADIUS >= 48, 'Las bolsas son grandes (radio de 48 o más; eran 36)', String(BAG_RADIUS));
+
+  // ── La calle gris ──
+  // Las bolsas son negras y sobre el asfalto marrón oscuro de antes casi no se
+  // distinguían (contraste 1,6 a 1). Se mide el contraste de luminancia de la
+  // bolsa contra los tres tonos de la calzada, y que el asfalto sea gris.
+  const luminancia = (hex) => {
+    const c = new THREE.Color(hex); // ya en lineal
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+  };
+  const contraste = (a, b) => {
+    const [la, lb] = [luminancia(a), luminancia(b)];
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  };
+  const hslAsfalto = new THREE.Color(esc.COL.asfalto).getHSL({});
+  const peorContraste = Math.min(
+    ...['asfalto', 'asfaltoClaro', 'asfaltoOscuro'].map((n) => contraste(esc.COL[n], esc.COL.bolsa))
+  );
+  console.log(
+    '     Asfalto: saturación ' + (hslAsfalto.s * 100).toFixed(0) + ' %; contraste con la bolsa, como poco, ' +
+      peorContraste.toFixed(2) + ' a 1'
+  );
+  ok(hslAsfalto.s < 0.08, 'La calle es gris, no marrón', (hslAsfalto.s * 100).toFixed(0) + ' % de saturación');
+  ok(peorContraste >= 3, 'Las bolsas negras resaltan sobre la calle gris (contraste 3 a 1 o más)', peorContraste.toFixed(2));
 
   // Sin la bolsa al hombro: cuelga por fuera del cuerpo y arranca OCULTA, pero
   // Box3 no mira la visibilidad, así que falsearía el ancho en un 40 %.
@@ -1777,13 +1801,23 @@ console.log('\n10. El estilo de la interfaz');
   // ── Las monedas y los valores, como en La Llave ──
   const motorMonedas = leer('lib', 'three', 'game.ts');
   const escenaMonedas = leer('lib', 'three', 'escena.ts');
+  // Los valores flotaban sobre la carretilla y tapaban la calle. Ahora van en
+  // el marcador, debajo de la casilla amarilla de cada bolsa.
+  const hudValores = leer('components', 'game', 'Hud.tsx');
+  const cssValores = leer('app', 'globals.css');
   ok(
-    /ponerEtiqueta\(n, res\.monto, true\)/.test(motorMonedas),
-    'cada bolsa vaciada deja su valor flotando sobre la carretilla'
+    !/ponerEtiqueta|crearEtiquetaValor|ETIQUETAS/.test(motorMonedas) &&
+      !/crearEtiquetaValor|SpriteMaterial/.test(escenaMonedas),
+    'los valores ya no flotan sobre la carretilla tapando la calle'
   );
   ok(
-    /export function crearEtiquetaValor/.test(escenaMonedas) &&
-      /new Mesh\(GEO_BOLSA, MAT_FUNDIDO\)/.test(escenaMonedas.slice(escenaMonedas.indexOf('export function crearCarretilla'))),
+    /hud-bolsa-casilla/.test(hudValores) && /hud-bolsa-valor/.test(hudValores) && /montos\[i\]/.test(hudValores) &&
+      /montos=\{montos\}/.test(juego) && /n\[total - 1\] = monto/.test(juego) &&
+      /\.hud-bolsa-valor \{\s*font-family: var\(--font-lectura\);/.test(cssValores) && /min-height: 34px;/.test(cssValores),
+    'el valor de cada bolsa sale debajo de su casilla amarilla, en orden, legible (fuente de lectura) y sin que el marcador salte'
+  );
+  ok(
+    /new Mesh\(GEO_BOLSA, MAT_FUNDIDO\)/.test(escenaMonedas.slice(escenaMonedas.indexOf('export function crearCarretilla'))),
     'las bolsas entregadas se ven dentro de la carretilla, no un montón de cartones'
   );
   ok(
@@ -1849,6 +1883,17 @@ console.log('\n10. El estilo de la interfaz');
   ok(
     !/left-1\/2 top-4/.test(hudEscena) && /hud-bolsas/.test(hudEscena),
     'las bolsas del HUD van en su propia fila y no flotan encima de los botones'
+  );
+
+  // Sin portada: la primera pantalla es el login.
+  const inicio = leer('app', 'page.tsx');
+  ok(
+    /redirect\('\/auth\/login'\)/.test(inicio) && !/ENTRAR A JUGAR|Empezar a jugar|<Link/i.test(inicio),
+    'no hay portada con botón: la primera pantalla es el login'
+  );
+  ok(
+    /router\.push\('\/auth\/login'\)/.test(leer('components', 'providers', 'PlayerProvider.tsx')),
+    'al cerrar sesión se vuelve al login, sin pasar por una portada'
   );
 
   // La barra, dentro de la escena.

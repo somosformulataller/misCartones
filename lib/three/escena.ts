@@ -27,7 +27,6 @@
 import {
   BoxGeometry,
   BufferGeometry,
-  CanvasTexture,
   CircleGeometry,
   Color,
   ConeGeometry,
@@ -44,9 +43,6 @@ import {
   PlaneGeometry,
   Quaternion,
   SphereGeometry,
-  Sprite,
-  SpriteMaterial,
-  SRGBColorSpace,
   TorusGeometry,
   Vector3,
 } from 'three';
@@ -54,7 +50,7 @@ import {
 // tsc a secas y tsc NO reescribe los alias de rutas al emitir. Con '@/' las
 // pruebas no podrían cargar la escena, que es justo donde más falta hacen
 // porque es lo único que no puedo comprobar mirando.
-import { PLAY, World, WorldObstacle } from '../game/world';
+import { BAG_RADIUS, PLAY, World, WorldObstacle } from '../game/world';
 
 // ── Conversión de coordenadas ───────────────────────────────────────────────
 // La simulación NO cambia: sigue en píxeles lógicos X/Y, igual que en 2D. Aquí
@@ -146,17 +142,17 @@ const ESCALA_CARRETILLA = 1.62;
 export const COL = {
   // Calle.
   //
-  // El asfalto era un GRIS AZULADO claro (0x727a8f). En la referencia es
-  // oscuro y CÁLIDO, casi marrón, y eso hace dos cosas a la vez: da el aire de
-  // calle real castigada por el sol, y sobre todo convierte cada trozo de
-  // basura en un punto de color contra un fondo oscuro. Sobre un gris claro,
-  // media basura se perdía.
-  asfalto: 0x46423d,
-  asfaltoClaro: 0x585349,
-  asfaltoOscuro: 0x37342e,
-  rodada: 0x2f2c27,
-  /** Grietas del asfalto: casi negro, pero no negro. */
-  grieta: 0x24221e,
+  // El asfalto es GRIS. Estuvo oscuro y cálido, casi marrón (0x46423d), y
+  // las bolsas —que son negras— casi no se distinguían: contraste de 1,6 a 1.
+  // Este gris medio lo sube a 3,5 a 1 (el más oscuro, a 3,1), y la basura de
+  // colores sigue leyéndose encima. Una prueba vigila las dos cosas: que
+  // siga siendo gris y que el contraste con la bolsa no baje de 3 a 1.
+  asfalto: 0x74777a,
+  asfaltoClaro: 0x7f8285,
+  asfaltoOscuro: 0x6c6f72,
+  rodada: 0x626568,
+  /** Grietas del asfalto: bastante más oscuras que el gris, sin llegar a negro. */
+  grieta: 0x404245,
   linea: 0xf3f6fb,
   /** La doble línea AMARILLA del centro. Es la señal más reconocible de la
    *  referencia: dice "esto es una calle" antes que ninguna otra cosa. */
@@ -945,9 +941,12 @@ const GEO_PAPEL = fundir([
  *   4. El negro no es plano: la panza en sombra, el hombro a media luz y un
  *      reflejo duro arriba. Un negro único la deja como una silueta recortada.
  *
- * Y es GRANDE: 0,86 unidades de radio, que es exactamente el BAG_RADIUS de la
- * simulación, así que lo que se ve es lo que colisiona.
+ * Y es GRANDE. Se modela a 0,86 de radio —el BAG_RADIUS de 36 de antes— y se
+ * escala entera con ESCALA_BOLSA, así que siempre mide lo que colisiona.
  */
+/** Cuánto se agranda la bolsa sobre su modelo, que se hizo para un radio de 36.
+ *  Sigue a BAG_RADIUS: agrandar la bolsa es cambiar ese número y nada más. */
+const ESCALA_BOLSA = BAG_RADIUS / 36;
 const GEO_BOLSA = fundir([
   // Panza: achatada y ancha, como una bolsa que apoya en el suelo.
   { geo: new SphereGeometry(0.86, 10, 7).scale(1, 0.66, 0.96).translate(0, 0.5, 0), color: COL.bolsa },
@@ -973,7 +972,7 @@ const GEO_BOLSA = fundir([
   { geo: new IcosahedronGeometry(0.19, 0).translate(0, 1.78, 0), color: COL.bolsa },
   { geo: new ConeGeometry(0.15, 0.46, 5).scale(1, 1, 0.55).rotateZ(0.95).translate(-0.23, 1.94, -0.06), color: COL.bolsaMedia },
   { geo: new ConeGeometry(0.15, 0.46, 5).scale(1, 1, 0.55).rotateZ(-0.95).translate(0.23, 1.94, 0.06), color: COL.bolsaMedia },
-]);
+]).scale(ESCALA_BOLSA, ESCALA_BOLSA, ESCALA_BOLSA);
 
 /** Torso del barrendero: camisa, chaleco reflectante y su franja. El chaleco
  *  es un pelo mayor que el torso para que la camisa asome por los hombros. */
@@ -1554,7 +1553,7 @@ export interface BolsaVista {
 export function crearBolsa(): BolsaVista {
   const grupo = new Group();
 
-  const sombra = new Mesh(new CircleGeometry(0.95, 14).rotateX(-Math.PI / 2), MAT_SOMBRA);
+  const sombra = new Mesh(new CircleGeometry(0.95 * ESCALA_BOLSA, 14).rotateX(-Math.PI / 2), MAT_SOMBRA);
   sombra.position.y = 0.025;
   sombra.scale.set(1, 1, 0.88);
   grupo.add(sombra);
@@ -1563,7 +1562,7 @@ export function crearBolsa(): BolsaVista {
   // Sobre asfalto gris hace falta más que sobre pasto, porque la bolsa es
   // oscura y el suelo también.
   const brillo = new Mesh(
-    new CircleGeometry(1.6, 18).rotateX(-Math.PI / 2),
+    new CircleGeometry(1.6 * ESCALA_BOLSA, 18).rotateX(-Math.PI / 2),
     new MeshBasicMaterial({ color: 0xfff0a8, transparent: true, opacity: 0, depthWrite: false })
   );
   brillo.position.y = 0.045;
@@ -1651,59 +1650,10 @@ export function crearCarretilla(): CarretillaVista {
   return { grupo, tolva, aura, capas };
 }
 
-/** La bolsa del suelo mide ~1,7 de alto; dentro de la carretilla va a escala
- *  para que quepan cinco sin tapar la rueda. */
-const ESCALA_BOLSA_CARRETILLA = 0.4;
-/** Ancho de la etiqueta en unidades de mundo; el alto es la mitad. Medido en
- *  captura: a 2,1 ocupaba ~36 px en un teléfono de 390 y el monto no se leía;
- *  a 3,4 ronda los 58 px. */
-const ESCALA_ETIQUETA = 3.4;
-
-/**
- * Etiqueta con el valor de una bolsa, flotando sobre la carretilla. La misma
- * pieza que el portallaves de La Llave: una píldora oscura con borde de oro y
- * el monto en dorado. Es un Sprite —siempre de frente a la cámara— con la
- * textura dibujada en un canvas UNA vez, al crearla: nada por fotograma.
- */
-export function crearEtiquetaValor(texto: string): Sprite {
-  const lienzo = document.createElement('canvas');
-  lienzo.width = 256;
-  lienzo.height = 128;
-  const g = lienzo.getContext('2d');
-  if (g) {
-    const r = 44;
-    g.beginPath();
-    g.moveTo(12 + r, 14);
-    g.arcTo(244, 14, 244, 114, r);
-    g.arcTo(244, 114, 12, 114, r);
-    g.arcTo(12, 114, 12, 14, r);
-    g.arcTo(12, 14, 244, 14, r);
-    g.closePath();
-    g.fillStyle = 'rgba(20, 14, 6, 0.9)';
-    g.fill();
-    g.lineWidth = 8;
-    g.strokeStyle = '#c8942f';
-    g.stroke();
-    g.fillStyle = '#ffd23f';
-    g.font = 'bold 60px system-ui, sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    // El ancho máximo condensa solos los montos largos, como «+$12.50».
-    g.fillText(texto, 128, 68, 210);
-  }
-  const mapa = new CanvasTexture(lienzo);
-  mapa.colorSpace = SRGBColorSpace;
-  const etiqueta = new Sprite(
-    // Sin prueba de profundidad: la etiqueta no puede quedar tapada por la
-    // propia carretilla ni por el ciudadano que se acerca a ella.
-    new SpriteMaterial({ map: mapa, transparent: true, depthTest: false, depthWrite: false })
-  );
-  etiqueta.renderOrder = 10;
-  etiqueta.scale.set(ESCALA_ETIQUETA, ESCALA_ETIQUETA / 2, 1);
-  etiqueta.userData.escala = ESCALA_ETIQUETA;
-  return etiqueta;
-}
-
+/** Dentro de la carretilla la bolsa va a escala para que quepan cinco sin tapar
+ *  la rueda. Se divide por ESCALA_BOLSA: la del suelo creció, y las de la
+ *  carretilla tienen que seguir cabiendo igual que antes. */
+const ESCALA_BOLSA_CARRETILLA = 0.4 / ESCALA_BOLSA;
 // ── Ciudadano ───────────────────────────────────────────────────────────────
 
 export interface CiudadanoVista {

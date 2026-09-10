@@ -6,8 +6,6 @@ import type { GameCallbacks, GameHandle } from '@/lib/three/game';
 interface Props {
   seed: number;
   alreadyDeposited?: number[];
-  /** Valor de las bolsas ya entregadas, para pintarlo sobre la carretilla. */
-  montosPrevios?: number[];
   muted: boolean;
   /** false = calle apagada (sin partida). Cambiarlo no remonta el motor. */
   encendida: boolean;
@@ -32,7 +30,6 @@ interface Props {
 export default function GameCanvas({
   seed,
   alreadyDeposited,
-  montosPrevios,
   muted,
   encendida,
   callbacks,
@@ -71,7 +68,6 @@ export default function GameCanvas({
           seed,
           alreadyDeposited,
           encendida: encendidaRef.current,
-          montosPrevios,
           // Lo que tapa el marcador desde el borde de arriba del lienzo: el
           // ciudadano se para por debajo, en vez de esconderse detrás. Se miden
           // sus FILAS, no la caja de .hud: esa cubre el lienzo entero (inset 0)
