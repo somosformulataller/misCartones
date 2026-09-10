@@ -5418,3 +5418,23 @@ textarea.form-input,
   .mc-fin .mc-premio { animation: none; }
   .hud-bolsa { transition: none; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL MENÚ SE DESPLIEGA POR ENCIMA DE TODO
+
+   `.app-shell > *:not(.fondo-juego)` da position:relative y z-index:1 a cada
+   hijo del armazón, y con el `:not()` suma especificidad y gana a
+   `.game-header`, que pedía z-index:100. Cabecera y contenido quedaban los
+   dos en 1; el contenido va DESPUÉS en el HTML y se pintaba encima de las
+   opciones del menú. Es la tercera vez que ese `:not()` se come una regla
+   —antes la foto del registro y la barra que flota—, así que el selector
+   lleva `.app-shell >` delante, que es lo que le gana.
+
+   100 y no 2: por encima también de la barra amarilla, que en /juego flota
+   con z-index 30.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.app-shell > .game-header {
+  z-index: 100;
+}

@@ -1662,6 +1662,20 @@ console.log('\n10. El estilo de la interfaz');
     'y su selector gana a «.app-shell > *:not(.fondo-juego)», que la dejaría en el flujo'
   );
 
+  // El menú: la misma trampa, por tercera vez. Esa regla bajaba la cabecera
+  // de z-index 100 a 1, y el contenido —también en 1, pero después en el
+  // HTML— se pintaba ENCIMA de las opciones desplegadas.
+  const iReglaHijos = css.indexOf('.app-shell > *:not(.fondo-juego) {');
+  const iCabecera = css.lastIndexOf('.app-shell > .game-header {');
+  ok(
+    iReglaHijos >= 0 && iCabecera > iReglaHijos,
+    'la cabecera se declara después de la regla de los hijos, o el menú vuelve a quedar tapado'
+  );
+  ok(
+    /\.app-shell > \.game-header \{[^}]*z-index: 100/.test(css),
+    'y sube a 100: por encima del contenido y de la barra que flota en /juego (30)'
+  );
+
   // «Recomendar» dorado, y que GANE: la regla de piedra de los neutros
   // también lo nombra, así que el oro tiene que ir después. Sin comprobar el
   // orden, esta prueba pasaría con el botón todavía gris.
