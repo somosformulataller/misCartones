@@ -19,6 +19,12 @@ interface Props {
  * El contador NO salta al monto final: sube suavizado, y da un pulso de escala
  * mientras sube. Es lo que hace que los cartones que vuelan hasta aquí se
  * sientan la causa del número, y no un adorno paralelo.
+ *
+ * Dos filas, y nada flotando por su cuenta. Los puntos de las bolsas iban
+ * centrados con posición absoluta en la MISMA franja que los botones, y en un
+ * teléfono de 360-390 px el botón del sonido les caía encima (medido: se
+ * pisaban en los dos anchos). Ahora cada pieza tiene su hueco: arriba salir,
+ * sonido y lo recogido; debajo, las bolsas.
  */
 export default function Hud({
   saldo,
@@ -56,61 +62,44 @@ export default function Hud({
   }, [saldo]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 select-none">
-      <div className="flex items-start justify-between gap-3 p-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onSalir}
-            className="pointer-events-auto rounded-xl border-2 border-white/70 bg-white/70 px-3 py-2 text-sm font-bold text-emerald-900 shadow-sm backdrop-blur transition hover:bg-white/90"
-          >
+    <div className="hud">
+      <div className="hud-fila">
+        <div className="hud-grupo">
+          <button type="button" onClick={onSalir} className="btn-secondary hud-boton">
             ← Salir
           </button>
-        </div>
-
-        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={onToggleMute}
             aria-label={muted ? 'Activar sonido' : 'Silenciar'}
-            className="pointer-events-auto rounded-xl border-2 border-white/70 bg-white/70 px-3 py-2 text-sm shadow-sm backdrop-blur transition hover:bg-white/90"
+            className="btn-secondary hud-boton hud-boton-icono"
           >
             {muted ? '🔇' : '🔊'}
           </button>
-          {/* El `key` remonta el nodo con cada entrega, así la animación de
-              pulso se reproduce otra vez. Es más barato y más fiable que
-              encender y apagar un estado con un temporizador. */}
-          <div
-            key={bolsasEntregadas}
-            className="pulso-contador rounded-xl border-2 border-amber-500/60 bg-amber-300/90 px-3.5 py-1.5 text-right shadow-md backdrop-blur"
-          >
-            <div className="text-[10px] font-black uppercase tracking-widest text-amber-900/80">
-              Recogido
-            </div>
-            <div className="font-mono text-2xl font-black leading-none tabular-nums text-amber-950">
-              ${mostrado.toFixed(2)}
-            </div>
-          </div>
+        </div>
+
+        {/* El `key` remonta el nodo con cada entrega, así la animación de
+            pulso se reproduce otra vez. Es más barato y más fiable que
+            encender y apagar un estado con un temporizador. */}
+        <div key={bolsasEntregadas} className="hud-recogido pulso-contador" data-hud>
+          <span className="hud-recogido-rotulo">Recogido</span>
+          <span className="hud-recogido-cifra">${mostrado.toFixed(2)}</span>
         </div>
       </div>
 
-      {/* Bolsas restantes: puntos, no un número. Se lee de un vistazo. */}
-      <div className="absolute left-1/2 top-4 flex -translate-x-1/2 gap-2 rounded-full border-2 border-white/60 bg-white/45 px-3 py-2 shadow-sm backdrop-blur">
+      {/* Bolsas: casillas, no un número. Se leen de un vistazo. */}
+      <div
+        className="hud-bolsas"
+        data-hud
+        role="img"
+        aria-label={`${bolsasEntregadas} de ${totalBolsas} bolsas entregadas`}
+      >
         {Array.from({ length: totalBolsas }, (_, i) => (
-          <span
-            key={i}
-            className={`h-3 w-3 rounded-full border-2 transition-all duration-300 ${
-              i < bolsasEntregadas
-                ? 'scale-110 border-amber-600 bg-amber-400'
-                : 'border-emerald-900/30 bg-white/60'
-            }`}
-          />
+          <span key={i} className={`hud-bolsa${i < bolsasEntregadas ? ' hud-bolsa-llena' : ''}`} />
         ))}
       </div>
 
-      {cargando && (
-        <div className="absolute bottom-7 left-1/2 -translate-x-1/2 rounded-full border-2 border-amber-500/50 bg-amber-300/90 px-5 py-2 text-sm font-black text-amber-950 shadow-md backdrop-blur">
-          Llévala a la carretilla 🛒
-        </div>
-      )}
+      {cargando && <div className="hud-aviso">Llévala a la carretilla 🛒</div>}
     </div>
   );
 }

@@ -76,6 +76,16 @@ export default function JuegoPage() {
       return;
     }
 
+    // Sin tickets: el perfil que tenía la barra estaba viejo. Se refresca y
+    // el botón amarillo cambia solo a «Cambiar $2» o a «Comprar», que es lo
+    // que el jugador puede hacer de verdad.
+    if (data.code === 'NO_TICKETS') {
+      refresh();
+      setError(data.error ?? 'No tienes tickets.');
+      setEstado('idle');
+      return;
+    }
+
     if (status !== 200 || !data.session_id) {
       setError(data.error ?? 'No se pudo empezar la partida.');
       setEstado('idle');
@@ -86,7 +96,7 @@ export default function JuegoPage() {
     setSeed(data.world_seed);
     setYaEntregadas([]);
     setEstado('jugando');
-  }, [router]);
+  }, [router, refresh]);
 
   const onDeposit = useCallback(
     async (bagId: number): Promise<ResultadoEntrega> => {
@@ -145,9 +155,19 @@ export default function JuegoPage() {
     return () => setGameActive(false);
   }, [estado]);
 
+  // Botones de jugar, comprar y cambiar saldo: NINGUNO vive aquí. Los lleva
+  // la barra amarilla del layout (BarraJugar), igual que en La Llave, que
+  // elige el único que tiene sentido según los tickets y el saldo. Aquí había
+  // un «JUGAR» y un «Otra vez» propios que se saltaban esa decisión: con cero
+  // tickets arrancaban una petición condenada a fallar, y convivían en
+  // pantalla con el «Iniciar juego» de la barra —dos botones para lo mismo—.
   return (
     <main className="pantalla-juego mc-escena relative w-full overflow-hidden">
-      {estado === 'jugando' && seed !== null && (
+      {/* Al terminar, la calle se QUEDA: el jugador ve su carretilla llena y,
+          debajo, la barra amarilla para la siguiente. Antes la escena se
+          cambiaba por un cartel y el juego desaparecía justo en el momento
+          de más ganas de volver a jugar. */}
+      {(estado === 'jugando' || estado === 'fin') && seed !== null && (
         <>
           <GameCanvas
             seed={seed}
@@ -159,7 +179,7 @@ export default function JuegoPage() {
             saldo={saldo}
             bolsasEntregadas={entregadas}
             totalBolsas={TOTAL_BAGS}
-            cargando={cargandoBolsa}
+            cargando={cargandoBolsa && estado === 'jugando'}
             muted={muted}
             onToggleMute={() => setMuted((m) => !m)}
             onSalir={() => router.push('/billetera')}
@@ -167,8 +187,18 @@ export default function JuegoPage() {
         </>
       )}
 
+      {estado === 'fin' && (
+        <div className="mc-fin">
+          <div className="mc-premio">
+            <p className="mc-premio-rotulo">Carretilla llena</p>
+            <p className="mc-premio-cifra">${(premio ?? saldo).toFixed(2)}</p>
+            <p className="mc-fin-nota">Ya está en tu saldo</p>
+          </div>
+        </div>
+      )}
+
       {(estado === 'idle' || estado === 'cargando') && (
-        <div className="mc-lobby">
+        <div className="mc-lobby mc-lobby-escena">
           <div className="mc-lobby-texto">
             <h1 className="mc-lobby-titulo">Recoge las 5 bolsas</h1>
             <p className="mc-lobby-ayuda">
@@ -182,30 +212,11 @@ export default function JuegoPage() {
               Tienes {player.tickets ?? 0} ticket{(player.tickets ?? 0) === 1 ? '' : 's'}
             </p>
           )}
-          <button
-            onClick={empezar}
-            disabled={estado === 'cargando' || isLoading}
-            className="mc-boton mc-boton-grande"
-          >
-            {estado === 'cargando' ? 'Preparando…' : 'JUGAR'}
-          </button>
-        </div>
-      )}
-
-      {estado === 'fin' && (
-        <div className="mc-lobby">
-          <div className="mc-premio">
-            <p className="mc-premio-rotulo">Carretilla llena</p>
-            <p className="mc-premio-cifra">${(premio ?? saldo).toFixed(2)}</p>
-          </div>
-          <div className="mc-lobby-botones">
-            <button onClick={empezar} className="mc-boton">
-              Otra vez
-            </button>
-            <button onClick={() => router.push('/billetera')} className="btn-secondary">
-              Mi billetera
-            </button>
-          </div>
+          <p className="mc-lobby-pista">
+            {estado === 'cargando' || isLoading
+              ? 'Preparando la calle…'
+              : 'Toca el botón amarillo para empezar 👇'}
+          </p>
         </div>
       )}
     </main>

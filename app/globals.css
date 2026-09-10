@@ -5169,3 +5169,252 @@ textarea.form-input,
     max-width: 100px;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LOS BOTONES EN LA ESCENA DEL JUEGO
+
+   Tres arreglos, medidos antes con capturas a 360 y 390 px:
+     · el HUD tenía el botón del sonido encima de los puntos de las bolsas;
+     · la barra amarilla era una franja de piedra DEBAJO de la calle, y su
+       segundo botón —«recomendar»— se había quedado gris;
+     · al terminar, la calle desaparecía y no se veía ningún botón amarillo.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── El HUD ── */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hud-fila {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hud-grupo {
+  display: flex;
+  gap: 10px;
+}
+
+.hud button { pointer-events: auto; }
+
+.hud-boton {
+  min-height: 42px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.hud-boton-icono {
+  min-width: 46px;
+  padding: 8px 10px;
+  font-size: 1.05rem;
+}
+
+/* Lo recogido es oro, como la barra: es dinero. */
+.hud-recogido {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  padding: 6px 12px 7px;
+  border-radius: var(--mc-radio-boton);
+  background: linear-gradient(180deg, #ffd75e 0%, #f7bd1e 48%, #e2a40d 100%);
+  color: #3d2c02;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 0 rgba(150, 96, 4, 0.45),
+    0 0 0 3px #46310a,
+    0 var(--mc-labio) 0 3px var(--mc-gold-lip),
+    0 10px 18px rgba(6, 12, 9, 0.4);
+}
+
+.hud-recogido-rotulo {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.hud-recogido-cifra {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Las bolsas: su propia fila, centrada, en una pieza de piedra. */
+.hud-bolsas {
+  align-self: center;
+  display: flex;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 116px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 0 0 3px #2f2a21,
+    0 6px 12px rgba(6, 12, 9, 0.35);
+}
+
+/* Casillas y no círculos: es un juego de bloques. */
+.hud-bolsa {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+  transition: transform 300ms ease, background-color 300ms ease;
+}
+
+.hud-bolsa-llena {
+  background: var(--mc-gold);
+  box-shadow: inset 0 -3px 0 var(--mc-gold-lip), 0 0 0 2px #46310a;
+  transform: scale(1.12);
+}
+
+.hud-aviso {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd75e 0%, #f7bd1e 48%, #e2a40d 100%);
+  color: #3d2c02;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 3px #46310a, 0 8px 16px rgba(6, 12, 9, 0.4);
+}
+
+/* ── La barra amarilla, dentro de la escena ── */
+
+/* El selector lleva `.app-shell >` a propósito. `.app-shell > *:not(.fondo-juego)`
+   pone position:relative a todo hijo del armazón, y con `:not()` suma una
+   clase de especificidad: un `.play-bar--escena` a secas PERDERÍA y la barra
+   seguiría siendo una franja debajo. Es la misma trampa del `:not()` que ya
+   dejó una vez la foto del registro tirada en el flujo. */
+.app-shell > .play-bar--escena {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: 26px var(--space-md) calc(14px + env(safe-area-inset-bottom));
+  background-color: transparent;
+  /* Un velo de abajo arriba y no una franja: la calle se sigue viendo detrás
+     de los botones, pero el texto de encima no se pelea con la basura. */
+  background-image: linear-gradient(
+    180deg,
+    rgba(6, 12, 9, 0) 0%,
+    rgba(6, 12, 9, 0.5) 40%,
+    rgba(6, 12, 9, 0.78) 100%
+  );
+  background-size: auto;
+  box-shadow: none;
+}
+
+/* «Recomendar juego y ganar $3» vuelve a ser la segunda placa DORADA, como en
+   La Llave. La capa de piedra la había metido con los neutros y había quedado
+   gris: dejaba de parecer algo que se puede ganar. Más pálida que el botón
+   principal, para que siga habiendo UN solo oro fuerte que tocar. */
+.play-bar-recomendar {
+  background-color: #f3d98a;
+  background-image: linear-gradient(180deg, #fff0bf 0%, #f6d77a 50%, #d9ad3f 100%);
+  background-size: auto;
+  color: #3d2c02;
+  text-shadow: 0 1px 0 rgba(255, 246, 214, 0.6);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -3px 0 rgba(150, 96, 4, 0.35),
+    0 0 0 3px #6e4a12,
+    0 var(--mc-labio) 0 3px #8a5c14,
+    0 8px 14px rgba(6, 12, 9, 0.35);
+}
+
+.play-bar-recomendar:hover:not(:disabled) {
+  background-color: #fadf8e;
+  background-image: linear-gradient(180deg, #fff6d6 0%, #fadf8e 50%, #e2b84d 100%);
+}
+
+/* ── El vestíbulo: la calle de verdad, nítida ── */
+
+.mc-lobby.mc-lobby-escena {
+  background: #1b2420 url('/escena-fondo.jpg') center / cover no-repeat;
+  /* Sitio para la barra, que ahora flota por encima. */
+  padding-bottom: 170px;
+}
+
+.mc-lobby.mc-lobby-escena::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 12, 9, 0.2) 0%,
+    rgba(6, 12, 9, 0.45) 55%,
+    rgba(6, 12, 9, 0.62) 100%
+  );
+}
+
+.mc-lobby-pista {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--mc-gold);
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.65);
+}
+
+/* ── Al terminar: el premio encima de la calle ── */
+
+.mc-fin {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 28%;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  padding: 0 20px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.mc-fin .mc-premio {
+  animation: mc-fin-entra 450ms ease-out both;
+}
+
+.mc-fin-nota {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  color: #d9d3c3;
+}
+
+@keyframes mc-fin-entra {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-fin .mc-premio { animation: none; }
+  .hud-bolsa { transition: none; }
+}

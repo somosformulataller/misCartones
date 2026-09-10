@@ -68,7 +68,8 @@ await pag.click('.btn-submit');
 await pag.waitForURL(/\/juego/, { timeout: 60000 });
 await pag.waitForTimeout(2500);
 
-await pag.locator('.mc-boton, .play-bar-btn').first().click({ timeout: 20000 });
+// El vestíbulo ya no tiene botón propio: se arranca por la barra amarilla.
+await pag.locator('.play-bar-btn').first().click({ timeout: 20000 });
 await pag.waitForSelector('canvas', { timeout: 40000 });
 // El motor monta la escena, coloca el mundo y encuadra la cámara. Sin esta
 // espera se fotografía una calle a medio poblar.
@@ -78,7 +79,7 @@ await pag.waitForTimeout(6000);
 // la pantalla de juego con sus botones.
 await pag.addStyleTag({
   content:
-    'div.pointer-events-none.absolute.inset-0 { display: none !important }' +
+    '.hud, .play-bar, .mc-fin { display: none !important }' +
     'nextjs-portal { display: none !important }',
 });
 await pag.waitForTimeout(600);

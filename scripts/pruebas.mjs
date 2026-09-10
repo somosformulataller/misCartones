@@ -1631,7 +1631,46 @@ console.log('\n10. El estilo de la interfaz');
   // ── La pantalla de juego ──
   const juego = leer('app', '(main)', 'juego', 'page.tsx');
   ok(!/rounded-3xl|bg-gradient-to-b/.test(juego), 'la pantalla de juego no lleva clases sueltas de Tailwind');
-  ok(/mc-boton/.test(juego), 'su botón es el de la interfaz, no uno propio');
+  // Ningún botón de jugar propio. La acción la lleva la barra amarilla, que
+  // elige según tickets y saldo (Iniciar / Cambiar $2 / Comprar), igual que
+  // en La Llave. Aquí hubo un «JUGAR» y un «Otra vez» que se saltaban esa
+  // decisión y duplicaban el de la barra. (Esta aserción pedía antes lo
+  // contrario —que hubiera un .mc-boton— y se cambió a la vez que el diseño.)
+  ok(
+    !/onClick=\{empezar\}/.test(juego),
+    'la pantalla de juego no tiene botón de jugar propio: lo lleva la barra amarilla'
+  );
+  ok(
+    /estado === 'jugando' \|\| estado === 'fin'/.test(juego),
+    'al terminar, la calle se queda a la vista en vez de cambiarse por un cartel'
+  );
+
+  // El HUD: el botón del sonido caía encima de los puntos de las bolsas en
+  // 360 y 390 px, porque los puntos iban centrados con posición absoluta en
+  // la misma franja que los botones.
+  const hudEscena = leer('components', 'game', 'Hud.tsx');
+  ok(
+    !/left-1\/2 top-4/.test(hudEscena) && /hud-bolsas/.test(hudEscena),
+    'las bolsas del HUD van en su propia fila y no flotan encima de los botones'
+  );
+
+  // La barra, dentro de la escena.
+  const barraEscena = leer('components', 'layout', 'BarraJugar.tsx');
+  ok(/play-bar--escena/.test(barraEscena), 'en /juego la barra amarilla flota sobre la escena');
+  ok(
+    /\.app-shell > \.play-bar--escena \{/.test(css),
+    'y su selector gana a «.app-shell > *:not(.fondo-juego)», que la dejaría en el flujo'
+  );
+
+  // «Recomendar» dorado, y que GANE: la regla de piedra de los neutros
+  // también lo nombra, así que el oro tiene que ir después. Sin comprobar el
+  // orden, esta prueba pasaría con el botón todavía gris.
+  const oroRecomendar = css.lastIndexOf('.play-bar-recomendar {\n  background-color: #f3d98a;');
+  const piedraRecomendar = css.lastIndexOf('.play-bar-recomendar,\n.instalar-pwa__boton {');
+  ok(
+    oroRecomendar > 0 && oroRecomendar > piedraRecomendar,
+    '«recomendar juego y ganar $3» es una placa dorada, como en La Llave, no piedra gris'
+  );
 
   // ── Las pantallas de acceso: cristal sobre la calle de verdad ──
   ok(

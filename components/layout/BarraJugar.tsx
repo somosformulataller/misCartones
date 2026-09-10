@@ -139,7 +139,9 @@ export default function BarraJugar() {
   return (
     <>
       {mostrarBarra && (
-        <div className="play-bar">
+        // En /juego la barra flota SOBRE la calle en vez de ser una franja de
+        // piedra debajo: los botones amarillos quedan dentro de la escena.
+        <div className={`play-bar${pathname === '/juego' ? ' play-bar--escena' : ''}`}>
           <div className="play-bar-row">
             {!ocultarBoton &&
               (tickets > 0 ? (
