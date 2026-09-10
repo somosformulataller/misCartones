@@ -4290,88 +4290,6 @@ textarea.form-input,
   background: var(--mc-sky);
 }
 
-.mc-lobby {
-  position: relative;
-  display: flex;
-  height: 100%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  padding: 24px 20px 140px;
-  text-align: center;
-  background: linear-gradient(180deg, #8fd8f5 0%, var(--mc-sky) 60%);
-}
-
-/* El suelo: césped, tierra y su sombra. Tres franjas planas, que es como se
-   ve un bloque de césped de canto. */
-.mc-lobby::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 116px;
-  background:
-    linear-gradient(180deg,
-      var(--mc-grass-lit) 0, var(--mc-grass-lit) 9px,
-      var(--mc-grass) 9px, var(--mc-grass) 30px,
-      #8a5c34 30px, #8a5c34 66px,
-      #6f4826 66px, #6f4826 100%);
-  box-shadow: inset 0 3px 0 0 rgba(31, 42, 38, 0.18);
-  z-index: 0;
-}
-
-.mc-lobby > * {
-  position: relative;
-  z-index: 1;
-}
-
-.mc-lobby-texto {
-  display: grid;
-  gap: 10px;
-  max-width: 23rem;
-}
-
-.mc-lobby-titulo {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
-  line-height: 1.25;
-  color: #10322a;
-  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.45);
-}
-
-.mc-lobby-ayuda {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: 0.92rem;
-  line-height: 1.6;
-  color: #17392f;
-}
-
-.mc-lobby-tickets {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: #17392f;
-}
-
-.mc-boton-grande {
-  padding: 17px 46px;
-  font-size: 1.15rem;
-  letter-spacing: 0.1em;
-}
-
-.mc-lobby-botones {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
 /* El premio, al terminar: la única cifra de todo el juego a este tamaño. */
 .mc-premio {
   display: grid;
@@ -4716,26 +4634,12 @@ textarea.form-input,
    una pieza clara pasa a texto claro con su sombra. */
 .app-shell .wallet-title,
 .app-shell .afi-lema,
-.app-shell .wallet-notice,
-.app-shell .mc-lobby-titulo,
-.app-shell .mc-lobby-ayuda,
-.app-shell .mc-lobby-tickets {
+.app-shell .wallet-notice {
   color: #f4f7f4;
   text-shadow: 0 2px 8px rgba(8, 14, 11, 0.75);
 }
 
 .app-shell .wallet-title { color: var(--mc-gold-lit); }
-
-/* ── El vestíbulo del juego ── */
-
-/* Tenía su propio cielo plano y su franja de césped. Con la calle de verdad
-   detrás sobran los dos: el juego ya está ahí, desenfocado, esperando. */
-.mc-lobby {
-  background: transparent;
-  padding-bottom: 150px;
-}
-
-.mc-lobby::after { content: none; }
 
 .mc-escena { background: transparent; }
 
@@ -5062,20 +4966,6 @@ textarea.form-input,
   text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
 }
 
-/* ── 6 · El vestíbulo del juego ───────────────────────────────────────── */
-
-.app-shell .mc-lobby-titulo,
-.app-shell .mc-lobby-ayuda,
-.app-shell .mc-lobby-tickets {
-  color: #f6f3ea;
-  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.65);
-}
-
-.app-shell .mc-lobby-titulo {
-  -webkit-text-stroke: 3px #1d1405;
-  paint-order: stroke fill;
-}
-
 /* ── 7 · El acceso ────────────────────────────────────────────────────── */
 
 /* La ilustración pasa a ser un diorama —el ciudadano de pie sobre un bloque
@@ -5353,36 +5243,6 @@ textarea.form-input,
   background-image: linear-gradient(180deg, #fff6d6 0%, #fadf8e 50%, #e2b84d 100%);
 }
 
-/* ── El vestíbulo: la calle de verdad, nítida ── */
-
-.mc-lobby.mc-lobby-escena {
-  background: #1b2420 url('/escena-fondo.jpg') center / cover no-repeat;
-  /* Sitio para la barra, que ahora flota por encima. */
-  padding-bottom: 170px;
-}
-
-.mc-lobby.mc-lobby-escena::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(6, 12, 9, 0.2) 0%,
-    rgba(6, 12, 9, 0.45) 55%,
-    rgba(6, 12, 9, 0.62) 100%
-  );
-}
-
-.mc-lobby-pista {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--mc-gold);
-  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.65);
-}
-
 /* ── Al terminar: el premio encima de la calle ── */
 
 .mc-fin {
@@ -5437,4 +5297,92 @@ textarea.form-input,
 
 .app-shell > .game-header {
   z-index: 100;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA CALLE APAGADA
+
+   Como en La Llave: no hay una pantalla aparte con los botones. La calle está
+   siempre montada; sin partida se ve en penumbra (lo hace el motor bajando la
+   exposición) con la barra amarilla encima, y al pulsarla se encienden las
+   luces. Aquí solo va lo que se pinta SOBRE esa calle apagada.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.juego-apagado {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px 16px 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.juego-apagado-cartel {
+  display: grid;
+  gap: 6px;
+  max-width: 22rem;
+  padding: 14px 18px 16px;
+  border-radius: var(--mc-radio-boton);
+  background-color: var(--mc-panel);
+  background-image: url('/textura-piedra.png');
+  background-size: 116px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 255, 255, 0.16),
+    0 0 0 3px #2f2a21,
+    0 10px 22px rgba(6, 12, 9, 0.45);
+}
+
+.juego-apagado-titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--mc-gold);
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
+}
+
+.juego-apagado-texto {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #ece6d6;
+}
+
+.juego-apagado .mc-aviso {
+  max-width: 22rem;
+}
+
+/* Pegada ENCIMA de la barra, que en /juego flota fija abajo: botón principal
+   y «recomendar» suman unos 150 px con su relleno. */
+.juego-apagado-pista {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 172px;
+  z-index: 25;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #ffe58c;
+  text-shadow: 0 3px 0 rgba(6, 12, 9, 0.75), 0 0 14px rgba(6, 12, 9, 0.6);
+  pointer-events: none;
+  animation: juego-pista-latido 1.8s ease-in-out infinite;
+}
+
+@keyframes juego-pista-latido {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .juego-apagado-pista { animation: none; }
 }

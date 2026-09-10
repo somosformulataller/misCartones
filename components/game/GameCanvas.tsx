@@ -7,6 +7,8 @@ interface Props {
   seed: number;
   alreadyDeposited?: number[];
   muted: boolean;
+  /** false = calle apagada (sin partida). Cambiarlo no remonta el motor. */
+  encendida: boolean;
   callbacks: GameCallbacks;
 }
 
@@ -25,7 +27,7 @@ interface Props {
  * El motor NUNCA vuelve a renderizar React: los callbacks solo saltan al
  * recoger y al entregar, no en cada fotograma.
  */
-export default function GameCanvas({ seed, alreadyDeposited, muted, callbacks }: Props) {
+export default function GameCanvas({ seed, alreadyDeposited, muted, encendida, callbacks }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const handleRef = useRef<GameHandle | null>(null);
   // Los callbacks se leen por referencia para que cambiarlos no remonte el
@@ -36,6 +38,15 @@ export default function GameCanvas({ seed, alreadyDeposited, muted, callbacks }:
   useEffect(() => {
     cbRef.current = callbacks;
   }, [callbacks]);
+
+  // Encender y apagar la calle NO remonta el motor: es subirle o bajarle la
+  // luz al que ya está. La ref deja leer el valor vigente cuando el motor
+  // termina de cargar, que llega tarde, detrás de un import asíncrono.
+  const encendidaRef = useRef(encendida);
+  useEffect(() => {
+    encendidaRef.current = encendida;
+    handleRef.current?.setEncendida(encendida);
+  }, [encendida]);
 
   useEffect(() => {
     const el = ref.current;
@@ -50,6 +61,7 @@ export default function GameCanvas({ seed, alreadyDeposited, muted, callbacks }:
         createGame(el, {
           seed,
           alreadyDeposited,
+          encendida: encendidaRef.current,
           reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
           callbacks: {
             onDeposit: (id) => cbRef.current.onDeposit(id),
@@ -68,6 +80,7 @@ export default function GameCanvas({ seed, alreadyDeposited, muted, callbacks }:
         }
         handleRef.current = h;
         h.setMuted(muted);
+        h.setEncendida(encendidaRef.current);
       })
       .catch((err) => {
         console.error('No se pudo iniciar el motor:', err);

@@ -12,7 +12,7 @@
 // ============================================================================
 
 import {
-  NoToneMapping,
+  LinearToneMapping,
   Color,
   DirectionalLight,
   Fog,
@@ -77,6 +77,24 @@ const TROPIEZO_MS = 800;
 const VEL_TROPIEZO = 150;
 const BOOST_POR_ENTREGA = 0.04;
 
+// ── La calle apagada (como en La Llave) ─────────────────────────────────────
+// La penumbra. La Llave usa 0,26, y MEDIDO da lo mismo aquí que allí: su sala
+// apagada queda al 47 % del brillo (ACESFilmic, el de React Three Fiber) y esta
+// calle con 0,26 en lineal, al 48 %. Pero la sala de La Llave es una mazmorra
+// ya oscura, y a la mitad se lee como «luz apagada»; una calle de mediodía a
+// la mitad se lee como «atardecer». Con 0,12 queda al 30 %: se ve claramente
+// apagada y aún se distinguen el ciudadano, las bolsas y la carretilla.
+// Medido sobre la franja central de la calle, sin la interfaz de encima:
+//   1 → 100 % · 0,26 → 48 % · 0,16 → 36 % · 0,12 → 30 % · 0,09 → 23 %
+// El ritmo sí es el de La Llave: enciende más rápido de lo que apaga, para
+// que se sienta como darle a la luz.
+const EXPOSICION_APAGADA = 0.12;
+const RITMO_ENCENDER = 3.2;
+const RITMO_APAGAR = 1.8;
+// Apagada y quieta no hay nada que ver moverse: 24 fotogramas por segundo en
+// vez de 60, para que el teléfono no se caliente mientras espera.
+const FPS_APAGADA = 24;
+
 
 export interface ResultadoEntrega {
   monto: number;
@@ -97,6 +115,8 @@ export interface GameOptions {
   seed: number;
   alreadyDeposited?: number[];
   reducedMotion?: boolean;
+  /** false = calle apagada: en penumbra, sin responder al dedo ni al teclado. */
+  encendida?: boolean;
   callbacks: GameCallbacks;
 }
 
@@ -104,6 +124,8 @@ export interface GameHandle {
   destroy: () => void;
   setMuted: (v: boolean) => void;
   isMuted: () => boolean;
+  /** Enciende o apaga la calle sin remontar nada: solo cambia la luz. */
+  setEncendida: (v: boolean) => void;
 }
 
 type EstadoBolsa = 'suelo' | 'cargada' | 'entregada';
@@ -132,10 +154,13 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // Tope de densidad 2: en pantallas de 3× se dibuja a 2× y se estira. Ahorra
   // el 44 % de los píxeles y no se nota. Es de las mayores ganancias en móvil.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  // SIN mapeo de tonos. ACESFilmic es una curva de cine: comprime los brillos
-  // y DESATURA a propósito, que es justo lo contrario de lo que pide un juego
-  // de colores vivos. Sin ella los colores salen tal cual se pintaron.
-  renderer.toneMapping = NoToneMapping;
+  // Mapeo LINEAL, y no ACESFilmic. ACES es una curva de cine: comprime los
+  // brillos y DESATURA a propósito, lo contrario de lo que pide un juego de
+  // colores vivos. El lineal con exposición 1 deja los colores EXACTAMENTE
+  // igual que NoToneMapping —multiplica por 1—; se usa solo porque
+  // NoToneMapping ignora la exposición, y la exposición es lo que apaga la
+  // calle mientras no se juega (ver «La calle apagada», más abajo).
+  renderer.toneMapping = LinearToneMapping;
   // Sin mapas de sombra: cada luz con sombra redibuja la escena entera. Cada
   // objeto lleva su mancha oscura plana debajo, que cuesta un círculo.
   renderer.shadowMap.enabled = false;
@@ -159,6 +184,27 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // pantalla más abajo.
   const niebla = new Fog(LUZ.fondo, 60, 90);
   scene.fog = niebla;
+
+  // ── La calle apagada ──
+  // Sin partida la escena está APAGADA —se ve la calle, en penumbra y sin
+  // responder— y al empezar se encienden las luces. Se hace con la
+  // exposición: atenúa luces, materiales y niebla a la vez y no cuesta nada,
+  // porque es un número que el shader ya multiplica. El fondo es lo único que
+  // no pasa por el mapeo de tonos (es el color con que se borra la pantalla),
+  // así que se atenúa a mano.
+  //
+  // SIEMPRE arranca en penumbra, aunque se monte ya para jugar: una partida
+  // nueva trae otra calle y remonta el motor, y así entra desde lo oscuro y
+  // se enciende, en vez de saltar de golpe de una calle a la otra.
+  let encendida = opts.encendida !== false;
+  let exposicion = reduced && encendida ? 1 : EXPOSICION_APAGADA;
+  const fondoBase = new Color(LUZ.fondo);
+  const fondo = scene.background as Color;
+  const aplicarExposicion = () => {
+    renderer.toneMappingExposure = exposicion;
+    fondo.copy(fondoBase).multiplyScalar(exposicion);
+  };
+  aplicarExposicion();
 
   const camera = new PerspectiveCamera(42, 1, 0.5, 120);
 
@@ -359,6 +405,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   }
 
   function onDown(e: PointerEvent) {
+    if (!encendida) return;
     audio.despertar();
     presionando = true;
     const p = aSimulacion(e.clientX, e.clientY);
@@ -376,6 +423,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     presionando = false;
   }
   function onKeyDown(e: KeyboardEvent) {
+    if (!encendida) return;
     teclas.add(e.key.toLowerCase());
   }
   function onKeyUp(e: KeyboardEvent) {
@@ -729,10 +777,32 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     if (!corriendo) return;
     rafId = requestAnimationFrame(tick);
     const ahora = performance.now();
+
+    // Apagada y con la penumbra ya asentada, se dibuja a FPS_APAGADA. Se sale
+    // ANTES de tocar `ultimo`: el tiempo saltado entra en el paso siguiente
+    // (acotado a 100 ms, como siempre), así que la simulación no se atrasa.
+    if (
+      !encendida &&
+      exposicion === EXPOSICION_APAGADA &&
+      ahora - ultimo < 1000 / FPS_APAGADA - 1
+    ) {
+      return;
+    }
+
     // Se acota a 100 ms: si la pestaña estuvo en segundo plano, no se simulan
     // cinco minutos de golpe (la "espiral de la muerte").
     let dtMs = Math.min(100, ahora - ultimo);
     ultimo = ahora;
+
+    // La luz va hacia donde toca con amortiguación exponencial y tiempo real:
+    // se enciende igual de rápido a 30 fps que a 120.
+    const objetivo = encendida ? 1 : EXPOSICION_APAGADA;
+    if (exposicion !== objetivo) {
+      const ritmo = encendida ? RITMO_ENCENDER : RITMO_APAGAR;
+      exposicion += (objetivo - exposicion) * (1 - Math.exp(-ritmo * (dtMs / 1000)));
+      if (reduced || Math.abs(objetivo - exposicion) < 0.004) exposicion = objetivo;
+      aplicarExposicion();
+    }
 
     if (sim.finLento > 0) dtMs *= 0.35;
 
@@ -823,5 +893,15 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     destroy,
     setMuted: (v: boolean) => audio.setSilencio(v),
     isMuted: () => audio.mudo,
+    setEncendida: (v: boolean) => {
+      encendida = v;
+      if (!v) {
+        // Al apagar se suelta todo: un dedo o una tecla que siguieran
+        // «pulsados» harían caminar al ciudadano en la penumbra.
+        presionando = false;
+        destino = null;
+        teclas.clear();
+      }
+    },
   };
 }

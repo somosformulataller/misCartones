@@ -1640,10 +1640,43 @@ console.log('\n10. El estilo de la interfaz');
     !/onClick=\{empezar\}/.test(juego),
     'la pantalla de juego no tiene botón de jugar propio: lo lleva la barra amarilla'
   );
+  // Como en La Llave: UNA sola escena. La calle está siempre montada; sin
+  // partida se ve apagada con la barra amarilla encima y al pulsarla se
+  // enciende. Antes había una pantalla aparte solo con los botones.
+  ok(!/mc-lobby/.test(juego), 'no hay pantalla aparte con los botones: van sobre la calle apagada');
   ok(
-    /estado === 'jugando' \|\| estado === 'fin'/.test(juego),
-    'al terminar, la calle se queda a la vista en vez de cambiarse por un cartel'
+    /encendida=\{estado === 'jugando'\}/.test(juego),
+    'la calle se enciende solo con la partida en marcha'
   );
+  ok(
+    /key=\{sessionId \?\? 'escaparate'\}/.test(juego),
+    'cada partida remonta el motor: la calle puede ser la misma y las bolsas entregadas se respetan'
+  );
+  ok(/\/api\/session/.test(juego), 'al entrar se mira si quedó una partida a medias, sin cobrar un ticket');
+  ok(/setSaldo\(acreditado\)/.test(juego), 'al reanudar, «Recogido» arranca en lo ya ganado y no en $0.00');
+  ok(
+    /total_credited/.test(leer('app', 'api', 'buy-ticket', 'route.ts')),
+    'reanudar por /api/buy-ticket también devuelve lo ya acreditado'
+  );
+
+  const motor = leer('lib', 'three', 'game.ts');
+  ok(
+    /renderer\.toneMapping = LinearToneMapping/.test(motor) && !/toneMapping = NoToneMapping/.test(motor),
+    'el motor usa mapeo lineal: con NoToneMapping la exposición no apagaría nada'
+  );
+  // La Llave usa 0,26, pero con su mapeo y su mazmorra oscura. Medido aquí:
+  // 0,26 deja la calle de día al 48 % (se lee como atardecer); 0,12, al 30 %.
+  ok(
+    /const EXPOSICION_APAGADA = 0\.12;/.test(motor),
+    'la calle apagada se ve apagada de verdad (0,12 = 30 % del brillo, medido), no en atardecer'
+  );
+  ok(!/__mcDepurar|DEPURAR-TEMPORAL/.test(motor), 'no queda ningún gancho de depuración en el motor');
+  ok(
+    /function onDown\(e: PointerEvent\) \{\s*if \(!encendida\) return;/.test(motor) &&
+      /function onKeyDown\(e: KeyboardEvent\) \{\s*if \(!encendida\) return;/.test(motor),
+    'con la calle apagada el ciudadano no camina, ni con el dedo ni con el teclado'
+  );
+  ok(!/mc-lobby/.test(css), 'y en la hoja de estilos no queda ni una regla del vestíbulo');
 
   // El HUD: el botón del sonido caía encima de los puntos de las bolsas en
   // 360 y 390 px, porque los puntos iban centrados con posición absoluta en

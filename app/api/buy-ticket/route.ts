@@ -73,7 +73,7 @@ export async function POST() {
     // cobra otro ticket.
     const { data: existing } = await supabase
       .from('game_runs')
-      .select('id, world_seed, bags_deposited')
+      .select('id, world_seed, bags_deposited, credited')
       .eq('player_id', user.id)
       .eq('game_status', 'ACTIVE')
       .maybeSingle();
@@ -87,6 +87,8 @@ export async function POST() {
           world_seed: Number(existing.world_seed),
           bags_deposited: entregadas,
           bags_remaining: TOTAL_BAGS - entregadas.length,
+          // Lo ya ganado: sin esto la partida reanudada enseñaba $0.00.
+          total_credited: Number(existing.credited ?? 0),
         },
         { status: 409 }
       );

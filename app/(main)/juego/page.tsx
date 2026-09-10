@@ -12,9 +12,54 @@ import type { DepositBagResponse, StartRunResponse } from '@/types/game';
 
 type Estado = 'idle' | 'cargando' | 'jugando' | 'fin';
 
+/** Lo que devuelven /api/session y el 409 de /api/buy-ticket al reanudar. */
+type Reanudable = StartRunResponse & {
+  bags_deposited?: number[];
+  total_credited?: number;
+};
+
+/**
+ * La calle que se ve APAGADA cuando no hay partida que reanudar: la de la
+ * última partida jugada en este teléfono, o una fija la primera vez. Es solo
+ * escaparate —con la calle apagada no se puede caminar ni entregar nada— y al
+ * empezar el servidor manda la calle de verdad.
+ */
+const CALLE_ESCAPARATE = 20260910;
+const CLAVE_ULTIMA_CALLE = 'mc-ultima-calle';
+
+function calleGuardada(): number {
+  try {
+    const n = Number(localStorage.getItem(CLAVE_ULTIMA_CALLE));
+    return Number.isFinite(n) && n > 0 ? n : CALLE_ESCAPARATE;
+  } catch {
+    return CALLE_ESCAPARATE;
+  }
+}
+
+function guardarCalle(seed: number) {
+  try {
+    localStorage.setItem(CLAVE_ULTIMA_CALLE, String(seed));
+  } catch {
+    /* sin almacenamiento: la próxima vez sale la calle fija */
+  }
+}
+
+/**
+ * La pantalla de juego es UNA sola escena, como en La Llave: la calle está
+ * siempre montada y lo único que cambia es si tiene la luz encendida.
+ *
+ *   · Sin partida → calle apagada, y la barra amarilla del layout ofrece lo
+ *     que se puede hacer: iniciar, cambiar $2 de saldo o comprar un ticket.
+ *   · Al pulsarla → se encienden las luces y la barra se va.
+ *   · Al terminar → la calle se queda con la carretilla llena y el premio
+ *     encima, se vuelve a apagar y la barra reaparece para la siguiente.
+ *
+ * Antes había una pantalla aparte, solo con los botones, y el juego no se
+ * veía hasta haber pulsado.
+ */
 export default function JuegoPage() {
   const router = useRouter();
-  const { player, isLoading, refresh } = usePlayer();
+  const { player, refresh } = usePlayer();
   const [estado, setEstado] = useState<Estado>('idle');
   const [seed, setSeed] = useState<number | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -26,32 +71,79 @@ export default function JuegoPage() {
   const [error, setError] = useState<string | null>(null);
   const [premio, setPremio] = useState<number | null>(null);
 
+  const reanudar = useCallback(
+    (id: string, worldSeed: number, previas: number[], acreditado: number) => {
+      setSessionId(id);
+      setSeed(worldSeed);
+      setYaEntregadas(previas);
+      setEntregadas(previas.length);
+      // Lo ya ganado en esa partida. Sin esto «Recogido» arrancaba en $0.00
+      // con bolsas ya entregadas y cobradas, y en un juego de dinero eso se
+      // lee como «me quitaron lo que llevaba».
+      setSaldo(acreditado);
+      setPremio(null);
+      setError(null);
+      setEstado('jugando');
+      guardarCalle(worldSeed);
+    },
+    []
+  );
+
+  // Al entrar: si quedó una partida a medias se REANUDA sola y encendida,
+  // como en La Llave —ese ticket ya está pagado—. /api/session solo mira, no
+  // cobra nada. Si no hay partida, se monta la calle apagada.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      let run: Reanudable | null = null;
+      try {
+        const res = await fetch('/api/session', { cache: 'no-store' });
+        const d = await res.json();
+        run = d?.run ?? null;
+      } catch {
+        /* sin conexión: se enseña la calle apagada y el aviso sale al jugar */
+      }
+      if (!vivo) return;
+      if (run?.session_id) {
+        reanudar(
+          run.session_id,
+          run.world_seed,
+          run.bags_deposited ?? [],
+          Number(run.total_credited ?? 0)
+        );
+        return;
+      }
+      setSeed((s) => s ?? calleGuardada());
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [reanudar]);
+
   const empezar = useCallback(async () => {
     setEstado('cargando');
     setError(null);
-    setSaldo(0);
-    setEntregadas(0);
     setPremio(null);
     setCargandoBolsa(false);
 
-    let data: StartRunResponse | null = null;
+    let data: Reanudable | null = null;
     let status = 0;
     try {
       const res = await fetch('/api/buy-ticket', { method: 'POST' });
       status = res.status;
-      data = (await res.json()) as StartRunResponse;
+      data = (await res.json()) as Reanudable;
     } catch {
       // Se cae abajo, al aviso de sin conexión.
     }
 
     // Partida activa que se reanuda (no se cobra otro ticket).
     if (status === 409 && data?.session_id) {
-      setSessionId(data.session_id);
-      setSeed(data.world_seed);
-      const previas = (data as unknown as { bags_deposited?: number[] }).bags_deposited ?? [];
-      setYaEntregadas(previas);
-      setEntregadas(previas.length);
-      setEstado('jugando');
+      reanudar(
+        data.session_id,
+        data.world_seed,
+        data.bags_deposited ?? [],
+        Number(data.total_credited ?? 0)
+      );
       return;
     }
 
@@ -61,10 +153,10 @@ export default function JuegoPage() {
       return;
     }
 
-    // Aquí el juego se PARA y lo dice. Antes arrancaba una partida local de
-    // mentira para no dejar la pantalla en blanco; en un juego de dinero eso
-    // es lo peor que puede pasar: el jugador gasta su rato creyendo que juega
-    // por dinero, gana, y no hay premio que cobrar. Mejor un aviso feo.
+    // Aquí el juego se PARA y lo dice. Arrancar una partida local de mentira
+    // para no dejar la pantalla quieta es lo peor que puede pasar en un juego
+    // de dinero: se juega creyendo que se juega por dinero, se gana, y no hay
+    // premio que cobrar. Mejor un aviso feo.
     if (!data || status === 0) {
       setError('Sin conexión. Revisa tu internet e inténtalo otra vez.');
       setEstado('idle');
@@ -92,11 +184,14 @@ export default function JuegoPage() {
       return;
     }
 
+    setSaldo(0);
+    setEntregadas(0);
+    setYaEntregadas([]);
     setSessionId(data.session_id);
     setSeed(data.world_seed);
-    setYaEntregadas([]);
     setEstado('jugando');
-  }, [router, refresh]);
+    guardarCalle(data.world_seed);
+  }, [router, refresh, reanudar]);
 
   const onDeposit = useCallback(
     async (bagId: number): Promise<ResultadoEntrega> => {
@@ -128,7 +223,8 @@ export default function JuegoPage() {
   }, []);
 
   const onFinished = useCallback(() => {
-    // Se deja ver el clímax antes de sacar el cartel.
+    // Se deja ver el clímax con la luz encendida antes de apagar la calle y
+    // sacar el premio.
     setTimeout(() => setEstado('fin'), 2600);
     // El servidor ya acreditó el premio y gastó el ticket: se vuelve a pedir
     // el perfil para que la billetera y la barra de abajo digan la verdad.
@@ -148,43 +244,41 @@ export default function JuegoPage() {
     });
   }, [empezar]);
 
-  // Y se le cuenta a la barra si hay partida en curso, para que esconda su
-  // botón mientras se juega.
+  // Y se le cuenta a la barra si hay partida en curso, para que esconda sus
+  // botones mientras la calle está encendida.
   useEffect(() => {
     setGameActive(estado === 'jugando');
     return () => setGameActive(false);
   }, [estado]);
 
-  // Botones de jugar, comprar y cambiar saldo: NINGUNO vive aquí. Los lleva
-  // la barra amarilla del layout (BarraJugar), igual que en La Llave, que
-  // elige el único que tiene sentido según los tickets y el saldo. Aquí había
-  // un «JUGAR» y un «Otra vez» propios que se saltaban esa decisión: con cero
-  // tickets arrancaban una petición condenada a fallar, y convivían en
-  // pantalla con el «Iniciar juego» de la barra —dos botones para lo mismo—.
+  const tickets = player?.tickets ?? 0;
+
   return (
     <main className="pantalla-juego mc-escena relative w-full overflow-hidden">
-      {/* Al terminar, la calle se QUEDA: el jugador ve su carretilla llena y,
-          debajo, la barra amarilla para la siguiente. Antes la escena se
-          cambiaba por un cartel y el juego desaparecía justo en el momento
-          de más ganas de volver a jugar. */}
-      {(estado === 'jugando' || estado === 'fin') && seed !== null && (
-        <>
-          <GameCanvas
-            seed={seed}
-            alreadyDeposited={yaEntregadas}
-            muted={muted}
-            callbacks={{ onDeposit, onCredit, onState, onFinished, onError: setError }}
-          />
-          <Hud
-            saldo={saldo}
-            bolsasEntregadas={entregadas}
-            totalBolsas={TOTAL_BAGS}
-            cargando={cargandoBolsa && estado === 'jugando'}
-            muted={muted}
-            onToggleMute={() => setMuted((m) => !m)}
-            onSalir={() => router.push('/billetera')}
-          />
-        </>
+      {/* El `key` remonta el motor con cada partida. La calle puede ser la
+          MISMA (la del escaparate es la última jugada), y sin remontar el
+          motor no se enteraría de qué bolsas ya están entregadas. */}
+      {seed !== null && (
+        <GameCanvas
+          key={sessionId ?? 'escaparate'}
+          seed={seed}
+          alreadyDeposited={yaEntregadas}
+          muted={muted}
+          encendida={estado === 'jugando'}
+          callbacks={{ onDeposit, onCredit, onState, onFinished, onError: setError }}
+        />
+      )}
+
+      {estado === 'jugando' && (
+        <Hud
+          saldo={saldo}
+          bolsasEntregadas={entregadas}
+          totalBolsas={TOTAL_BAGS}
+          cargando={cargandoBolsa}
+          muted={muted}
+          onToggleMute={() => setMuted((m) => !m)}
+          onSalir={() => router.push('/billetera')}
+        />
       )}
 
       {estado === 'fin' && (
@@ -198,26 +292,27 @@ export default function JuegoPage() {
       )}
 
       {(estado === 'idle' || estado === 'cargando') && (
-        <div className="mc-lobby mc-lobby-escena">
-          <div className="mc-lobby-texto">
-            <h1 className="mc-lobby-titulo">Recoge las 5 bolsas</h1>
-            <p className="mc-lobby-ayuda">
-              Mantén el dedo en la pantalla y el ciudadano caminará hacia ahí. Agarra una bolsa
-              y llévala a la carretilla para vaciarla.
+        <div className="juego-apagado">
+          <div className="juego-apagado-cartel">
+            <p className="juego-apagado-titulo">Recoge las 5 bolsas</p>
+            <p className="juego-apagado-texto">
+              Mantén el dedo en la pantalla para caminar y lleva cada bolsa a la carretilla.
             </p>
           </div>
           {error && <p className="mc-aviso mc-aviso-malo">{error}</p>}
-          {player && (
-            <p className="mc-lobby-tickets">
-              Tienes {player.tickets ?? 0} ticket{(player.tickets ?? 0) === 1 ? '' : 's'}
-            </p>
-          )}
-          <p className="mc-lobby-pista">
-            {estado === 'cargando' || isLoading
-              ? 'Preparando la calle…'
-              : 'Toca el botón amarillo para empezar 👇'}
-          </p>
         </div>
+      )}
+
+      {/* La flecha que señala la barra. Va aparte del cartel porque vive
+          pegada a la barra, abajo, y no arriba con las instrucciones. */}
+      {(estado === 'idle' || estado === 'cargando' || estado === 'fin') && (
+        <p className="juego-apagado-pista">
+          {estado === 'cargando'
+            ? 'Encendiendo la calle…'
+            : tickets < 1
+              ? 'Consigue un ticket para jugar 👇'
+              : 'Toca el botón amarillo para jugar 👇'}
+        </p>
       )}
     </main>
   );
