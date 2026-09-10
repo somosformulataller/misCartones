@@ -4863,7 +4863,10 @@ textarea.form-input,
   transform: none;
   animation: none;
   margin-top: 4px;
-  font-size: 0.66rem;
+  /* Dos píxeles más que los 0,66rem de antes (10,56 → 12,56 px): se leía
+     pequeño. Esta regla gana también a la de pantallas cortas (0,52rem), que
+     va antes en la hoja con la misma especificidad. */
+  font-size: calc(0.66rem + 2px);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #ffe86b;
