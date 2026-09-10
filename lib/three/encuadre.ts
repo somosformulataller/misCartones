@@ -150,3 +150,103 @@ export function distanciaQueEncuadra(camera: PerspectiveCamera): number {
   colocarCamara(camera, hi);
   return hi;
 }
+
+// ── Por dónde se anda ───────────────────────────────────────────────────────
+// El ciudadano ya no queda encerrado en la calzada: anda por TODO lo que se ve.
+// Al fondo, hasta que la cabeza toca el borde de arriba de la pantalla; hacia
+// la cámara, hasta que los pies tocan el de abajo; a los lados, por las aceras
+// hasta la fachada, o hasta el borde de la pantalla si llega antes.
+
+/** Por dónde puede andar el ciudadano, en unidades de mundo. */
+export interface LimitesAndables {
+  /** Lo más al fondo (la z más negativa). */
+  zLejos: number;
+  /** Lo más cerca de la cámara. */
+  zCerca: number;
+  /** Media anchura que deja el borde de la pantalla en zLejos y en zCerca.
+   *  Entre las dos es EXACTAMENTE lineal: el borde de la pantalla sobre el
+   *  suelo es una recta. */
+  xLejos: number;
+  xCerca: number;
+  /** Tope de las casas, igual a cualquier profundidad. Va aparte y el mínimo
+   *  se toma a cada z: interpolar el mínimo ya hecho recortaba la acera a
+   *  media calle. */
+  xFachada: number;
+}
+
+/** Media anchura andable a la profundidad `z`. */
+export function mediaAnchuraAndable(l: LimitesAndables, z: number): number {
+  const t = (z - l.zLejos) / (l.zCerca - l.zLejos || 1);
+  return Math.min(l.xFachada, l.xLejos + (l.xCerca - l.xLejos) * t);
+}
+
+const _a = new Vector3();
+const _b = new Vector3();
+
+/** La z donde el rayo que sale a la altura `ndcY` de la pantalla corta el
+ *  plano horizontal de altura `y`. */
+function zEnPantalla(camera: PerspectiveCamera, ndcY: number, y: number): number {
+  _a.set(0, ndcY, -1).unproject(camera);
+  _b.set(0, ndcY, 1).unproject(camera);
+  const t = (y - _a.y) / (_b.y - _a.y);
+  return _a.z + (_b.z - _a.z) * t;
+}
+
+/** Hasta qué |x| se ve el suelo a la profundidad `z`. A z fija, la x de la
+ *  pantalla es lineal en la x del mundo: bastan dos puntos. */
+function mediaAnchuraVisible(camera: PerspectiveCamera, z: number): number {
+  const n0 = _a.set(0, 0, z).project(camera).x;
+  const n1 = _b.set(1, 0, z).project(camera).x;
+  return (MARGEN - n0) / (n1 - n0);
+}
+
+/**
+ * Hasta qué distancia de la cámara puede alejarse el ciudadano: donde la
+ * neblina lo tapa un 30 %. La neblina de game.ts va de lejos × 1,14 a
+ * lejos × 1,85 (una prueba vigila que siga así). Con el tope anterior, en
+ * lejos × 1,1, se paraba muy por debajo del borde de arriba de la pantalla.
+ */
+export function distanciaAndableMax(lejos: number): number {
+  return lejos * (1.14 + (1.85 - 1.14) * 0.3);
+}
+
+/**
+ * Los límites por los que anda el ciudadano con la cámara donde está ahora
+ * (recién encuadrada). `distanciaMax` evita que en pantallas muy altas se
+ * meta en la neblina del fondo.
+ */
+export function limitesAndables(
+  camera: PerspectiveCamera,
+  o: {
+    lineaCasas: number;
+    radioPies: number;
+    radioAncho: number;
+    alto: number;
+    distanciaMax: number;
+    /** Hasta dónde puede subir la cabeza, en la escala -1..1 de la pantalla:
+     *  por debajo de lo que tape la interfaz. Por omisión, el borde. */
+    ndcArriba?: number;
+    /** Una z que SIEMPRE se puede alcanzar al fondo, tape lo que tape la
+     *  interfaz: el fondo de la calzada, donde nacen las bolsas. */
+    zFondoMinimo?: number;
+  }
+): LimitesAndables {
+  const zCerca = zEnPantalla(camera, -MARGEN, 0) - o.radioPies;
+  let zLejos = zEnPantalla(camera, Math.min(MARGEN, o.ndcArriba ?? MARGEN), o.alto);
+  const altoCamara = camera.position.y;
+  if (o.distanciaMax > altoCamara) {
+    zLejos = Math.max(zLejos, camera.position.z - Math.sqrt(o.distanciaMax ** 2 - altoCamara ** 2));
+  }
+  // Va lo último para que gane a los dos topes: sin esto, un marcador alto en
+  // una pantalla corta dejaría bolsas del fondo fuera de alcance.
+  if (o.zFondoMinimo !== undefined) zLejos = Math.min(zLejos, o.zFondoMinimo);
+  return {
+    zLejos,
+    zCerca,
+    // Con el ancho DIBUJADO: con el del torso, en las esquinas de abajo medio
+    // cuerpo se salía de la pantalla.
+    xLejos: mediaAnchuraVisible(camera, zLejos) - o.radioAncho,
+    xCerca: mediaAnchuraVisible(camera, zCerca) - o.radioAncho,
+    xFachada: o.lineaCasas - o.radioPies,
+  };
+}

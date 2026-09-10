@@ -77,7 +77,7 @@ export const FONDO = PLAY.h * U;
 // El área jugable ES la calzada: el ciudadano camina de bordillo a bordillo.
 // Las aceras empiezan justo donde acaba lo jugable, así el borde del juego
 // tiene una razón visible en la escena en vez de ser una pared invisible.
-const MEDIA_CALZADA = ANCHO / 2 + 0.2;
+export const MEDIA_CALZADA = ANCHO / 2 + 0.2;
 // La acera es estrecha a propósito. Cada unidad que mide es una unidad que
 // aleja la fachada del ojo, y el encuadre a lo ancho es el recurso más caro
 // que hay: ensancharlo empequeñece el juego entero.
@@ -87,6 +87,15 @@ const ANCHO_ACERA = 1.7;
 export const LINEA_CASAS = MEDIA_CALZADA + ANCHO_ACERA;
 /** La calle sigue mucho más allá de lo jugable: se pierde en la neblina. */
 const LARGO_CALLE = 220;
+
+/** Altura del suelo bajo un punto: la acera es un escalón de 0,18 sobre la
+ *  calzada. La usan la basura y el ciudadano, que sube a la acera al pisarla. */
+export const alturaSuelo = (x: number) => (Math.abs(x) > MEDIA_CALZADA ? 0.18 : 0);
+
+/** Postes de la luz, solo en la acera derecha. Se exportan porque el ciudadano
+ *  anda por la acera y no puede atravesarlos. */
+export const X_POSTE = LINEA_CASAS - 0.55;
+export const Z_POSTES: readonly number[] = Array.from({ length: 11 }, (_, i) => -55 + i * 11);
 
 /**
  * Cuánto se agranda el ciudadano sobre su tamaño modelado.
@@ -98,6 +107,10 @@ const LARGO_CALLE = 220;
  * ancho coincide con CITIZEN_RADIUS, el radio con el que choca de verdad.
  */
 const ESCALA_CIUDADANO = 2.4;
+
+/** Alto del ciudadano ya escalado. El encuadre lo usa para que no se le corte
+ *  la cabeza al andar por el fondo; una prueba lo compara con el modelo. */
+export const ALTO_CIUDADANO = 4.6;
 
 /**
  * Lo mismo para la carretilla, y por el mismo motivo.
@@ -707,9 +720,8 @@ export function crearCiudad(rnd: () => number): Group {
 
   // ── Postes de la luz ──
   // Solo en un lado, como en la calle de la referencia.
-  const zPostes: number[] = [];
-  for (let z = -55; z <= 55; z += 11) zPostes.push(z);
-  const xPoste = LINEA_CASAS - 0.55;
+  const zPostes = Z_POSTES;
+  const xPoste = X_POSTE;
 
   const postes = new InstancedMesh(
     new CylinderGeometry(0.11, 0.16, 5.8, 6),
@@ -1270,7 +1282,7 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
     return null;
   };
   /** ¿Está sobre la acera? Sirve para levantar la basura ese escalón. */
-  const altura = (x: number) => (Math.abs(x) > MEDIA_CALZADA ? 0.18 : 0);
+  const altura = alturaSuelo;
 
   /**
    * Siembra `n` copias de una geometría por la calle.

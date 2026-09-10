@@ -72,6 +72,17 @@ export default function GameCanvas({
           alreadyDeposited,
           encendida: encendidaRef.current,
           montosPrevios,
+          // Lo que tapa el marcador desde el borde de arriba del lienzo: el
+          // ciudadano se para por debajo, en vez de esconderse detrás. Se miden
+          // sus FILAS, no la caja de .hud: esa cubre el lienzo entero (inset 0)
+          // y lleva dentro el aviso de abajo.
+          tapadoArriba: () => {
+            let abajo = -Infinity;
+            document.querySelectorAll('.hud > .hud-fila, .hud > .hud-bolsas').forEach((fila) => {
+              abajo = Math.max(abajo, fila.getBoundingClientRect().bottom);
+            });
+            return Number.isFinite(abajo) ? abajo - el.getBoundingClientRect().top : 0;
+          },
           reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
           callbacks: {
             onDeposit: (id) => cbRef.current.onDeposit(id),

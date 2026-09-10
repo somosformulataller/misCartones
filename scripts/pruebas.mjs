@@ -428,7 +428,7 @@ console.log('\n6. La escena en 3D');
 {
   const THREE = require('three');
   const { PerspectiveCamera } = THREE;
-  const { distanciaQueEncuadra, CENTRO } = require(
+  const { distanciaQueEncuadra, distanciaMaximaAlTerreno, distanciaAndableMax, limitesAndables, mediaAnchuraAndable, CENTRO } = require(
     path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js')
   );
   const esc = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'escena.js'));
@@ -878,6 +878,119 @@ console.log('\n6. La escena en 3D');
   }
   console.log(`     En el borde cercano se ve hasta |x|=${peorCerca.toFixed(1)} (la fachada empieza en ${esc.LINEA_CASAS.toFixed(1)})`);
   ok(sinFachada === 0, 'Los edificios entran en cámara en las 14 pantallas', `${sinFachada} pantallas sin fachada`);
+
+  // ── Se anda por TODA la calle que se ve ──
+  // Antes el ciudadano quedaba encerrado en la calzada, de bordillo a bordillo
+  // y solo en el tramo encuadrado. Ahora anda por las aceras hasta la fachada
+  // y de borde a borde de la pantalla. Se comprueba en las 14 pantallas que:
+  // pisa la acera, cubre al menos lo de antes, y nunca sale de la pantalla.
+  const pies = CITIZEN_FEET_RADIUS / 40;
+  const zFondoCalzada = (PLAY.y - (PLAY.y + PLAY.h / 2)) / 40;
+  const zCercaCalzada = (PLAY.y + PLAY.h - (PLAY.y + PLAY.h / 2)) / 40;
+  let sinAcera = 0;
+  let menosQueAntes = 0;
+  let fueraDePantalla = 0;
+  let pasaFachada = 0;
+  let bajoMarcador = 0;
+  let bolsasFuera = 0;
+  let peorAcera = Infinity;
+  const vp = new THREE.Vector3();
+  const dentro = (x, y, z, cam) => {
+    vp.set(x, y, z).project(cam);
+    return Math.abs(vp.x) <= 1 && Math.abs(vp.y) <= 1;
+  };
+  for (const [nombre, w, h] of PANTALLAS) {
+    const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+    distanciaQueEncuadra(cam);
+    const l = limitesAndables(cam, {
+      lineaCasas: esc.LINEA_CASAS,
+      radioPies: pies,
+      radioAncho: CITIZEN_RADIUS / 40,
+      alto: esc.ALTO_CIUDADANO,
+      distanciaMax: distanciaAndableMax(distanciaMaximaAlTerreno(cam)),
+    });
+    // En todo el largo de la calzada de antes, de fondo a frente, se sube a
+    // la acera. Más cerca de la cámara que eso, en un teléfono estrecho la
+    // acera se sale de la pantalla y ahí manda el borde, no la fachada.
+    let acera = Infinity;
+    for (let i = 0; i <= 40; i++) {
+      const z = zFondoCalzada + ((zCercaCalzada - zFondoCalzada) * i) / 40;
+      acera = Math.min(acera, mediaAnchuraAndable(l, z));
+    }
+    peorAcera = Math.min(peorAcera, acera);
+    if (acera < esc.MEDIA_CALZADA + 0.3) {
+      sinAcera++;
+      console.log('     ✗ ' + nombre + ': solo se anda hasta |x|=' + acera.toFixed(2));
+    }
+    if (l.zLejos > zFondoCalzada + pies + 0.01 || l.zCerca < zCercaCalzada - pies - 0.01) {
+      menosQueAntes++;
+      console.log('     ✗ ' + nombre + ': z de ' + l.zLejos.toFixed(2) + ' a ' + l.zCerca.toFixed(2));
+    }
+    // Con un marcador que tapa 170 px por arriba (lo medido en un teléfono):
+    // la cabeza se para por debajo, salvo que eso dejara fuera el fondo de la
+    // calzada, que se sigue alcanzando SIEMPRE.
+    const ndcMarcador = 1 - (2 * 170) / h;
+    const lm = limitesAndables(cam, {
+      lineaCasas: esc.LINEA_CASAS,
+      radioPies: pies,
+      radioAncho: CITIZEN_RADIUS / 40,
+      alto: esc.ALTO_CIUDADANO,
+      distanciaMax: distanciaAndableMax(distanciaMaximaAlTerreno(cam)),
+      ndcArriba: ndcMarcador,
+      zFondoMinimo: zFondoCalzada + pies,
+    });
+    if (lm.zLejos > zFondoCalzada + pies + 1e-9) {
+      bolsasFuera++;
+      console.log('     ✗ ' + nombre + ': con el marcador, el fondo de la calzada queda fuera');
+    }
+    vp.set(0, esc.ALTO_CIUDADANO, lm.zLejos).project(cam);
+    if (vp.y > ndcMarcador + 1e-6 && Math.abs(lm.zLejos - (zFondoCalzada + pies)) > 1e-9) {
+      bajoMarcador++;
+      console.log('     ✗ ' + nombre + ': la cabeza sube hasta ' + vp.y.toFixed(3) + ' con el marcador en ' + ndcMarcador.toFixed(3));
+    }
+    if (l.xFachada > esc.LINEA_CASAS - pies + 1e-9) pasaFachada++;
+    const xc = mediaAnchuraAndable(l, l.zCerca);
+    const xl = mediaAnchuraAndable(l, l.zLejos);
+    if (
+      !dentro(xc, 0, l.zCerca, cam) || !dentro(-xc, 0, l.zCerca, cam) ||
+      !dentro(xl, 0, l.zLejos, cam) || !dentro(0, esc.ALTO_CIUDADANO, l.zLejos, cam)
+    ) {
+      fueraDePantalla++;
+      console.log('     ✗ ' + nombre + ': el límite deja al ciudadano fuera de la pantalla');
+    }
+  }
+  console.log('     A lo largo de la calzada se llega, como poco, hasta |x|=' + peorAcera.toFixed(2) +
+    ' (el bordillo está en ' + esc.MEDIA_CALZADA.toFixed(2) + ' y la fachada en ' + esc.LINEA_CASAS.toFixed(2) + ')');
+  ok(sinAcera === 0, 'El ciudadano sube a la acera a lo largo de toda la calle en las 14 pantallas', sinAcera + ' pantallas sin acera');
+  ok(menosQueAntes === 0, 'Se anda al menos todo el largo de la calzada de antes', menosQueAntes + ' pantallas');
+  ok(pasaFachada === 0, 'Nunca se mete dentro de las casas', pasaFachada + ' pantallas');
+  ok(bajoMarcador === 0, 'No se esconde debajo del marcador de arriba', bajoMarcador + ' pantallas');
+  ok(bolsasFuera === 0, 'Con el marcador puesto, todo el fondo de la calzada sigue a su alcance', bolsasFuera + ' pantallas');
+  ok(fueraDePantalla === 0, 'Ni los pies ni la cabeza salen nunca de la pantalla', fueraDePantalla + ' pantallas');
+  ok(Math.abs(esc.ALTO_CIUDADANO - altoCiudadano) < 0.35, 'ALTO_CIUDADANO coincide con el modelo',
+    'constante ' + esc.ALTO_CIUDADANO + ', modelo ' + altoCiudadano.toFixed(2));
+  ok(esc.alturaSuelo(esc.MEDIA_CALZADA + 0.5) === 0.18 && esc.alturaSuelo(0) === 0, 'En la acera se pisa el escalón');
+  {
+    const fuente = fs.readFileSync(path.join(raiz, 'lib', 'three', 'game.ts'), 'utf8');
+    ok(!/Math\.max\(PLAY\.[xy]/.test(fuente) && /limitesAndables\(/.test(fuente),
+      'Los límites del ciudadano salen de la cámara, no de la calzada');
+    ok(/apartarDeFijos\(\)/.test(fuente) && /Z_POSTES/.test(fuente), 'Troncos y postes no se atraviesan');
+    ok(/radioAncho: CITIZEN_RADIUS/.test(fuente), 'El margen con el borde de la pantalla es el ancho dibujado, no el torso');
+    // distanciaAndableMax da por hecho una neblina de lejos × 1,14 a × 1,85.
+    // Si alguien la mueve, el ciudadano podría meterse en la niebla sin verse.
+    ok(fuente.includes('niebla.near = lejos * 1.14;') && fuente.includes('niebla.far = lejos * 1.85;') &&
+      /distanciaMax: distanciaAndableMax\(lejos\)/.test(fuente),
+      'El tope del fondo sigue atado a la neblina (1,14 a 1,85)');
+    const fuenteLienzo = fs.readFileSync(path.join(raiz, 'components', 'game', 'GameCanvas.tsx'), 'utf8');
+    ok(/ndcArriba: 1 - \(2 \* tapado\) \/ h/.test(fuente) && /zFondoMinimo: wz\(PLAY\.y \+ CITIZEN_FEET_RADIUS\)/.test(fuente) &&
+      /tapadoArriba: \(\) =>/.test(fuenteLienzo) && /querySelectorAll\('\.hud > \.hud-fila, \.hud > \.hud-bolsas'\)/.test(fuenteLienzo) &&
+      !/querySelector\('\.hud'\)/.test(fuenteLienzo),
+      'El motor sabe lo que tapa el marcador y el fondo de la calzada queda siempre a mano');
+    ok(/if \(v\) \{\s*requestAnimationFrame\(\(\) => \{\s*if \(!destruido\) ajustarCamara\(\);/.test(fuente),
+      'Al encender la calle se recalcula por dónde se anda, ya con el marcador pintado');
+    ok(/if \(tx \* \(sx\(0\) - f\.x\) < 0\)/.test(fuente), 'De frente contra un poste lo rodea por el lado de la calle');
+    ok(/return acotar\(sx\(golpe\.x\)/.test(fuente), 'Tocar fuera de lo andable camina al punto andable más cercano');
+  }
 
   // ── El suelo llega a todas partes ──
   caja.setFromObject(suelo).getSize(tam);

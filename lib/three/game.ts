@@ -42,6 +42,8 @@ import {
   WorldObstacle,
 } from '@/lib/game/world';
 import {
+  ALTO_CIUDADANO,
+  alturaSuelo,
   BolsaVista,
   crearBolsa,
   crearCarretilla,
@@ -51,17 +53,25 @@ import {
   crearObstaculos,
   crearSuelo,
   crearVegetacion,
+  LINEA_CASAS,
   LUZ,
   sx,
   sy,
+  U,
   wx,
   wz,
+  X_POSTE,
+  Z_POSTES,
 } from './escena';
 import {
   CENTRO,
   colocarCamara,
   distanciaMaximaAlTerreno,
   distanciaQueEncuadra,
+  distanciaAndableMax,
+  limitesAndables,
+  LimitesAndables,
+  mediaAnchuraAndable,
 } from './encuadre';
 import { Fx } from './fx';
 import { Audio } from './audio';
@@ -135,6 +145,9 @@ export interface GameOptions {
   encendida?: boolean;
   /** Valor de las bolsas ya entregadas, en orden de entrega (partida reanudada). */
   montosPrevios?: number[];
+  /** Píxeles CSS que tapa la interfaz por arriba (el marcador), medidos desde
+   *  el borde de arriba del lienzo. El ciudadano no se mete debajo. */
+  tapadoArriba?: () => number;
   callbacks: GameCallbacks;
 }
 
@@ -364,6 +377,67 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
 
   while (chocaSolido(sim.x, sim.y) && sim.y < PLAY.y + PLAY.h - 10) sim.y += 8;
 
+  // Troncos y postes de las aceras, en píxeles de simulación. Ahora que se
+  // anda por la acera, atravesarlos se vería como un fallo. Son redondos: se
+  // empuja al ciudadano hacia fuera y rodea el tronco solo, sin quedarse
+  // clavado. Y no hacen tropezar: el tropiezo es cosa de la basura de la
+  // calzada, no del mobiliario de la calle.
+  const fijos = [
+    ...veg.copas.datos
+      .filter((a) => Math.abs(a.x) < LINEA_CASAS)
+      .map((a) => ({ x: sx(a.x), y: sy(a.z), r: (0.3 * a.e) / U })),
+    ...Z_POSTES.map((z) => ({ x: sx(X_POSTE), y: sy(z), r: 0.2 / U })),
+  ];
+  function apartarDeFijos() {
+    for (const f of fijos) {
+      const r = f.r + CITIZEN_BODY_RADIUS;
+      const dx = sim.x - f.x;
+      const dy = sim.y - f.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= r) continue;
+      const nx = d > 0.001 ? dx / d : 1;
+      const ny = d > 0.001 ? dy / d : 0;
+      sim.x = f.x + nx * r;
+      sim.y = f.y + ny * r;
+      // Se quita la velocidad que va CONTRA el tronco; la que lo rodea sigue.
+      const contra = sim.vx * nx + sim.vy * ny;
+      if (contra < 0) {
+        const rapidez = Math.hypot(sim.vx, sim.vy);
+        sim.vx -= contra * nx;
+        sim.vy -= contra * ny;
+        // De frente contra un poste pegado a la fachada casi no queda velocidad
+        // para rodearlo, y la fachada no deja pasar por dentro: se quedaba
+        // clavado. En ese caso se le da la vuelta por el lado de la calle.
+        if (Math.hypot(sim.vx, sim.vy) < rapidez * 0.35) {
+          let tx = -ny;
+          let ty = nx;
+          if (tx * (sx(0) - f.x) < 0) {
+            tx = -tx;
+            ty = -ty;
+          }
+          sim.vx = tx * rapidez * 0.8;
+          sim.vy = ty * rapidez * 0.8;
+        }
+      }
+    }
+  }
+
+  // Por dónde se anda, en píxeles de simulación: TODA la calle que se ve,
+  // aceras incluidas. Lo calcula el encuadre en cada cambio de pantalla (ver
+  // limitesAndables); hasta el primero, vale la calzada.
+  let limites: LimitesAndables = {
+    zLejos: wz(PLAY.y),
+    zCerca: wz(PLAY.y + PLAY.h),
+    xLejos: wx(PLAY.x + PLAY.w),
+    xCerca: wx(PLAY.x + PLAY.w),
+    xFachada: wx(PLAY.x + PLAY.w),
+  };
+  function acotar(x: number, y: number) {
+    const z = Math.max(limites.zLejos, Math.min(limites.zCerca, wz(y)));
+    const media = mediaAnchuraAndable(limites, z);
+    return { x: sx(Math.max(-media, Math.min(media, wx(x)))), y: sy(z) };
+  }
+
   let destino: { x: number; y: number } | null = null;
   let presionando = false;
   const teclas = new Set<string>();
@@ -404,6 +478,20 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     const lejos = distanciaMaximaAlTerreno(camera);
     niebla.near = lejos * 1.14;
     niebla.far = lejos * 1.85;
+
+    // Lo que tapa el marcador por arriba. Con tope: una medida absurda (el
+    // marcador aún sin colocar) no puede dejar la calle sin fondo.
+    const tapado = Math.max(0, Math.min(h * 0.6, opts.tapadoArriba?.() ?? 0));
+    limites = limitesAndables(camera, {
+      lineaCasas: LINEA_CASAS,
+      radioPies: CITIZEN_FEET_RADIUS * U,
+      radioAncho: CITIZEN_RADIUS * U,
+      alto: ALTO_CIUDADANO,
+      distanciaMax: distanciaAndableMax(lejos),
+      ndcArriba: 1 - (2 * tapado) / h,
+      // Lo que antes era el tope de la calzada se sigue alcanzando siempre.
+      zFondoMinimo: wz(PLAY.y + CITIZEN_FEET_RADIUS),
+    });
   }
 
 
@@ -443,7 +531,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
     rayo.setFromCamera(ndc, camera);
     if (!rayo.ray.intersectPlane(planoSuelo, golpe)) return null;
-    return { x: sx(golpe.x), y: sy(golpe.z) };
+    return acotar(sx(golpe.x), sy(golpe.z));
   }
 
   function onDown(e: PointerEvent) {
@@ -618,11 +706,23 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       chocó = true;
     }
 
-    // El bordillo se frena con los PIES, no con el ancho dibujado. Nadie anda
-    // por la calle dejando medio metro de aire hasta la acera: se camina hasta
-    // pisar el filo, y los hombros vuelan por encima sin que pase nada.
-    sim.x = Math.max(PLAY.x + CITIZEN_FEET_RADIUS, Math.min(PLAY.x + PLAY.w - CITIZEN_FEET_RADIUS, sim.x));
-    sim.y = Math.max(PLAY.y + CITIZEN_FEET_RADIUS, Math.min(PLAY.y + PLAY.h - CITIZEN_FEET_RADIUS, sim.y));
+    // Troncos y postes. Si al apartarlo quedara metido en un obstáculo (uno
+    // pegado al bordillo junto a un árbol), se queda donde estaba: dentro de
+    // un obstáculo no podría volver a moverse.
+    apartarDeFijos();
+    if (chocaSolido(sim.x, sim.y)) {
+      sim.x = sim.prevX;
+      sim.y = sim.prevY;
+    }
+
+    // Ya NO se frena en el bordillo: se anda por toda la calle que se ve,
+    // aceras incluidas, hasta la fachada. Al tocar un límite se quita la
+    // velocidad hacia él, para que no siga andando en el sitio.
+    const acotado = acotar(sim.x, sim.y);
+    if (Math.abs(acotado.x - sim.x) > 0.01) sim.vx = 0;
+    if (Math.abs(acotado.y - sim.y) > 0.01) sim.vy = 0;
+    sim.x = acotado.x;
+    sim.y = acotado.y;
 
     // Tropiezo: solo cargando y con velocidad. NO se pierde ni dinero ni la
     // bolsa: se pierde TIEMPO.
@@ -633,7 +733,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
         b.estado = 'suelo';
         b.x = sim.x;
         b.y = sim.y + 6;
-        b.vista.grupo.position.set(wx(b.x), 0, wz(b.y));
+        b.vista.grupo.position.set(wx(b.x), alturaSuelo(wx(b.x)), wz(b.y));
         b.vista.grupo.visible = true;
       }
       sim.cargando = null;
@@ -717,7 +817,9 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     const px = sim.prevX + (sim.x - sim.prevX) * alpha;
     const py = sim.prevY + (sim.y - sim.prevY) * alpha;
 
-    ciu.grupo.position.set(wx(px), 0, wz(py));
+    // Sube el escalón de la acera en un par de fotogramas, no de golpe.
+    const suelo = alturaSuelo(wx(px));
+    ciu.grupo.position.set(wx(px), ciu.grupo.position.y + (suelo - ciu.grupo.position.y) * 0.35, wz(py));
     ciu.grupo.rotation.y = sim.rumbo;
 
     const vel = Math.hypot(sim.vx, sim.vy);
@@ -969,6 +1071,14 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     isMuted: () => audio.mudo,
     setEncendida: (v: boolean) => {
       encendida = v;
+      // Al encender aparece el marcador arriba: se vuelve a calcular por dónde
+      // se anda para que el ciudadano no se meta debajo. Un fotograma después,
+      // cuando React ya lo ha pintado.
+      if (v) {
+        requestAnimationFrame(() => {
+          if (!destruido) ajustarCamara();
+        });
+      }
       if (!v) {
         // Al apagar se suelta todo: un dedo o una tecla que siguieran
         // «pulsados» harían caminar al ciudadano en la penumbra.
