@@ -6,6 +6,8 @@ import type { GameCallbacks, GameHandle } from '@/lib/three/game';
 interface Props {
   seed: number;
   alreadyDeposited?: number[];
+  /** Valor de las bolsas ya entregadas, para pintarlo sobre la carretilla. */
+  montosPrevios?: number[];
   muted: boolean;
   /** false = calle apagada (sin partida). Cambiarlo no remonta el motor. */
   encendida: boolean;
@@ -27,7 +29,14 @@ interface Props {
  * El motor NUNCA vuelve a renderizar React: los callbacks solo saltan al
  * recoger y al entregar, no en cada fotograma.
  */
-export default function GameCanvas({ seed, alreadyDeposited, muted, encendida, callbacks }: Props) {
+export default function GameCanvas({
+  seed,
+  alreadyDeposited,
+  montosPrevios,
+  muted,
+  encendida,
+  callbacks,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const handleRef = useRef<GameHandle | null>(null);
   // Los callbacks se leen por referencia para que cambiarlos no remonte el
@@ -62,13 +71,14 @@ export default function GameCanvas({ seed, alreadyDeposited, muted, encendida, c
           seed,
           alreadyDeposited,
           encendida: encendidaRef.current,
+          montosPrevios,
           reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
           callbacks: {
             onDeposit: (id) => cbRef.current.onDeposit(id),
             onPickup: (id) => cbRef.current.onPickup?.(id),
             onState: (s) => cbRef.current.onState?.(s),
-            onCredit: (m, t) => cbRef.current.onCredit?.(m, t),
-            onFinished: () => cbRef.current.onFinished?.(),
+            onCredit: (m, t, o) => cbRef.current.onCredit?.(m, t, o),
+            onFinished: (o) => cbRef.current.onFinished?.(o),
             onError: (m) => cbRef.current.onError?.(m),
           },
         })

@@ -79,7 +79,7 @@ await pag.waitForTimeout(6000);
 // la pantalla de juego con sus botones.
 await pag.addStyleTag({
   content:
-    '.hud, .play-bar, .mc-fin, .juego-apagado, .juego-apagado-pista { display: none !important }' +
+    '.hud, .play-bar, .juego-aviso-oro, .monedas-capa, .juego-apagado, .juego-apagado-pista { display: none !important }' +
     'nextjs-portal { display: none !important }',
 });
 await pag.waitForTimeout(600);

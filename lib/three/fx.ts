@@ -23,6 +23,10 @@ import { COL } from './escena';
 
 const MAX_CARTONES = 90;
 const MAX_POLVO = 60;
+// Cartones que no vuelan a ninguna parte: cuánto se quedan en el suelo antes
+// de desvanecerse, y cuánto tardan en hacerlo.
+const VIDA_CAIDO = 1300;
+const DESVANECE_MS = 350;
 
 type Fase = 'estalla' | 'vuela';
 
@@ -49,6 +53,8 @@ interface Carton {
   suelo: number;
   escala: number;
   dorado: boolean;
+  /** Sin destino: salta, cae y se desvanece en el suelo en vez de volar. */
+  cae: boolean;
 }
 
 interface Polvo {
@@ -111,7 +117,7 @@ export class Fx {
         rx: 0, ry: 0, rz: 0, vrx: 0, vry: 0,
         vida: 0, fase: 'estalla', vuelaEn: 0, t: 0,
         desde: new Vector3(), destino: new Vector3(),
-        rebotado: false, suelo: 0, escala: 1, dorado: false,
+        rebotado: false, suelo: 0, escala: 1, dorado: false, cae: false,
       });
     }
     for (let i = 0; i < MAX_POLVO; i++) {
@@ -129,7 +135,7 @@ export class Fx {
     origen: Vector3,
     cantidad: number,
     fuerza: number,
-    destino: Vector3,
+    destino: Vector3 | null,
     dorado = false
   ) {
     let puestos = 0;
@@ -154,9 +160,10 @@ export class Fx {
       c.fase = 'estalla';
       // Escalonados 40 ms: el vuelo al contador se lee como un reguero y no
       // como un salto de todos a la vez.
-      c.vuelaEn = 420 + puestos * 40;
+      c.vuelaEn = destino ? 420 + puestos * 40 : Infinity;
       c.t = 0;
-      c.destino.copy(destino);
+      c.cae = destino === null;
+      if (destino) c.destino.copy(destino);
       c.rebotado = false;
       c.suelo = 0.1 + Math.random() * 0.1;
       c.escala = 0.85 + Math.random() * 0.4;
@@ -227,6 +234,12 @@ export class Fx {
           c.vx *= 0.86;
           c.vz *= 0.86;
         }
+        // Sin destino: tras posarse, se encoge y desaparece.
+        if (c.cae && c.vida >= VIDA_CAIDO + DESVANECE_MS) {
+          c.vivo = false;
+          this.cartones.setMatrixAt(i, this.ocultar);
+          continue;
+        }
         if (c.vida >= c.vuelaEn) {
           c.fase = 'vuela';
           c.t = 0;
@@ -246,7 +259,12 @@ export class Fx {
         }
       }
 
-      const enc = c.fase === 'vuela' ? 1 - Math.min(1, c.t / 540) * 0.55 : 1;
+      const enc =
+        c.fase === 'vuela'
+          ? 1 - Math.min(1, c.t / 540) * 0.55
+          : c.cae
+            ? 1 - Math.max(0, Math.min(1, (c.vida - VIDA_CAIDO) / DESVANECE_MS))
+            : 1;
       this.dummy.position.set(c.x, c.y, c.z);
       this.dummy.rotation.set(c.rx, c.ry, c.rz);
       this.dummy.scale.setScalar(c.escala * enc);

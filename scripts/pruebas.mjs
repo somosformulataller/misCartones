@@ -1653,7 +1653,58 @@ console.log('\n10. El estilo de la interfaz');
     'cada partida remonta el motor: la calle puede ser la misma y las bolsas entregadas se respetan'
   );
   ok(/\/api\/session/.test(juego), 'al entrar se mira si quedó una partida a medias, sin cobrar un ticket');
-  ok(/setSaldo\(acreditado\)/.test(juego), 'al reanudar, «Recogido» arranca en lo ya ganado y no en $0.00');
+  // Al reanudar, lo ya cobrado YA ESTÁ en el saldo que se ve: al final solo
+  // suben las monedas de lo que falta. Contarlo dos veces enseñaría un saldo
+  // mayor que el real hasta el siguiente refresco.
+  ok(
+    /acreditadoAlEmpezar\.current = acreditado/.test(juego),
+    'al reanudar, lo ya cobrado no vuelve a subir con las monedas del final'
+  );
+
+  // ── Las monedas y los valores, como en La Llave ──
+  const motorMonedas = leer('lib', 'three', 'game.ts');
+  const escenaMonedas = leer('lib', 'three', 'escena.ts');
+  ok(
+    /ponerEtiqueta\(n, res\.monto, true\)/.test(motorMonedas),
+    'cada bolsa vaciada deja su valor flotando sobre la carretilla'
+  );
+  ok(
+    /export function crearEtiquetaValor/.test(escenaMonedas) &&
+      /new Mesh\(GEO_BOLSA, MAT_FUNDIDO\)/.test(escenaMonedas.slice(escenaMonedas.indexOf('export function crearCarretilla'))),
+    'las bolsas entregadas se ven dentro de la carretilla, no un montón de cartones'
+  );
+  ok(
+    /burstCartones\(\s*origen,[\s\S]{0,160}null,/.test(motorMonedas) && !/destinoHud/.test(motorMonedas),
+    'los cartones saltan y caen: ya no vuelan al contador, porque el saldo no se mueve durante la partida'
+  );
+  ok(
+    /const onCredit = useCallback\([\s\S]{0,500}setSalto\(/.test(juego) &&
+      (juego.match(/updateBalance\(/g) || []).length === 1 &&
+      juego.indexOf('updateBalance(') > juego.indexOf('const lanzarVuelo'),
+    'cada bolsa hace saltar monedas SIN tocar el saldo: solo lo sube el vuelo del final'
+  );
+  ok(
+    /lanzarVuelo\(origen, total/.test(juego),
+    'con la última bolsa las monedas vuelan al saldo y cada llegada suma su parte'
+  );
+  ok(
+    /VUELO_MONEDAS = 10;/.test(juego) && /VUELO_ESCALON_MS = 140;/.test(juego) && /VUELO_VIAJE_MS = 750;/.test(juego) &&
+      /SALTO_MONEDAS = 9;/.test(juego) && /SALTO_MS = 1150;/.test(juego),
+    'las monedas tienen los tiempos de La Llave (salto de 9 en 1,15 s; vuelo de 10, cada 140 ms, en 0,75 s)'
+  );
+  ok(
+    !/mc-premio|mc-fin/.test(juego) && !/mc-premio|mc-fin/.test(css),
+    'sin cartel de premio al terminar (se omite, como se pidió) y sin su CSS'
+  );
+  const sesionMonedas = leer('app', 'api', 'session', 'route.ts');
+  const respuestaSesion = sesionMonedas.slice(sesionMonedas.lastIndexOf('return NextResponse.json({'));
+  ok(
+    /bag_montos: bagSplit\([^\n]*\)\.slice\(0, entregadas\.length\)/.test(sesionMonedas) &&
+      // La respuesta USA target_payout para calcular el reparto; lo que no
+      // puede llevar es esa CLAVE, que entregaría el premio de la partida.
+      !/target_payout\s*:/.test(respuestaSesion),
+    'al reanudar se devuelve el valor de las bolsas YA cobradas, nunca el premio ni lo que falta'
+  );
   ok(
     /total_credited/.test(leer('app', 'api', 'buy-ticket', 'route.ts')),
     'reanudar por /api/buy-ticket también devuelve lo ya acreditado'

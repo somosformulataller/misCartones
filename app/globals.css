@@ -3767,8 +3767,7 @@ h1, h2, h3,
 .stat-value,
 .top-value,
 .qty-number,
-.mc-cifra,
-.mc-premio-cifra {
+.mc-cifra {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }
@@ -4233,8 +4232,7 @@ textarea.form-input,
    son el único sitio de la app donde un número tiene que gritar. */
 .wallet-big,
 .stat-value,
-.top-value,
-.mc-premio-cifra {
+.top-value {
   color: var(--mc-gold);
   text-shadow: 0 2px 0 var(--mc-gold-lip);
 }
@@ -4288,34 +4286,6 @@ textarea.form-input,
 
 .mc-escena {
   background: var(--mc-sky);
-}
-
-/* El premio, al terminar: la única cifra de todo el juego a este tamaño. */
-.mc-premio {
-  display: grid;
-  gap: 8px;
-  padding: 22px 30px;
-  background: var(--mc-panel);
-  box-shadow:
-    inset 0 0 0 1px var(--mc-borde),
-    var(--shadow-card);
-}
-
-.mc-premio-rotulo {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-secondary);
-}
-
-.mc-premio-cifra {
-  margin: 0;
-  font-size: 3.1rem;
-  font-weight: 700;
-  line-height: 1.1;
 }
 
 /* ── 14 · Remates ─────────────────────────────────────────────────────── */
@@ -4643,13 +4613,6 @@ textarea.form-input,
 
 .mc-escena { background: transparent; }
 
-.mc-premio {
-  background: rgba(253, 250, 243, 0.9);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.6),
-    0 12px 30px rgba(10, 18, 14, 0.4);
-}
-
 /* ══════════════════════════════════════════════════════════════════════════
    EL ACABADO: PIEDRA, MARCO Y RÓTULO
 
@@ -4674,8 +4637,7 @@ textarea.form-input,
 .app-shell .perfil-card,
 .app-shell .modal-card,
 .app-shell .admin-card,
-.app-shell .stat-card,
-.mc-premio {
+.app-shell .stat-card {
   background-color: var(--mc-panel);
   background-image: url('/textura-piedra.png');
   background-size: 128px;
@@ -4917,7 +4879,6 @@ textarea.form-input,
 .wallet-inner-title,
 .buy-title,
 .rn-nivel,
-.mc-premio-rotulo,
 .instalar-pwa__titulo {
   color: #fbf8ee;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
@@ -4960,7 +4921,6 @@ textarea.form-input,
 .wallet-big,
 .stat-value,
 .top-value,
-.mc-premio-cifra,
 .qty-number {
   color: var(--mc-gold);
   text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
@@ -5001,8 +4961,7 @@ textarea.form-input,
 .app-shell .stat-card,
 .app-shell .game-header,
 .app-shell .play-bar,
-.app-shell .menu-list,
-.mc-premio {
+.app-shell .menu-list {
   background-size: 116px;
 }
 
@@ -5111,8 +5070,8 @@ textarea.form-input,
   font-size: 1.05rem;
 }
 
-/* Lo recogido es oro, como la barra: es dinero. */
-.hud-recogido {
+/* El saldo es oro, como la barra: es dinero. */
+.hud-saldo {
   display: grid;
   justify-items: end;
   gap: 3px;
@@ -5128,7 +5087,7 @@ textarea.form-input,
     0 10px 18px rgba(6, 12, 9, 0.4);
 }
 
-.hud-recogido-rotulo {
+.hud-saldo-rotulo {
   font-family: var(--font-display);
   font-size: 0.6rem;
   font-weight: 700;
@@ -5137,7 +5096,7 @@ textarea.form-input,
   opacity: 0.8;
 }
 
-.hud-recogido-cifra {
+.hud-saldo-cifra {
   font-family: var(--font-display);
   font-size: 1.45rem;
   font-weight: 700;
@@ -5243,39 +5202,7 @@ textarea.form-input,
   background-image: linear-gradient(180deg, #fff6d6 0%, #fadf8e 50%, #e2b84d 100%);
 }
 
-/* ── Al terminar: el premio encima de la calle ── */
-
-.mc-fin {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 28%;
-  z-index: 3;
-  display: flex;
-  justify-content: center;
-  padding: 0 20px;
-  pointer-events: none;
-  text-align: center;
-}
-
-.mc-fin .mc-premio {
-  animation: mc-fin-entra 450ms ease-out both;
-}
-
-.mc-fin-nota {
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: 0.8rem;
-  color: #d9d3c3;
-}
-
-@keyframes mc-fin-entra {
-  from { opacity: 0; transform: translateY(14px) scale(0.96); }
-  to   { opacity: 1; transform: none; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .mc-fin .mc-premio { animation: none; }
   .hud-bolsa { transition: none; }
 }
 
@@ -5385,4 +5312,91 @@ textarea.form-input,
 
 @media (prefers-reduced-motion: reduce) {
   .juego-apagado-pista { animation: none; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LAS MONEDAS Y LOS VALORES, COMO EN LA LLAVE
+
+   Cada bolsa vaciada hace saltar un puñado de monedas que cae, y un aviso dice
+   cuánto dio; el saldo no se mueve. Con la última, las monedas suben de la
+   carretilla al saldo y cada llegada suma su parte. Las monedas son DOM, como
+   en La Llave: diez emojis animados no le cuestan nada a la escena 3D.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Capa sin tamaño clavada en el punto de salida: cada moneda se mueve desde
+   ahí con su propio transform. */
+.monedas-capa {
+  position: fixed;
+  z-index: 60;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.moneda {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: -0.6em 0 0 -0.5em;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+
+.moneda-salto {
+  font-size: 1.9rem;
+  filter: drop-shadow(0 0 9px rgba(245, 197, 24, 0.85));
+}
+
+.moneda-vuelo {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 8px rgba(245, 197, 24, 0.75));
+}
+
+/* El aviso de cada bolsa y el del final. Centrado con márgenes y no con
+   transform: el transform lo usa la animación, y se pisarían. Debajo de la
+   fila de las bolsas del HUD. */
+.juego-aviso-oro {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 128px;
+  z-index: 4;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(20, 14, 6, 0.88);
+  color: #ffe58c;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 0 0 3px #46310a, 0 8px 18px rgba(6, 12, 9, 0.45);
+}
+
+.juego-aviso-oro strong {
+  font-family: var(--font-display);
+  color: #ffd23f;
+}
+
+.juego-ganaste {
+  top: 34%;
+  font-size: 0.95rem;
+}
+
+/* El saldo mientras llegan las monedas: se enciende en verde, como el de La
+   Llave, y vuelve al oro cuando termina. */
+.hud-saldo.hud-saldo-sube {
+  background: linear-gradient(180deg, #c2ff9f 0%, #7ee765 48%, #45bd3c 100%);
+  color: #0f3a0c;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -4px 0 rgba(20, 90, 20, 0.45),
+    0 0 0 3px #1d4a12,
+    0 var(--mc-labio) 0 3px #2d7a24,
+    0 0 22px rgba(126, 211, 106, 0.55);
 }

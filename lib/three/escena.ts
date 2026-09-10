@@ -27,6 +27,7 @@
 import {
   BoxGeometry,
   BufferGeometry,
+  CanvasTexture,
   CircleGeometry,
   Color,
   ConeGeometry,
@@ -43,6 +44,9 @@ import {
   PlaneGeometry,
   Quaternion,
   SphereGeometry,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
   TorusGeometry,
   Vector3,
 } from 'three';
@@ -1605,27 +1609,87 @@ export function crearCarretilla(): CarretillaVista {
   grupo.add(tolva);
   grupo.add(new Mesh(GEO_CHASIS, MAT_FUNDIDO));
 
-  // Montón que crece con cada entrega: el marcador de progreso del juego.
+  // Las BOLSAS entregadas, a la vista dentro de la carretilla: tres en el
+  // fondo y dos encima, en pirámide. Antes eran cartones apilados y el jugador
+  // no veía que lo que había traído seguía ahí. Es la misma bolsa del suelo, a
+  // escala: su geometría fundida es compartida, así que cinco bolsas cuestan
+  // cinco llamadas de dibujo, las mismas que los cartones de antes.
+  // Van en la mitad ANCHA del trapecio (el fondo de la tolva está a 0,59): el
+  // morro y la rueda siguen despejados y la silueta se lee aunque esté llena.
   const capas: Mesh[] = [];
-  for (let i = 0; i < 5; i++) {
-    const ultima = i === 4;
-    // Van en la mitad ANCHA del trapecio, no centrados: así el morro y la
-    // rueda siguen despejados y la silueta se lee aunque esté llena.
-    const c = new Mesh(
-      new BoxGeometry(1.32 - i * 0.09, 0.24, 1.2 - i * 0.08),
-      mat(ultima ? COL.cartonDorado : COL.carton)
-    );
-    c.position.z = 0.5;
-    // Arranca DENTRO de la tolva (su fondo está a 0,59) y va asomando por
-    // encima del labio: así el montón se lee como carga, no como una tapa.
-    c.position.y = 0.74 + i * 0.21;
-    c.rotation.y = i * 0.4;
+  const RANURAS: [number, number, number][] = [
+    [-0.46, 0.6, 0.42],
+    [0, 0.6, 0.5],
+    [0.46, 0.6, 0.42],
+    [-0.23, 0.98, 0.46],
+    [0.23, 0.98, 0.46],
+  ];
+  RANURAS.forEach(([x, y, z], i) => {
+    const c = new Mesh(GEO_BOLSA, MAT_FUNDIDO);
+    c.position.set(x, y, z);
+    c.rotation.y = i * 1.3;
+    c.scale.setScalar(ESCALA_BOLSA_CARRETILLA);
+    // El bucle de animación la hace entrar con un salto hasta esta escala.
+    c.userData.escala = ESCALA_BOLSA_CARRETILLA;
     c.visible = false;
     grupo.add(c);
     capas.push(c);
-  }
+  });
 
   return { grupo, tolva, aura, capas };
+}
+
+/** La bolsa del suelo mide ~1,7 de alto; dentro de la carretilla va a escala
+ *  para que quepan cinco sin tapar la rueda. */
+const ESCALA_BOLSA_CARRETILLA = 0.4;
+/** Ancho de la etiqueta en unidades de mundo; el alto es la mitad. Medido en
+ *  captura: a 2,1 ocupaba ~36 px en un teléfono de 390 y el monto no se leía;
+ *  a 3,4 ronda los 58 px. */
+const ESCALA_ETIQUETA = 3.4;
+
+/**
+ * Etiqueta con el valor de una bolsa, flotando sobre la carretilla. La misma
+ * pieza que el portallaves de La Llave: una píldora oscura con borde de oro y
+ * el monto en dorado. Es un Sprite —siempre de frente a la cámara— con la
+ * textura dibujada en un canvas UNA vez, al crearla: nada por fotograma.
+ */
+export function crearEtiquetaValor(texto: string): Sprite {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 256;
+  lienzo.height = 128;
+  const g = lienzo.getContext('2d');
+  if (g) {
+    const r = 44;
+    g.beginPath();
+    g.moveTo(12 + r, 14);
+    g.arcTo(244, 14, 244, 114, r);
+    g.arcTo(244, 114, 12, 114, r);
+    g.arcTo(12, 114, 12, 14, r);
+    g.arcTo(12, 14, 244, 14, r);
+    g.closePath();
+    g.fillStyle = 'rgba(20, 14, 6, 0.9)';
+    g.fill();
+    g.lineWidth = 8;
+    g.strokeStyle = '#c8942f';
+    g.stroke();
+    g.fillStyle = '#ffd23f';
+    g.font = 'bold 60px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    // El ancho máximo condensa solos los montos largos, como «+$12.50».
+    g.fillText(texto, 128, 68, 210);
+  }
+  const mapa = new CanvasTexture(lienzo);
+  mapa.colorSpace = SRGBColorSpace;
+  const etiqueta = new Sprite(
+    // Sin prueba de profundidad: la etiqueta no puede quedar tapada por la
+    // propia carretilla ni por el ciudadano que se acerca a ella.
+    new SpriteMaterial({ map: mapa, transparent: true, depthTest: false, depthWrite: false })
+  );
+  etiqueta.renderOrder = 10;
+  etiqueta.scale.set(ESCALA_ETIQUETA, ESCALA_ETIQUETA / 2, 1);
+  etiqueta.userData.escala = ESCALA_ETIQUETA;
+  return etiqueta;
 }
 
 // ── Ciudadano ───────────────────────────────────────────────────────────────

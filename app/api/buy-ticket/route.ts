@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, isAdminClientConfigured } from '@/lib/supabase/admin';
 import { drawSessionTier, drawWorldSeed } from '@/lib/game/rng';
 import { TOTAL_BAGS } from '@/lib/game/constants';
+import { bagSplit } from '@/lib/game/bagSplit';
 
 /**
  * Inicia una partida consumiendo 1 ticket.
@@ -73,7 +74,7 @@ export async function POST() {
     // cobra otro ticket.
     const { data: existing } = await supabase
       .from('game_runs')
-      .select('id, world_seed, bags_deposited, credited')
+      .select('id, world_seed, bags_deposited, credited, target_payout')
       .eq('player_id', user.id)
       .eq('game_status', 'ACTIVE')
       .maybeSingle();
@@ -89,6 +90,8 @@ export async function POST() {
           bags_remaining: TOTAL_BAGS - entregadas.length,
           // Lo ya ganado: sin esto la partida reanudada enseñaba $0.00.
           total_credited: Number(existing.credited ?? 0),
+          // Solo lo ya cobrado, por orden de entrega; nunca lo que falta.
+          bag_montos: bagSplit(Number(existing.target_payout), existing.id).slice(0, entregadas.length),
         },
         { status: 409 }
       );

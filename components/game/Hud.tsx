@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface Props {
+  /** El saldo del jugador. Durante la partida NO se mueve: sube al final,
+   *  moneda a moneda, cuando vuelan desde la carretilla. */
   saldo: number;
+  /** true mientras llegan monedas: el contador se enciende en verde. */
+  subiendo: boolean;
+  /** Sube con cada moneda que llega; cambiarlo relanza el pulso. */
+  pulso: number;
   bolsasEntregadas: number;
   totalBolsas: number;
   cargando: boolean;
@@ -13,21 +19,25 @@ interface Props {
 }
 
 /**
- * El HUD va en DOM encima del canvas, no dentro de Pixi: el texto del
+ * El HUD va en DOM encima del canvas, no dentro del motor: el texto del
  * navegador es más nítido, se escala solo con el sistema y no gasta texturas.
  *
- * El contador NO salta al monto final: sube suavizado, y da un pulso de escala
- * mientras sube. Es lo que hace que los cartones que vuelan hasta aquí se
- * sientan la causa del número, y no un adorno paralelo.
+ * El contador es el SALDO, como el «TU SALDO» de La Llave, y no lo recogido en
+ * la partida. Durante la partida se queda quieto —el valor de cada bolsa se ve
+ * encima de ella, en la carretilla— y al vaciar la última suben las monedas y
+ * cada llegada suma su parte. No salta: sube suavizado y se enciende mientras
+ * llegan.
  *
  * Dos filas, y nada flotando por su cuenta. Los puntos de las bolsas iban
  * centrados con posición absoluta en la MISMA franja que los botones, y en un
  * teléfono de 360-390 px el botón del sonido les caía encima (medido: se
  * pisaban en los dos anchos). Ahora cada pieza tiene su hueco: arriba salir,
- * sonido y lo recogido; debajo, las bolsas.
+ * sonido y el saldo; debajo, las bolsas.
  */
 export default function Hud({
   saldo,
+  subiendo,
+  pulso,
   bolsasEntregadas,
   totalBolsas,
   cargando,
@@ -78,12 +88,19 @@ export default function Hud({
           </button>
         </div>
 
-        {/* El `key` remonta el nodo con cada entrega, así la animación de
-            pulso se reproduce otra vez. Es más barato y más fiable que
-            encender y apagar un estado con un temporizador. */}
-        <div key={bolsasEntregadas} className="hud-recogido pulso-contador" data-hud>
-          <span className="hud-recogido-rotulo">Recogido</span>
-          <span className="hud-recogido-cifra">${mostrado.toFixed(2)}</span>
+        {/* El `key` remonta la pieza con cada moneda que llega, así el pulso
+            se reproduce otra vez. Es más barato y más fiable que encender y
+            apagar un estado con un temporizador. */}
+        <div
+          key={pulso}
+          className={`hud-saldo${subiendo ? ' hud-saldo-sube' : ''}${pulso > 0 ? ' pulso-contador' : ''}`}
+          data-hud
+        >
+          <span className="hud-saldo-rotulo">Tu saldo</span>
+          {/* Aquí aterrizan las monedas del final. */}
+          <span className="hud-saldo-cifra" data-destino-monedas>
+            ${mostrado.toFixed(2)}
+          </span>
         </div>
       </div>
 

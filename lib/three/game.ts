@@ -24,6 +24,7 @@ import {
   Plane,
   Raycaster,
   Scene,
+  Sprite,
   Vector2,
   Vector3,
   WebGLRenderer,
@@ -45,6 +46,7 @@ import {
   crearBolsa,
   crearCarretilla,
   crearCiudad,
+  crearEtiquetaValor,
   crearCiudadano,
   crearObstaculos,
   crearSuelo,
@@ -95,6 +97,19 @@ const RITMO_APAGAR = 1.8;
 // vez de 60, para que el teléfono no se caliente mientras espera.
 const FPS_APAGADA = 24;
 
+// Dónde flota el valor de cada bolsa, respecto al centro de la carretilla y en
+// orden de entrega: tres arriba y dos debajo, en zigzag, como el portallaves de
+// La Llave. Con etiquetas de 3,4 de ancho: 3,8 entre columnas para que no se
+// toquen de lado, y 3,2 entre filas porque la cámara inclinada aplasta la
+// profundidad (una unidad de Z ocupa menos pantalla que una de ancho).
+const ETIQUETAS: readonly [number, number, number][] = [
+  [-3.8, 1.6, -6.0],
+  [0, 1.6, -6.0],
+  [3.8, 1.6, -6.0],
+  [-1.9, 1.6, -2.8],
+  [1.9, 1.6, -2.8],
+];
+
 
 export interface ResultadoEntrega {
   monto: number;
@@ -106,8 +121,9 @@ export interface GameCallbacks {
   onDeposit: (bagId: number) => Promise<ResultadoEntrega>;
   onPickup?: (bagId: number) => void;
   onState?: (s: { bagsLeft: number; carrying: boolean; deposited: number }) => void;
-  onCredit?: (monto: number, total: number) => void;
-  onFinished?: () => void;
+  /** `origen`: la carretilla en la pantalla, en píxeles CSS. De ahí saltan las monedas. */
+  onCredit?: (monto: number, total: number, origen: { x: number; y: number }) => void;
+  onFinished?: (origen: { x: number; y: number }) => void;
   onError?: (msg: string) => void;
 }
 
@@ -117,6 +133,8 @@ export interface GameOptions {
   reducedMotion?: boolean;
   /** false = calle apagada: en penumbra, sin responder al dedo ni al teclado. */
   encendida?: boolean;
+  /** Valor de las bolsas ya entregadas, en orden de entrega (partida reanudada). */
+  montosPrevios?: number[];
   callbacks: GameCallbacks;
 }
 
@@ -245,10 +263,46 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   });
 
   let entregadas = yaEntregadas.size;
-  const pintarCarretilla = () => {
-    cart.capas.forEach((c, i) => (c.visible = i < entregadas));
+  // Las bolsas entregadas se QUEDAN a la vista dentro de la carretilla. La que
+  // acaba de entrar aparece con un salto (lo anima el bucle), no de golpe.
+  const pintarCarretilla = (salto = false) => {
+    cart.capas.forEach((c, i) => {
+      const dentro = i < entregadas;
+      if (dentro && !c.visible && salto && !reduced) c.scale.setScalar(0.01);
+      c.visible = dentro;
+    });
   };
   pintarCarretilla();
+
+  // ── El valor de cada bolsa, sobre la carretilla ──
+  // Como las llaves colgadas en la puerta de La Llave, cada una con su valor:
+  // al vaciar una bolsa, su monto se queda flotando junto a ella toda la
+  // partida. Los de una partida reanudada llegan del servidor, ya cobrados.
+  const centroCarretilla = new Vector3(wx(world.cart.x), 0, wz(world.cart.y));
+  const etiquetas: (Sprite | null)[] = ETIQUETAS.map(() => null);
+  function ponerEtiqueta(i: number, monto: number, salto: boolean) {
+    if (i < 0 || i >= ETIQUETAS.length || etiquetas[i]) return;
+    const e = crearEtiquetaValor(`+$${monto.toFixed(2)}`);
+    const [dx, dy, dz] = ETIQUETAS[i];
+    e.position.set(centroCarretilla.x + dx, dy, centroCarretilla.z + dz);
+    if (salto && !reduced) e.scale.set(0.01, 0.005, 1);
+    mundo.add(e);
+    etiquetas[i] = e;
+  }
+  (opts.montosPrevios ?? []).forEach((m, i) => {
+    if (i < entregadas) ponerEtiqueta(i, Number(m), false);
+  });
+
+  // La carretilla en la pantalla, en píxeles CSS: de ahí salen las monedas.
+  const _enPantalla = new Vector3();
+  function carretillaEnPantalla() {
+    _enPantalla.set(centroCarretilla.x, 1.4, centroCarretilla.z).project(camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    return {
+      x: r.left + ((_enPantalla.x + 1) / 2) * r.width,
+      y: r.top + ((1 - _enPantalla.y) / 2) * r.height,
+    };
+  }
 
   const ciu = crearCiudadano();
   mundo.add(ciu.grupo);
@@ -350,20 +404,8 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     const lejos = distanciaMaximaAlTerreno(camera);
     niebla.near = lejos * 1.14;
     niebla.far = lejos * 1.85;
-
-    calcularDestinoHud();
   }
 
-  // ── Destino de los cartones: donde está el contador del HUD ───────────────
-  // El HUD es DOM y vive fuera de la escena, así que se proyecta ese punto de
-  // la pantalla a una posición del mundo delante de la cámara.
-  const destinoHud = new Vector3();
-  function calcularDestinoHud() {
-    // Esquina superior derecha, que es donde está el contador.
-    destinoHud.set(0.72, 0.86, 0.5).unproject(camera);
-    // Se acerca a la cámara para que el cartón "salga" de la escena al llegar.
-    destinoHud.lerp(camera.position, 0.55);
-  }
 
   ajustarCamara();
 
@@ -456,15 +498,18 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     ciu.bolsaHombro.visible = false;
     sim.cargando = null;
     entregadas++;
-    pintarCarretilla();
+    pintarCarretilla(true);
 
     const ultima = entregadas >= bolsas.length;
     const origen = new Vector3(wx(world.cart.x), 1.5, wz(world.cart.y));
+    // Los cartones saltan y CAEN: ya no vuelan al contador, porque el saldo no
+    // se mueve durante la partida. Las monedas las pone la pantalla (DOM), como
+    // en La Llave, a partir de `origen` en onCredit.
     fx.burstCartones(
       origen,
       ultima ? 60 : 20 + Math.floor(Math.random() * 10),
       ultima ? 1.35 : 1,
-      destinoHud,
+      null,
       ultima
     );
 
@@ -498,10 +543,12 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       });
     } else {
       bolsa.vista.grupo.visible = false;
-      opts.callbacks.onCredit?.(res.monto, entregadas);
+      ponerEtiqueta(n, res.monto, true);
+      const origenPantalla = carretillaEnPantalla();
+      opts.callbacks.onCredit?.(res.monto, entregadas, origenPantalla);
       if (res.finished) {
         audio.victoria();
-        opts.callbacks.onFinished?.();
+        opts.callbacks.onFinished?.(origenPantalla);
       }
     }
 
@@ -728,6 +775,25 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     const objetivoAura = sim.cargando !== null ? 0.45 + Math.sin(sim.tiempo / 200) * 0.2 : 0;
     auraMat.opacity += (objetivoAura - auraMat.opacity) * 0.12;
 
+    // Bolsas de la carretilla y sus valores: el salto con que entran.
+    for (const c of cart.capas) {
+      if (!c.visible) continue;
+      const base = c.userData.escala as number;
+      if (c.scale.x !== base) {
+        const k = c.scale.x + (base - c.scale.x) * 0.22;
+        c.scale.setScalar(Math.abs(base - k) < 0.002 ? base : k);
+      }
+    }
+    for (const e of etiquetas) {
+      if (!e) continue;
+      const base = e.userData.escala as number;
+      if (e.scale.x !== base) {
+        const k0 = e.scale.x + (base - e.scale.x) * 0.2;
+        const k = Math.abs(base - k0) < 0.004 ? base : k0;
+        e.scale.set(k, k / 2, 1);
+      }
+    }
+
     // Viento: las copas se mecen. Son ~26 matrices por fotograma, nada.
     const copas = veg.copas.malla;
     veg.copas.datos.forEach((a, i) => {
@@ -873,6 +939,14 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
 
     // Liberar TODA la memoria de la GPU: geometrías, materiales y el contexto.
     scene.traverse((o) => {
+      // Los Sprite comparten UNA geometría interna de three: liberarla desde
+      // una etiqueta la rompería para todas. Se liberan su textura y su material.
+      if ((o as Sprite).isSprite) {
+        const sm = (o as Sprite).material;
+        sm.map?.dispose();
+        sm.dispose();
+        return;
+      }
       const m = o as unknown as {
         geometry?: { dispose(): void };
         material?: { dispose(): void } | { dispose(): void }[];
