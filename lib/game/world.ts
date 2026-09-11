@@ -12,8 +12,8 @@
 //   · SIEMPRE existe una ruta libre entre cada bolsa y la carretilla. Se
 //     comprueba con una rejilla de ocupación y una inundación desde la
 //     carretilla; si alguna bolsa queda aislada, se resortea el escenario.
-//   · Las 5 repartidas en celdas distintas, para que el recorrido use toda
-//     la pantalla.
+//   · WORLD_BAGS bolsas (15) por toda la calzada. Se cobran las 5 primeras
+//     que el jugador lleve a la carretilla: cuáles, lo elige él.
 //
 // Nada de Date, Math.random ni DOM: la misma semilla da el mismo escenario en
 // cualquier motor de JavaScript.
@@ -50,8 +50,10 @@ export const CART_RADIUS = 100;
 // La separación mínima entre bolsas y la holgura con los obstáculos suben con
 // el radio de la bolsa: con bolsas de 36 y una separación de 90 quedarían a
 // 18 px de distancia entre bordes, prácticamente pegadas. Se calculan a partir
-// del radio para que agrandar la bolsa no las pegue: 36 px entre bordes.
-const MIN_BAG_GAP = BAG_RADIUS * 2 + 36;
+// del radio para que agrandar la bolsa no las pegue: 24 px entre bordes.
+// MEDIDO con 15 bolsas en la calzada: con 36 px fallaba el 30 % de los
+// intentos de colocación; con 24, el 3,7 % (y esos se resortean).
+const MIN_BAG_GAP = BAG_RADIUS * 2 + 24;
 // Y la distancia mínima a la carretilla sube con CART_RADIUS: con una tolva de
 // 100 y una bolsa de 36, cualquier valor por debajo de 136 pondría la bolsa
 // DENTRO de la carretilla y el viaje duraría cero pasos.
@@ -61,7 +63,10 @@ const MAX_CART_DIST = 620;
  *  10 px de aire. */
 const BAG_CLEARANCE = BAG_RADIUS + 10;
 
+/** Las bolsas que se ENTREGAN (y cobran) en cada partida. */
 export const TOTAL_BAGS = 5;
+/** Las bolsas que hay en la calle. Las que sobran no pagan nada: son elección. */
+export const WORLD_BAGS = 15;
 
 /**
  * Lo que estorba en una calle descuidada. La lista sale de la referencia, no
@@ -239,22 +244,14 @@ function intento(seed: number): World | null {
     y: centro.y + margen(centro.h) + rnd() * (centro.h - margen(centro.h) * 2),
   };
 
-  // Cinco de las ocho celdas de alrededor, barajadas.
-  const around = sectors.filter((s) => s.i !== 4);
-  for (let i = around.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [around[i], around[j]] = [around[j], around[i]];
-  }
-  const elegidas = around.slice(0, TOTAL_BAGS);
-
-  // Una bolsa por celda, con hasta 40 tiros para cumplir las distancias.
+  // WORLD_BAGS bolsas por toda la calzada, cada una con hasta 80 tiros para
+  // cumplir las distancias. Si alguna no cabe, se resortea el escenario.
   const bags: WorldBag[] = [];
-  for (let i = 0; i < TOTAL_BAGS; i++) {
-    const s = elegidas[i];
+  for (let i = 0; i < WORLD_BAGS; i++) {
     let colocada: WorldBag | null = null;
-    for (let t = 0; t < 40 && !colocada; t++) {
-      const x = s.x + BAG_RADIUS + rnd() * (s.w - BAG_RADIUS * 2);
-      const y = s.y + BAG_RADIUS + rnd() * (s.h - BAG_RADIUS * 2);
+    for (let t = 0; t < 80 && !colocada; t++) {
+      const x = PLAY.x + BAG_RADIUS + rnd() * (PLAY.w - BAG_RADIUS * 2);
+      const y = PLAY.y + BAG_RADIUS + rnd() * (PLAY.h - BAG_RADIUS * 2);
       const d = dist(x, y, cart.x, cart.y);
       if (d < MIN_CART_DIST || d > MAX_CART_DIST) continue;
       if (bags.some((b) => dist(x, y, b.x, b.y) < MIN_BAG_GAP)) continue;
@@ -305,15 +302,18 @@ export function buildWorld(seed: number): World {
   }
   const base = intento(seed >>> 0);
   if (base) return { ...base, obstacles: [] };
-  // Último recurso, imposible en la práctica: escenario mínimo válido.
+  // Último recurso, imposible en la práctica: una rejilla fija que cumple
+  // todas las distancias (4 columnas cada 154 px; dos filas por encima y dos
+  // por debajo de la carretilla, a 140 px entre sí y a 295 px de ella).
+  const xs = [0, 1, 2, 3].map((c) => PLAY.x + PLAY.w / 8 + (c * PLAY.w) / 4);
+  const ys = [262, 402, 972, 1112];
   return {
     seed,
     cart: { x: STAGE_W / 2, y: PLAY.y + PLAY.h / 2 },
-    bags: Array.from({ length: TOTAL_BAGS }, (_, i) => ({
-      id: i,
-      x: PLAY.x + ((i + 1) * PLAY.w) / (TOTAL_BAGS + 1),
-      y: PLAY.y + 80,
-    })),
+    bags: ys
+      .flatMap((y) => xs.map((x) => ({ x, y })))
+      .slice(0, WORLD_BAGS)
+      .map((p, i) => ({ id: i, ...p })),
     obstacles: [],
   };
 }

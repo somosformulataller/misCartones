@@ -125,9 +125,9 @@ export default function JuegoPage() {
       setYaEntregadas(previas);
       setMontos(montos);
       setEntregadas(previas.length);
-      // Lo ya cobrado en esa partida YA ESTÁ en el saldo que se ve: se cobró
-      // antes de cerrar la app. Al final solo suben las monedas de lo que falta;
-      // contarlo otra vez enseñaría un saldo mayor que el real.
+      // El saldo se cobra entero con la 5ª bolsa, así que aquí suele llegar 0.
+      // Solo una partida empezada antes de ese cambio trae algo ya cobrado, que
+      // YA ESTÁ en el saldo: al final suben las monedas de lo que falta.
       acreditadoAlEmpezar.current = acreditado;
       totalAcreditado.current = acreditado;
       premio.current = null;

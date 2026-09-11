@@ -1542,21 +1542,36 @@ export function crearObstaculos(obstaculos: WorldObstacle[]): Group {
 
 // ── Bolsa ───────────────────────────────────────────────────────────────────
 
-export interface BolsaVista {
+export interface BolsasVista {
   grupo: Group;
-  cuerpo: Mesh;
+  /** Un cuerpo por bolsa, en UNA llamada de dibujo. El motor pone cada matriz. */
+  cuerpos: InstancedMesh;
+  sombras: InstancedMesh;
+  /** Un solo halo: el de la bolsa más cercana, que es la que se va a recoger. */
   brillo: Mesh;
 }
 
-/** La bolsa colocada en el suelo, con su sombra y su halo. La geometría del
- *  cuerpo está en GEO_BOLSA. */
-export function crearBolsa(): BolsaVista {
+/** Las bolsas de la calle, con sus sombras y el halo. La geometría del cuerpo
+ *  está en GEO_BOLSA.
+ *
+ *  Van INSTANCIADAS: con 15 bolsas, una malla por bolsa costaba 45 llamadas de
+ *  dibujo (cuerpo, sombra y halo) y la escena pasaba del presupuesto de un
+ *  teléfono flojo. Así son tres, haya las bolsas que haya. */
+export function crearBolsas(n: number): BolsasVista {
   const grupo = new Group();
 
-  const sombra = new Mesh(new CircleGeometry(0.95 * ESCALA_BOLSA, 14).rotateX(-Math.PI / 2), MAT_SOMBRA);
-  sombra.position.y = 0.025;
-  sombra.scale.set(1, 1, 0.88);
-  grupo.add(sombra);
+  const sombras = new InstancedMesh(
+    new CircleGeometry(0.95 * ESCALA_BOLSA, 14).rotateX(-Math.PI / 2).scale(1, 1, 0.88),
+    MAT_SOMBRA,
+    n
+  );
+  const cuerpos = new InstancedMesh(GEO_BOLSA, MAT_FUNDIDO, n);
+  // Las matrices cambian en cada fotograma: la esfera de recorte que three
+  // calcula una vez quedaría vieja y podría esconder bolsas que se ven.
+  for (const m of [sombras, cuerpos]) {
+    m.frustumCulled = false;
+    grupo.add(m);
+  }
 
   // Halo que se enciende al acercarse: la anticipación de la que habla el plan.
   // Sobre asfalto gris hace falta más que sobre pasto, porque la bolsa es
@@ -1565,17 +1580,10 @@ export function crearBolsa(): BolsaVista {
     new CircleGeometry(1.6 * ESCALA_BOLSA, 18).rotateX(-Math.PI / 2),
     new MeshBasicMaterial({ color: 0xfff0a8, transparent: true, opacity: 0, depthWrite: false })
   );
-  brillo.position.y = 0.045;
+  brillo.visible = false;
   grupo.add(brillo);
 
-  // Todo el cuerpo va FUNDIDO en una sola geometría. La bolsa no articula
-  // ninguna pieza —se escala y gira entera—, así que no hay motivo para que
-  // trece mallas cuesten trece llamadas de dibujo. Con cinco bolsas en
-  // pantalla, fundirlas ahorra 60 llamadas.
-  const cuerpo = new Mesh(GEO_BOLSA, MAT_FUNDIDO);
-
-  grupo.add(cuerpo);
-  return { grupo, cuerpo, brillo };
+  return { grupo, cuerpos, sombras, brillo };
 }
 
 // ── Carretilla ──────────────────────────────────────────────────────────────

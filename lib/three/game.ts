@@ -37,14 +37,14 @@ import {
   BAG_RADIUS,
   CART_RADIUS,
   PLAY,
+  TOTAL_BAGS,
   World,
   WorldObstacle,
 } from '@/lib/game/world';
 import {
   ALTO_CIUDADANO,
   alturaSuelo,
-  BolsaVista,
-  crearBolsa,
+  crearBolsas,
   crearCarretilla,
   crearCiudad,
   crearCiudadano,
@@ -148,7 +148,6 @@ interface Bolsa {
   x: number;
   y: number;
   estado: EstadoBolsa;
-  vista: BolsaVista;
 }
 
 export async function createGame(parent: HTMLElement, opts: GameOptions): Promise<GameHandle> {
@@ -248,14 +247,15 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   mundo.add(cart.grupo);
 
   const yaEntregadas = new Set(opts.alreadyDeposited ?? []);
-  const bolsas: Bolsa[] = world.bags.map((b) => {
-    const vista = crearBolsa();
-    vista.grupo.position.set(wx(b.x), 0, wz(b.y));
-    mundo.add(vista.grupo);
-    const entregada = yaEntregadas.has(b.id);
-    if (entregada) vista.grupo.visible = false;
-    return { id: b.id, x: b.x, y: b.y, estado: entregada ? 'entregada' : 'suelo', vista };
-  });
+  // Solo se ven las que están en el SUELO: lo decide el render en cada fotograma.
+  const vistaBolsas = crearBolsas(world.bags.length);
+  mundo.add(vistaBolsas.grupo);
+  const bolsas: Bolsa[] = world.bags.map((b) => ({
+    id: b.id,
+    x: b.x,
+    y: b.y,
+    estado: yaEntregadas.has(b.id) ? 'entregada' : 'suelo',
+  }));
 
   let entregadas = yaEntregadas.size;
   // Las bolsas entregadas se QUEDAN a la vista dentro de la carretilla. La que
@@ -553,7 +553,8 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     entregadas++;
     pintarCarretilla(true);
 
-    const ultima = entregadas >= bolsas.length;
+    // La 5ª cierra la partida aunque queden bolsas en la calle.
+    const ultima = entregadas >= TOTAL_BAGS;
     const origen = new Vector3(wx(world.cart.x), 1.5, wz(world.cart.y));
     // Los cartones saltan y CAEN: ya no vuelan al contador, porque el saldo no
     // se mueve durante la partida. Las monedas las pone la pantalla (DOM), como
@@ -569,7 +570,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     if (ultima && !reduced) sim.finLento = 600;
 
     opts.callbacks.onState?.({
-      bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+      bagsLeft: TOTAL_BAGS - entregadas,
       carrying: false,
       deposited: entregadas,
     });
@@ -585,17 +586,15 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       // El servidor no aceptó la entrega: se DESHACE. Es preferible a que el
       // jugador crea que cobró algo que no cobró.
       bolsa.estado = 'suelo';
-      bolsa.vista.grupo.visible = true;
       entregadas--;
       pintarCarretilla();
       opts.callbacks.onError?.(res.error);
       opts.callbacks.onState?.({
-        bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+        bagsLeft: TOTAL_BAGS - entregadas,
         carrying: false,
         deposited: entregadas,
       });
     } else {
-      bolsa.vista.grupo.visible = false;
       const origenPantalla = carretillaEnPantalla();
       opts.callbacks.onCredit?.(res.monto, entregadas, origenPantalla);
       if (res.finished) {
@@ -697,8 +696,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
         b.estado = 'suelo';
         b.x = sim.x;
         b.y = sim.y + 6;
-        b.vista.grupo.position.set(wx(b.x), alturaSuelo(wx(b.x)), wz(b.y));
-        b.vista.grupo.visible = true;
       }
       sim.cargando = null;
       ciu.bolsaHombro.visible = false;
@@ -709,19 +706,19 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       fx.puffPolvo(wx(sim.x), wz(sim.y), 10, 1.4);
       audio.tropiezo();
       opts.callbacks.onState?.({
-        bagsLeft: bolsas.filter((x) => x.estado !== 'entregada').length,
+        bagsLeft: TOTAL_BAGS - entregadas,
         carrying: false,
         deposited: entregadas,
       });
     }
 
-    // Recoger
-    if (sim.cargando === null && sim.tropiezo <= 0 && !sim.entregando) {
+    // Recoger. Con las 5 entregadas la partida acabó: las que quedan en la
+    // calle ya no se recogen.
+    if (sim.cargando === null && sim.tropiezo <= 0 && !sim.entregando && entregadas < TOTAL_BAGS) {
       for (const b of bolsas) {
         if (b.estado !== 'suelo') continue;
         if (Math.hypot(b.x - sim.x, b.y - sim.y) < CITIZEN_RADIUS + BAG_RADIUS) {
           b.estado = 'cargada';
-          b.vista.grupo.visible = false;
           sim.cargando = b.id;
           ciu.bolsaHombro.visible = true;
           ciu.bolsaHombro.scale.setScalar(0.4);
@@ -732,7 +729,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
           audio.agarrar();
           opts.callbacks.onPickup?.(b.id);
           opts.callbacks.onState?.({
-            bagsLeft: bolsas.filter((x) => x.estado !== 'entregada').length,
+            bagsLeft: TOTAL_BAGS - entregadas,
             carrying: true,
             deposited: entregadas,
           });
@@ -822,17 +819,49 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       ciu.cabeza.rotation.y *= 0.9;
     }
 
-    // Bolsas: giran despacio, y laten y brillan al acercarse el ciudadano.
-    for (const b of bolsas) {
-      if (b.estado !== 'suelo') continue;
+    // Bolsas: giran despacio y laten al acercarse el ciudadano. Brilla solo la
+    // más cercana: con 15 en la calle, es la que va a recoger. Las que no
+    // están en el suelo se esconden con escala 0.
+    let cercana = -1;
+    let cercaMax = 0;
+    bolsas.forEach((b, i) => {
+      if (b.estado !== 'suelo') {
+        _obj.position.set(0, -10, 0);
+        _obj.rotation.set(0, 0, 0);
+        _obj.scale.setScalar(0);
+        _obj.updateMatrix();
+        vistaBolsas.cuerpos.setMatrixAt(i, _obj.matrix);
+        vistaBolsas.sombras.setMatrixAt(i, _obj.matrix);
+        return;
+      }
       const d = Math.hypot(b.x - px, b.y - py);
       const cerca = Math.max(0, 1 - d / 190);
-      const material = b.vista.brillo.material as { opacity: number };
-      material.opacity = cerca * (0.45 + Math.sin(sim.tiempo / 160) * 0.22);
-      const late = 1 + cerca * 0.1 * (0.6 + Math.sin(sim.tiempo / 190) * 0.4);
-      b.vista.cuerpo.scale.setScalar(late);
-      b.vista.cuerpo.rotation.y = sim.tiempo / 2200;
-      b.vista.cuerpo.position.y = Math.sin(sim.tiempo / 520 + b.id) * 0.04;
+      if (cerca > cercaMax) {
+        cercaMax = cerca;
+        cercana = i;
+      }
+      const x = wx(b.x);
+      const z = wz(b.y);
+      const suelo = alturaSuelo(x);
+      _obj.position.set(x, suelo + Math.sin(sim.tiempo / 520 + b.id) * 0.04, z);
+      _obj.rotation.set(0, sim.tiempo / 2200, 0);
+      _obj.scale.setScalar(1 + cerca * 0.1 * (0.6 + Math.sin(sim.tiempo / 190) * 0.4));
+      _obj.updateMatrix();
+      vistaBolsas.cuerpos.setMatrixAt(i, _obj.matrix);
+      _obj.position.set(x, suelo + 0.025, z);
+      _obj.rotation.set(0, 0, 0);
+      _obj.scale.setScalar(1);
+      _obj.updateMatrix();
+      vistaBolsas.sombras.setMatrixAt(i, _obj.matrix);
+    });
+    vistaBolsas.cuerpos.instanceMatrix.needsUpdate = true;
+    vistaBolsas.sombras.instanceMatrix.needsUpdate = true;
+    const halo = vistaBolsas.brillo;
+    halo.visible = cercana >= 0;
+    if (cercana >= 0) {
+      const b = bolsas[cercana];
+      halo.position.set(wx(b.x), alturaSuelo(wx(b.x)) + 0.045, wz(b.y));
+      (halo.material as { opacity: number }).opacity = cercaMax * (0.45 + Math.sin(sim.tiempo / 160) * 0.22);
     }
 
     // La carretilla se enciende mientras llevas una bolsa: te dice adónde ir
@@ -967,7 +996,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   document.addEventListener('visibilitychange', onVis);
 
   opts.callbacks.onState?.({
-    bagsLeft: bolsas.filter((b) => b.estado !== 'entregada').length,
+    bagsLeft: TOTAL_BAGS - entregadas,
     carrying: false,
     deposited: entregadas,
   });

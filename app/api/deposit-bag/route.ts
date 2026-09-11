@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, isAdminClientConfigured } from '@/lib/supabase/admin';
 import { bagSplit } from '@/lib/game/bagSplit';
 import { MIN_MS_BETWEEN_DEPOSITS, TOTAL_BAGS } from '@/lib/game/constants';
-import { buildWorld } from '@/lib/game/world';
+import { buildWorld, WORLD_BAGS } from '@/lib/game/world';
 
 interface Body {
   session_id: string;
@@ -16,6 +16,10 @@ interface Body {
  * Agarrar la bolsa es puramente visual y no toca el servidor: lo que se cobra
  * es la ENTREGA. El destino de la partida ya quedó sellado al comprar el
  * ticket, así que aquí solo se decide cuánto de ese premio suelta esta bolsa.
+ *
+ * En la calle hay WORLD_BAGS bolsas y cuentan las 5 PRIMERAS que se entreguen,
+ * sean cuales sean. Cada una enseña su valor al llegar, pero el saldo se
+ * acredita de una vez, con la 5ª.
  *
  * ── El reclamo atómico ──
  * Es lo más importante de todo el archivo. El UPDATE solo toca la fila si
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as Body;
     const { session_id, bag_id } = body;
 
-    if (!session_id || bag_id === undefined || bag_id < 0 || bag_id >= TOTAL_BAGS) {
+    if (!session_id || bag_id === undefined || bag_id < 0 || bag_id >= WORLD_BAGS) {
       return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 });
     }
 
@@ -110,7 +114,13 @@ export async function POST(req: NextRequest) {
     const targetPayout = Number(run.target_payout);
     const reparto = bagSplit(targetPayout, session_id);
     const monto = reparto[entregadas.length] ?? 0;
-    const acreditado = Math.round((Number(run.credited) + monto) * 100) / 100;
+    // El SALDO se cobra de una vez, al vaciar la 5ª: las bolsas 1-4 solo
+    // enseñan su valor. Se acredita lo que falte hasta el premio sellado, así
+    // una partida empezada antes de este cambio, con bolsas ya cobradas una a
+    // una, no cobra nada dos veces.
+    const yaCobrado = Number(run.credited) || 0;
+    const aCobrar = finished ? Math.max(0, Math.round((targetPayout - yaCobrado) * 100) / 100) : 0;
+    const acreditado = Math.round((yaCobrado + aCobrar) * 100) / 100;
 
     // Literal de array de Postgres con el estado LEÍDO: es el cerrojo.
     const entregadasLiteral = `{${entregadas.join(',')}}`;
@@ -139,10 +149,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (monto > 0) {
+    if (aCobrar > 0) {
       const { error: prizeError } = await admin.rpc('credit_prize', {
         p_player: user.id,
-        p_payout: monto,
+        p_payout: aCobrar,
       });
       if (prizeError) console.error('credit_prize error:', prizeError);
     }

@@ -45,7 +45,7 @@ Module._resolveFilename = function (peticion, ...resto) {
 const salida = path.join(raiz, '.pruebas-build', 'lib', 'game');
 const { drawPayoutTier, drawSessionTier, drawWorldSeed } = require(path.join(salida, 'rng.js'));
 const { bagSplit } = require(path.join(salida, 'bagSplit.js'));
-const { buildWorld, PLAY, CITIZEN_RADIUS, CITIZEN_BODY_RADIUS, CITIZEN_FEET_RADIUS, BAG_RADIUS, CART_RADIUS } =
+const { buildWorld, PLAY, CITIZEN_RADIUS, CITIZEN_BODY_RADIUS, CITIZEN_FEET_RADIUS, BAG_RADIUS, CART_RADIUS, WORLD_BAGS } =
   require(path.join(salida, 'world.js'));
 const { PAYOUT_TABLE, TOTAL_BAGS } = require(path.join(salida, 'constants.js'));
 
@@ -247,7 +247,7 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
   for (let i = 0; i < N; i++) {
     const w = buildWorld(drawWorldSeed());
 
-    if (w.bags.length !== TOTAL_BAGS) malCantidad++;
+    if (w.bags.length !== WORLD_BAGS) malCantidad++;
 
     for (const b of w.bags) {
       if (
@@ -276,7 +276,7 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
     if (!alcanzables(w)) aisladas++;
   }
 
-  ok(malCantidad === 0, `Siempre ${TOTAL_BAGS} bolsas`, `${malCantidad} fallos`);
+  ok(WORLD_BAGS >= 15 && malCantidad === 0, `Siempre ${WORLD_BAGS} bolsas en la calle (al menos 15)`, `${malCantidad} fallos`);
   ok(fueraDelArea === 0, 'Ninguna bolsa fuera del área jugable', `${fueraDelArea} fallos`);
   ok(encimaDeObstaculo === 0, 'Ninguna bolsa encima de un obstáculo', `${encimaDeObstaculo} fallos`);
   ok(demasiadoJuntas === 0, 'Ninguna pareja de bolsas amontonada', `${demasiadoJuntas} fallos`);
@@ -441,13 +441,10 @@ console.log('\n6. La escena en 3D');
   const ciudad = esc.crearCiudad(rnd);
   const veg = esc.crearVegetacion(rnd, world);
   escena.add(suelo, ciudad, veg.grupo, esc.crearObstaculos(world.obstacles));
-  // CINCO bolsas, como en una partida de verdad. Con una sola, el recuento de
-  // llamadas de dibujo miente por 48 y el presupuesto no vale para nada.
-  let bolsa;
-  for (const _ of world.bags) {
-    bolsa = esc.crearBolsa();
-    escena.add(bolsa.grupo);
-  }
+  // TODAS las bolsas de la calle, como en una partida de verdad: el recuento
+  // de llamadas de dibujo tiene que valer con las 15.
+  const bolsas = esc.crearBolsas(world.bags.length);
+  escena.add(bolsas.grupo);
   const ciudadano = esc.crearCiudadano();
   const carretilla = esc.crearCarretilla();
   escena.add(ciudadano.grupo, carretilla.grupo);
@@ -526,7 +523,7 @@ console.log('\n6. La escena en 3D');
   const caja = new THREE.Box3();
   const tam = new THREE.Vector3();
 
-  caja.setFromObject(bolsa.cuerpo).getSize(tam);
+  caja.setFromObject(new THREE.Mesh(bolsas.cuerpos.geometry)).getSize(tam);
   const radioBolsa = Math.max(tam.x, tam.z) / 2;
   console.log(`     Bolsa: ${radioBolsa.toFixed(2)} de radio y ${tam.y.toFixed(2)} de alto`);
   ok(
@@ -1875,6 +1872,17 @@ console.log('\n10. El estilo de la interfaz');
   ok(
     /total_credited/.test(leer('app', 'api', 'buy-ticket', 'route.ts')),
     'reanudar por /api/buy-ticket también devuelve lo ya acreditado'
+  );
+  const entregaQuince = leer('app', 'api', 'deposit-bag', 'route.ts');
+  ok(
+    /const aCobrar = finished \?/.test(entregaQuince) && /p_payout: aCobrar/.test(entregaQuince) && !/p_payout: monto/.test(entregaQuince),
+    'el saldo se cobra de una vez con la 5ª bolsa (las 1-4 solo enseñan su valor) y nada se cobra dos veces'
+  );
+  ok(/bag_id >= WORLD_BAGS/.test(entregaQuince), 'se puede entregar cualquiera de las 15 bolsas de la calle');
+  const motorQuince = leer('lib', 'three', 'game.ts');
+  ok(
+    /const ultima = entregadas >= TOTAL_BAGS;/.test(motorQuince) && /!sim\.entregando && entregadas < TOTAL_BAGS\)/.test(motorQuince),
+    'la partida acaba con la 5ª entregada aunque queden bolsas en la calle, y ya no se recoge ninguna más'
   );
 
   const motor = leer('lib', 'three', 'game.ts');
