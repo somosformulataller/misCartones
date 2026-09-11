@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useEffect, useState } from 'react';
 import {
   AdminUserRow,
@@ -1064,6 +1066,10 @@ export default function PlayerDetail({
         <button className="btn-mini" disabled={busy} onClick={() => adjustBalance(-1)}>
           − Saldo
         </button>
+        {/* Abre SU conversación (la crea si no existe, sin mandar nada). */}
+        <Link className="btn-mini" href={`/admin/chat?player=${playerId}`}>
+          💬 Chat
+        </Link>
         <button className="btn-mini" disabled={busy} onClick={toggleBlock}>
           {info.blocked ? '✓ Desbloquear' : '🚫 Bloquear'}
         </button>

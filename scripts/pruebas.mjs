@@ -1578,6 +1578,18 @@ console.log('\n8. Panel de administración');
       !/llave_/.test(leer('components', 'layout', 'NotificationsBell.tsx')),
     'nada de rutas ni claves del juego hermano en el chat y la campanita'
   );
+  ok(
+    /href=\{`\/admin\/chat\?player=\$\{playerId\}`\}/.test(leer('components', 'admin', 'PlayerDetail.tsx')),
+    'la ficha del jugador tiene «💬 Chat», que abre su conversación'
+  );
+  ok(
+    /chat: chatSinLeer,/.test(leer('app', '(main)', 'admin', 'page.tsx')),
+    'el 💬 Chat del menú lateral del panel marca los mensajes sin leer'
+  );
+  ok(
+    /\.app-content > main\.admin-main \{\s*max-width: 1100px;/.test(leer('app', 'globals.css')),
+    'el panel no queda en los 560 px de las pantallas de jugador (el hilo del chat cabe)'
+  );
 
   // ── Y nada del juego hermano se coló ──
   // Las partidas de aquí cuentan bolsas; las de allá, llaves. Un panel que

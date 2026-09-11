@@ -6246,3 +6246,22 @@ textarea.form-input,
 @media (max-width: 400px) {
   .afi-fab-label { display: none; }
 }
+
+
+/* ── El panel usa su ancho: 1100 px, no los 560 de las pantallas de jugador ──
+   «.app-content > main» limita las pantallas del jugador a 560 px y, por
+   especificidad, le ganaba a «.admin-main», que pide 1100. Con 560 el chat del
+   panel no cabía: la lista (320 px) dejaba el hilo reducido a una raya, la caja
+   de texto de pocos píxeles crecía a su tope y empujaba «Enviar» fuera del
+   hilo. El resto del panel también estaba apretado en escritorio. */
+.app-content > main.admin-main {
+  max-width: 1100px;
+}
+
+/* Y el hilo nunca se encoge por debajo de lo usable dentro de la rejilla. */
+.achat-layout > .achat-thread {
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .achat-layout { grid-template-columns: 320px minmax(360px, 1fr); }
+}

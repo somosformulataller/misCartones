@@ -611,6 +611,28 @@ function AdminPanel() {
     return () => clearInterval(interval);
   }, [isStaff, loadAll]);
 
+  // Mensajes de chat sin leer, para la insignia del 💬 Chat del menú lateral.
+  // Misma cuenta que la cabecera (/api/admin/pending) y al mismo ritmo que
+  // el resto del panel.
+  const [chatSinLeer, setChatSinLeer] = useState(0);
+  useEffect(() => {
+    if (!isStaff) return;
+    let cancelado = false;
+    const cargar = () =>
+      fetch('/api/admin/pending', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelado) setChatSinLeer(Number(d.chat ?? 0));
+        })
+        .catch(() => {});
+    cargar();
+    const intervalo = setInterval(cargar, 30_000);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, [isStaff]);
+
   // Al cambiar de filtro o de búsqueda, las tablas vuelven a la página 1:
   // si no, quedarían mostrando una página que ya no existe en la lista
   // nueva. Se hace AQUÍ, en el manejador, y no en un efecto: es la
@@ -1418,6 +1440,7 @@ function AdminPanel() {
           onSelect={selectSection}
           allowed={allowed}
           badges={{
+            chat: chatSinLeer,
             transacciones:
               purchases.filter((p) => p.status === 'pendiente' || p.status === 'validando')
                 .length + withdrawals.filter((w) => w.status === 'pendiente').length,
