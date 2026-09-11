@@ -5451,3 +5451,798 @@ textarea.form-input,
 @media (prefers-reduced-motion: reduce) {
   .hud-bolsa-valor { animation: none; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CHAT DE ATENCIÓN Y CAMPANITA — portados de La Mejor Llave
+
+   Copiados tal cual de su hoja (campanita, chat del jugador, respuestas
+   rápidas y chat del panel). Las etiquetas .ptag ya estaban aquí; solo se
+   trae su versión para la lista de conversaciones. `--danger` no existe en
+   esta hoja y pasa a `--red-mid`.
+   ══════════════════════════════════════════════════════════════════════════ */
+.chat-wrap { flex-shrink: 0; }
+
+/* ── Campanita de notificaciones ── */
+.bell-wrap { flex-shrink: 0; }
+
+.bell-btn {
+  position: relative;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-gold);
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.bell-btn:hover { background: rgba(245,197,24,0.1); }
+
+.bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--red-lose);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-primary);
+}
+
+.notif-list {
+  left: auto;
+  right: 0;
+  min-width: 300px;
+  max-width: min(360px, 92vw);
+  max-height: 70dvh;
+  overflow-y: auto;
+}
+
+.notif-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--gold-1);
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.notif-empty {
+  padding: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.notif-icon { font-size: 1.1rem; flex-shrink: 0; }
+.notif-body { min-width: 0; }
+.notif-text {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+.notif-time {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* ============================================
+   CHAT DE ATENCIÓN AL CLIENTE
+   ============================================ */
+
+/* Botón de Soporte del header (esquina inferior derecha, junto a la
+   campanita): misma altura y colores que .bell-btn */
+.chat-fab {
+  position: relative;
+  height: 38px;
+  padding: 0 14px 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-gold);
+  background: var(--bg-surface-2);
+  font-size: 1.05rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.chat-fab:hover { background: rgba(245,197,24,0.1); border-color: var(--gold-1); }
+
+.chat-fab-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold-2);
+  letter-spacing: 0.02em;
+}
+
+.chat-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-lose);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Panel del chat del jugador: desplegable bajo el botón de Soporte,
+   alineado a la esquina derecha del header. OJO: absolute, no fixed —
+   el backdrop-filter del header anclaría un fixed al header igual. */
+.chat-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(360px, calc(100vw - 32px));
+  height: min(480px, calc(100dvh - 210px));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  z-index: 401;
+  overflow: hidden;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+}
+.chat-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--gold-1);
+  font-size: 1rem;
+}
+.chat-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
+.chat-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.chat-close:hover { color: var(--text-primary); }
+
+.chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-empty {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 12px 8px;
+}
+/* Separador de fecha del hilo (Hoy / Ayer / fecha): centrado entre los
+   mensajes, para ver a qué día corresponde cada tramo de la charla. */
+.achat-day-sep {
+  align-self: center;
+  margin: 4px 0;
+  max-width: 90%;
+}
+.achat-day-sep > span {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.chat-msg {
+  max-width: 82%;
+  padding: 8px 12px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  word-break: break-word;
+}
+.chat-msg-own {
+  align-self: flex-end;
+  background: linear-gradient(135deg, rgba(245,197,24,0.28), rgba(212,160,23,0.22));
+  border: 1px solid var(--border-gold);
+  border-bottom-right-radius: 4px;
+}
+.chat-msg-support {
+  align-self: flex-start;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-bottom-left-radius: 4px;
+}
+.chat-msg-text { white-space: pre-wrap; }
+/* Enlaces dentro de los mensajes: dorados y tocables; se parten en
+   cualquier punto para que las URLs largas no desborden la burbuja */
+.chat-msg-text a {
+  color: var(--gold-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+.chat-msg-text a:active { opacity: 0.7; }
+.chat-msg-time {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  align-self: flex-end;
+}
+
+/* Preguntas rápidas (botones sugeridos cuando no hay mensajes) */
+.chat-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.chat-quick-btn {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.chat-quick-btn:hover:not(:disabled) { border-color: var(--gold-1); color: var(--gold-1); }
+.chat-quick-btn:disabled { opacity: 0.5; }
+
+.chat-notice {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  color: var(--red-mid);
+}
+
+/* Barra de escritura. Los botones se alinean ABAJO: la caja de texto
+   crece hacia arriba a medida que se escriben párrafos y el clip, el
+   micrófono y Enviar se quedan a la altura de la última línea. */
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+}
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+}
+.chat-input:focus { border-color: var(--border-gold); }
+/* Caja de varias líneas del chat (ChatComposerInput): arranca con
+   sitio para dos renglones y crece sola hasta ~6; a partir de ahí
+   scrollea por dentro. El alto exacto lo pone el componente. */
+.chat-input-area {
+  resize: none;
+  overflow-y: auto;
+  border-radius: 18px;
+  min-height: 46px;
+  max-height: 140px;
+  padding: 11px 14px;
+  line-height: 1.4;
+  font-family: inherit;
+}
+.chat-icon-btn {
+  background: none;
+  border: none;
+  font-size: 1.05rem;
+  cursor: pointer;
+  padding: 6px;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+.chat-icon-btn:hover:not(:disabled) { color: var(--gold-1); }
+.chat-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-icon-send { color: var(--gold-1); }
+
+/* ── Respuestas rápidas del staff (⚡) ── */
+.chat-icon-on { color: var(--gold-1); }
+.qr-composer-wrap { position: relative; }
+.qr-panel {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 6px;
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  z-index: 40;
+}
+.qr-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.qr-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  padding: 2px 6px;
+}
+.qr-close:hover { color: var(--gold-1); }
+.qr-list {
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.qr-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-primary);
+}
+.qr-card-info { flex: 1; min-width: 0; }
+.qr-card-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.qr-tag { color: var(--gold-1); font-weight: 700; font-size: 0.8rem; }
+.qr-card-title { color: var(--text-primary); font-size: 0.82rem; font-weight: 600; }
+.qr-card-body {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin: 3px 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.qr-card-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.qr-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+}
+.qr-icon-danger:hover { color: var(--danger, #e5484d); border-color: currentColor; }
+.qr-form {
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-surface-2);
+}
+.qr-form-title { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin: 0; }
+.qr-form-row { display: flex; gap: 8px; }
+.qr-field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.qr-field > span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.qr-field .chat-input { border-radius: 10px; }
+.qr-field-short { max-width: 90px; flex: 0 0 90px; }
+.qr-textarea {
+  border-radius: 10px;
+  min-height: 64px;
+  max-height: 160px;
+  resize: vertical;
+  line-height: 1.4;
+  font-family: inherit;
+}
+.qr-form-actions { display: flex; gap: 8px; }
+
+/* Grabación de nota de voz */
+.chat-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chat-rec-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red-lose);
+  animation: chat-rec-blink 1s infinite;
+}
+@keyframes chat-rec-blink { 50% { opacity: 0.25; } }
+.chat-rec-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Adjuntos */
+.chat-attach-img {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 10px;
+  display: block;
+}
+.chat-attach-audio { max-width: 220px; width: 100%; height: 36px; }
+.chat-attach-doc {
+  display: block;
+  color: var(--gold-1);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  word-break: break-word;
+}
+/* Por qué no se ve el adjunto, debajo del enlace para abrirlo */
+.chat-attach-nota {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+.chat-attach-error, .chat-attach-loading {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Chat del ADMIN ── */
+.admin-link { color: var(--gold-1); text-decoration: underline; }
+
+.achat-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.achat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.achat-list-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.achat-search { display: flex; flex-direction: column; gap: 6px; }
+.achat-search-results { display: flex; flex-direction: column; gap: 4px; }
+.achat-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-align: left;
+}
+.achat-result:hover { border-color: var(--gold-1); }
+.achat-result span { color: var(--text-muted); font-size: 0.72rem; }
+
+.achat-conv {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.achat-conv:hover { border-color: var(--border-gold); }
+.achat-conv-sel { border-color: var(--gold-1); background: rgba(245,197,24,0.07); }
+.achat-conv-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.achat-conv-name { font-size: 0.88rem; }
+.achat-unread { position: static; }
+.achat-conv-preview {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.achat-conv-date { font-size: 0.68rem; color: var(--text-muted); }
+
+/* Cada conversación son dos botones: la tarjeta abre el chat y el 👁
+   abre la ficha del jugador. En el teléfono el hilo tapa la lista, así
+   que consultar los datos de alguien no debe obligar a entrar al chat. */
+.achat-conv-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.achat-conv-row .achat-conv {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.achat-conv-eye {
+  flex: 0 0 auto;
+  width: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.achat-conv-eye:hover {
+  border-color: var(--gold-1);
+  color: var(--gold-1);
+}
+.achat-conv-row-sel .achat-conv-eye { border-color: var(--gold-1); }
+
+.achat-pill {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.achat-pill-pendiente { background: rgba(245,197,24,0.15); color: var(--gold-1); }
+.achat-pill-prioridad { background: rgba(255,71,87,0.18); color: var(--red-mid); }
+.achat-pill-resuelto  { background: rgba(0,255,135,0.12); color: var(--green-win); }
+
+.achat-thread {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  min-height: 420px;
+  max-height: 70vh;
+  overflow: hidden;
+}
+.achat-thread-empty { padding: var(--space-lg); }
+.achat-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface-2);
+}
+.achat-thread-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.achat-thread-who span { color: var(--text-secondary); font-size: 0.75rem; }
+.achat-thread-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.achat-msgs { min-height: 220px; }
+.achat-back { display: none; }
+
+.achat-qq-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: var(--space-md);
+  max-width: 480px;
+}
+.achat-qq-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.achat-qq-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface-2);
+  font-size: 0.85rem;
+}
+.achat-qq-off { color: var(--text-muted); text-decoration: line-through; }
+
+@media (max-width: 800px) {
+  .achat-layout { grid-template-columns: 1fr; }
+  /* Con un hilo abierto, en móvil solo se ve el hilo (con ← Volver) */
+  .achat-has-sel .achat-list { display: none; }
+  .achat-back { display: inline-block; }
+
+  /* …y ese hilo ocupa la pantalla entera, pegado bajo el encabezado
+     del sitio. Antes quedaba al final de una página larga (título,
+     menú, pestañas), así que para escribir había que desplazarse.
+     Ahora los mensajes hacen scroll POR DENTRO y la caja de escribir
+     está siempre a la vista. */
+  .achat-open .achat-thread {
+    position: fixed;
+    top: var(--achat-top, 50px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    min-height: 0;
+    max-height: none;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+  .achat-open .achat-msgs {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* Encabezado compacto: el correo y los tickets ya están en la ficha
+     (👁), así se ahorra una línea. Los botones de estado SÍ se
+     envuelven: cortar "Eliminar chat" a media palabra se lee como un
+     error, y espacio vertical ya sobra. */
+  .achat-open .achat-thread-head {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .achat-open .achat-thread-who span { display: none; }
+  .achat-open .achat-thread-tools {
+    margin-left: 0;
+    width: 100%;
+  }
+  /* En los iPhone, por encima de la barra de gestos */
+  .achat-open .chat-composer {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Moderación de mensajes (admin): editar y eliminar ── */
+/* Pie de la burbuja: acciones a la izquierda, hora a la derecha.
+   Los botones se ven SIEMPRE (en móvil no hay hover), pero apagados
+   para no competir con el texto del mensaje. */
+.chat-msg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+.chat-msg-foot .chat-msg-time { align-self: auto; }
+.achat-msg-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.achat-msg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  line-height: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.achat-msg-btn:hover { opacity: 1; color: var(--gold-1); }
+/* Eliminar: siempre en rojo, para que no se confunda con editar */
+.achat-msg-btn-danger { color: var(--red-mid); opacity: 0.95; }
+.achat-msg-btn-danger:hover { color: var(--red-mid); opacity: 1; }
+.achat-edit-input {
+  width: 100%;
+  min-width: 220px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-gold);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+
+/* Chips de etiquetas en la lista de conversaciones */
+.achat-conv-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.achat-conv-tags .ptag { cursor: inherit; }
+
+@media (max-width: 480px) {
+  .bell-btn { width: 32px; height: 32px; font-size: 0.95rem; }
+  .chat-fab { height: 32px; padding: 0 11px 0 9px; font-size: 0.95rem; }
+  .chat-fab-label { font-size: 0.75rem; }
+}
+
+
+/* ── La cabecera en UNA fila también a 360 px ──
+   Con Menú + Referidos + 💬 Soporte + 🔔 no cabía (≈340 px en 328) y la
+   esquina bajaba a una segunda fila, a la izquierda: la cabecera tapaba más
+   calle y el panel del chat, anclado a la derecha de la esquina, se salía
+   por la izquierda de la pantalla. En pantallas estrechas Referidos se queda
+   en su 🤝, y la esquina va SIEMPRE a la derecha aunque llegue a envolver. */
+.header-corner { margin-left: auto; }
+
+@media (max-width: 400px) {
+  .afi-fab-label { display: none; }
+}

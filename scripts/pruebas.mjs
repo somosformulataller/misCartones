@@ -1314,10 +1314,7 @@ console.log('\n8. Panel de administración');
     allowedAreas('admin', ['usuarios']).join() === 'usuarios',
     'a un administrador SÍ se le puede recortar a propósito'
   );
-  ok(
-    !TODAS.includes('chat'),
-    'no queda ninguna pestaña de chat: este juego no tiene atención por chat'
-  );
+  ok(TODAS.includes('chat'), 'el chat de atención es un área del panel');
 
   // ── El buscador de la lista de usuarios ──
   // Allá, buscar el correo «elena.1973saa@gmail.com» sacaba «1973» y devolvía
@@ -1456,7 +1453,7 @@ console.log('\n8. Panel de administración');
   // comprobarlo por su cuenta.
   const RUTAS_PANEL = [
     'caja', 'emails-export', 'interaction', 'payments', 'pending',
-    'referrals', 'retention', 'staff', 'stats', 'tags', 'users',
+    'referrals', 'retention', 'staff', 'stats', 'tags', 'users', 'chat',
   ];
   let sinGuardia = 0;
   for (const r of RUTAS_PANEL) {
@@ -1477,6 +1474,7 @@ console.log('\n8. Panel de administración');
     staff: "requireStaff('equipo')",
     payments: "requireStaff('transacciones')",
     interaction: "requireStaff('interacciones')",
+    chat: "requireStaff('chat')",
   };
   for (const [ruta, esperado] of Object.entries(AREA_DE)) {
     ok(leer('app', 'api', 'admin', ruta, 'route.ts').includes(esperado),
@@ -1549,27 +1547,37 @@ console.log('\n8. Panel de administración');
     'el tablero de referidos usa la MISMA regla que paga: $1 por cada 10 partidas, tope $3'
   );
 
-  // ── No quedó nada del chat que este juego no tiene ──
-  const ARCHIVOS_PANEL = [
-    ['app', '(main)', 'admin', 'page.tsx'],
-    ['components', 'admin', 'PlayerDetail.tsx'],
-    ['components', 'admin', 'AdminNav.tsx'],
-    ['components', 'admin', 'PlayerTags.tsx'],
-    ['components', 'admin', 'StaffPanel.tsx'],
-    ['app', 'api', 'admin', 'users', 'route.ts'],
-    ['lib', 'admin', 'compensacion.ts'],
-  ];
-  let restos = 0;
-  for (const f of ARCHIVOS_PANEL) {
-    const texto = leer(...f);
-    for (const marca of ['chat_conversations', 'chat_messages', '@/types/chat', "'/admin/chat'"]) {
-      if (texto.includes(marca)) {
-        restos++;
-        console.log('     ✗ ' + f.join('/') + ' todavía nombra ' + marca);
-      }
-    }
-  }
-  ok(restos === 0, 'no quedan llamadas a un chat de atención que aquí no existe');
+  // ── El chat de atención y la campanita, como en La Llave ──
+  const sqlChat = leer('supabase', 'migrations', '006_chat.sql');
+  ok(
+    ['chat_conversations', 'chat_messages', 'chat_quick_questions', 'chat_quick_replies'].every(
+      (tabla) =>
+        sqlChat.includes('CREATE TABLE IF NOT EXISTS public.' + tabla) &&
+        sqlChat.includes('ALTER TABLE public.' + tabla) &&
+        sqlChat.includes('REVOKE INSERT, UPDATE, DELETE ON public.' + tabla)
+    ),
+    'las cuatro tablas del chat tienen RLS y nadie escribe en ellas desde el navegador'
+  );
+  ok(
+    /ALTER PUBLICATION supabase_realtime ADD TABLE public\.chat_messages/.test(sqlChat) &&
+      /'chat-attachments', 'chat-attachments', FALSE, 5242880/.test(sqlChat),
+    'los mensajes llegan en tiempo real y los adjuntos van a un bucket privado de 5 MB'
+  );
+  const cabecera = leer('components', 'layout', 'Header.tsx');
+  const esquina = cabecera.slice(cabecera.indexOf('className="header-corner"'));
+  ok(
+    /<ChatWidget/.test(esquina) && /<NotificationsBell/.test(esquina) && !/usePathname|isGameActive|useGameActive/.test(cabecera),
+    'el 💬 y la 🔔 van siempre en la cabecera, también en el juego apagado o encendido'
+  );
+  ok(
+    /isStaffRole\(me\?\.role\)/.test(leer('app', 'api', 'chat', 'upload', 'route.ts')),
+    'atención al cliente puede mandar adjuntos en un chat (en La Llave solo podía admin)'
+  );
+  ok(
+    !/'\/game'/.test(leer('app', '(main)', 'admin', 'chat', 'page.tsx')) &&
+      !/llave_/.test(leer('components', 'layout', 'NotificationsBell.tsx')),
+    'nada de rutas ni claves del juego hermano en el chat y la campanita'
+  );
 
   // ── Y nada del juego hermano se coló ──
   // Las partidas de aquí cuentan bolsas; las de allá, llaves. Un panel que

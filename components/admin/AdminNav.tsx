@@ -11,6 +11,7 @@ export type AdminSection =
   | 'metricas'
   | 'referidos'
   | 'partidas'
+  | 'chat'
   | 'equipo';
 
 const ITEMS: { key: AdminSection; label: string }[] = [
@@ -22,13 +23,14 @@ const ITEMS: { key: AdminSection; label: string }[] = [
   { key: 'metricas', label: '📅 Métrica histórica' },
   { key: 'referidos', label: '🤝 Referidos' },
   { key: 'partidas', label: '🎰 Partidas' },
+  { key: 'chat', label: '💬 Chat' },
   { key: 'equipo', label: '🛡️ Equipo' },
 ];
 
 interface AdminNavProps {
   active: AdminSection;
-  /** En /admin cambia la sección sin navegar */
-  onSelect?: (key: AdminSection) => void;
+  /** En /admin cambia la sección sin navegar; el chat siempre navega */
+  onSelect?: (key: Exclude<AdminSection, 'chat'>) => void;
   /** Áreas visibles para este miembro del staff (sin ella: todas) */
   allowed?: AdminSection[];
   /** Pendientes por atender por pestaña: pinta la insignia roja */
@@ -41,6 +43,10 @@ export default function AdminNav({ active, onSelect, allowed, badges }: AdminNav
   const router = useRouter();
 
   const go = (key: AdminSection) => {
+    if (key === 'chat') {
+      router.push('/admin/chat');
+      return;
+    }
     if (onSelect) onSelect(key);
     else router.push(`/admin?s=${key}`);
   };

@@ -13,6 +13,7 @@ export type PanelArea =
   | 'metricas'
   | 'referidos'
   | 'partidas'
+  | 'chat'
   | 'equipo';
 
 export const PANEL_AREAS: { key: PanelArea; label: string }[] = [
@@ -24,6 +25,7 @@ export const PANEL_AREAS: { key: PanelArea; label: string }[] = [
   { key: 'metricas', label: '📅 Métrica histórica' },
   { key: 'referidos', label: '🤝 Referidos' },
   { key: 'partidas', label: '🎰 Partidas' },
+  { key: 'chat', label: '💬 Chat' },
   { key: 'equipo', label: '🛡️ Equipo' },
 ];
 

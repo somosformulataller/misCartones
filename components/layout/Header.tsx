@@ -5,10 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePlayer } from '@/components/providers/PlayerProvider';
+import ChatWidget from '@/components/chat/ChatWidget';
+import NotificationsBell from './NotificationsBell';
 
 /**
- * Cabecera en UNA fila: el desplegable de navegación a la izquierda y, pegado
- * a la esquina derecha, el atajo a Referidos.
+ * Cabecera en UNA fila: el desplegable de navegación a la izquierda y, pegados
+ * a la esquina derecha, Referidos, el chat de atención (💬) y la campanita
+ * (🔔). Los dos últimos van SIEMPRE, también en el juego, con la calle apagada
+ * o encendida: la cabecera no mira ni la ruta ni el estado de la partida.
  *
  * Es un desplegable propio y no un `<select>` nativo por un motivo concreto:
  * el nativo se pinta con el estilo del sistema operativo, así que en un
@@ -28,6 +32,29 @@ export default function Header() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Pendientes por atender (solo equipo): compras y retiros por decidir y
+  // mensajes de chat sin leer. Insignias del menú y del 💬.
+  const [pending, setPending] = useState<{ tx: number; chat: number }>({ tx: 0, chat: 0 });
+
+  useEffect(() => {
+    if (!isStaff) return;
+    let cancelado = false;
+    const cargar = () =>
+      fetch('/api/admin/pending', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelado) setPending({ tx: d.tx ?? 0, chat: d.chat ?? 0 });
+        })
+        .catch(() => {});
+    cargar();
+    const intervalo = setInterval(() => {
+      if (!document.hidden) cargar();
+    }, 60_000);
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+    };
+  }, [isStaff]);
 
   // Cerrar al tocar fuera o con Escape. Las dos cosas: en el móvil se cierra
   // tocando la calle, y en escritorio con la tecla.
@@ -54,10 +81,15 @@ export default function Header() {
     router.push(path);
   };
 
-  const opciones = [
+  const opciones: { label: string; path: string; badge?: number }[] = [
     // El panel primero y solo para el equipo: es a lo que entran a
     // trabajar, y para un jugador ni siquiera existe.
-    ...(isStaff ? [{ label: '👑 Panel', path: '/admin' }] : []),
+    ...(isStaff
+      ? [
+          { label: '👑 Panel', path: '/admin', badge: pending.tx },
+          { label: '💬 Chat de atención', path: '/admin/chat', badge: pending.chat },
+        ]
+      : []),
     { label: '👛 Canjear o retirar', path: '/billetera' },
     { label: '🎟️ Comprar tickets', path: '/comprar' },
     { label: '🤝 Referidos', path: '/referidos' },
@@ -77,6 +109,11 @@ export default function Header() {
               aria-haspopup="menu"
             >
               <span className="header-select-label">☰ Menú</span>
+              {isStaff && pending.tx + pending.chat > 0 && (
+                <span className="admin-side-badge" aria-label={`${pending.tx + pending.chat} pendientes`}>
+                  {pending.tx + pending.chat > 9 ? '9+' : pending.tx + pending.chat}
+                </span>
+              )}
               <span className={`menu-caret ${menuOpen ? 'menu-caret-open' : ''}`}>▾</span>
             </button>
             <AnimatePresence>
@@ -97,6 +134,9 @@ export default function Header() {
                       onClick={() => ir(o.path)}
                     >
                       {o.label}
+                      {o.badge ? (
+                        <span className="admin-side-badge">{o.badge > 9 ? '9+' : o.badge}</span>
+                      ) : null}
                     </button>
                   ))}
                   <div className="menu-divider" />
@@ -119,6 +159,8 @@ export default function Header() {
             <Link href="/referidos" className="afi-fab" aria-label="Referidos">
               🤝<span className="afi-fab-label">Referidos</span>
             </Link>
+            <ChatWidget staffUnread={pending.chat} />
+            <NotificationsBell />
           </div>
         </div>
       ) : isLoading ? (
