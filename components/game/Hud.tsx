@@ -126,6 +126,10 @@ export default function Hud({
         ))}
       </div>
 
+      {/* Al empezar, la meta; en cuanto recoge la primera, adónde llevarla. */}
+      {!cargando && bolsasEntregadas === 0 && (
+        <div className="hud-aviso">Lleva {totalBolsas} bolsas a la carretilla</div>
+      )}
       {cargando && <div className="hud-aviso">Llévala a la carretilla 🛒</div>}
     </div>
   );
