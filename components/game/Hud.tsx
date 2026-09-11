@@ -49,6 +49,11 @@ export default function Hud({
   onToggleMute,
   onSalir,
 }: Props) {
+  // ¿Ya agarró alguna bolsa desde que se abrió la partida? Hasta entonces la
+  // escena dice la meta. No depende de las entregadas: una partida REANUDADA
+  // con bolsas ya entregadas también lo enseña al volver.
+  const [haAgarrado, setHaAgarrado] = useState(cargando);
+  if (cargando && !haAgarrado) setHaAgarrado(true);
   const [mostrado, setMostrado] = useState(saldo);
   // El valor animado vive en una ref: el estado solo existe para pintar.
   const valor = useRef(saldo);
@@ -127,8 +132,11 @@ export default function Hud({
       </div>
 
       {/* Al empezar, la meta; en cuanto recoge la primera, adónde llevarla. */}
-      {!cargando && bolsasEntregadas === 0 && (
-        <div className="hud-aviso">Lleva {totalBolsas} bolsas a la carretilla</div>
+      {!haAgarrado && (
+        <div className="hud-aviso">
+          {/* El número en la fuente de lectura: en la de píxeles el 5 parece una S. */}
+          Lleva <span style={{ fontFamily: 'var(--font-lectura)', fontWeight: 800 }}>{totalBolsas}</span> bolsas a la carretilla
+        </div>
       )}
       {cargando && <div className="hud-aviso">Llévala a la carretilla 🛒</div>}
     </div>

@@ -1880,7 +1880,7 @@ console.log('\n10. El estilo de la interfaz');
   );
   ok(/bag_id >= WORLD_BAGS/.test(entregaQuince), 'se puede entregar cualquiera de las 15 bolsas de la calle');
   ok(
-    /!cargando && bolsasEntregadas === 0 &&[\s\S]{0,80}Lleva \{totalBolsas\} bolsas a la carretilla/.test(
+    /\{!haAgarrado && \([\s\S]{0,200}Lleva <span[^>]*--font-lectura[^>]*>\{totalBolsas\}<\/span> bolsas a la carretilla/.test(
       leer('components', 'game', 'Hud.tsx')
     ),
     'al empezar la partida la escena dice «Lleva 5 bolsas a la carretilla»'
