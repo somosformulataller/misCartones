@@ -1916,6 +1916,10 @@ console.log('\n10. El estilo de la interfaz');
       !/aSimulacion|Raycaster|destino/.test(motor),
     'el ciudadano se mueve con un joystick flotante (aparece donde se apoya el dedo), no tocando la calle'
   );
+  ok(
+    /if \(Math\.hypot\(px - joyX, py - joyY\) > JOY_RADIO \+ 12\) \{/.test(motor),
+    'tocar la bola o el círculo del joystick lo agarra donde está, sin moverlo de sitio'
+  );
   ok(!/mc-lobby/.test(css), 'y en la hoja de estilos no queda ni una regla del vestíbulo');
 
   // El HUD: el botón del sonido caía encima de los puntos de las bolsas en

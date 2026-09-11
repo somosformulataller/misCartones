@@ -574,9 +574,16 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     audio.despertar();
     dedo = e.pointerId;
     const r = parent.getBoundingClientRect();
-    joyX = e.clientX - r.left;
-    joyY = e.clientY - r.top;
-    joy.style.transform = `translate(${joyX}px, ${joyY}px)`;
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    // Sobre el joystick (la bola o su círculo) se AGARRA donde está: moverlo
+    // bajo el dedo se sentía como que el joystick huía. En otro punto de la
+    // calle, aparece ahí.
+    if (Math.hypot(px - joyX, py - joyY) > JOY_RADIO + 12) {
+      joyX = px;
+      joyY = py;
+      joy.style.transform = `translate(${joyX}px, ${joyY}px)`;
+    }
     joy.style.opacity = '1';
     joyMover(e.clientX, e.clientY);
     renderer.domElement.setPointerCapture?.(e.pointerId);
