@@ -155,13 +155,13 @@ canvas {
   --text-secondary: #ddd7c8;
   --text-muted:     #aca493;
 
-  /* LA decisión tipográfica: el texto corrido va en la fuente del sistema y
-     la de píxeles se reserva para rótulos, botones, etiquetas y cifras.
-     Con TODO en píxeles la pantalla se leía como un terminal antiguo; con la
-     mezcla, la de píxeles se nota como una elección y no como una limitación. */
+  /* LA decisión tipográfica: TODO va en la fuente del sistema, que se lee
+     mejor. La de píxeles queda SOLO para el logo y el eslogan del acceso y el
+     registro (.mc-marca, más abajo). Rótulos, botones y cifras usan
+     --font-display, que ahora es la normal. */
   --font-pixel-stack: var(--font-pixel), "Courier New", ui-monospace, monospace;
   --font-ui:      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-pixel-stack);
+  --font-display: var(--font-ui);
   --font-lectura: var(--font-ui);
 
   --space-xs:  4px;
@@ -4873,6 +4873,13 @@ textarea.form-input,
   -webkit-text-stroke: 3px #1d1405;
   paint-order: stroke fill;
   text-shadow: 0 3px 0 rgba(6, 12, 9, 0.55);
+}
+
+/* Las ÚNICAS letras de píxeles de la app: el logo «Mis Cartones» y el
+   eslogan «¡La basura paga!» del acceso y el registro. */
+.mc-marca .mc-rotulo,
+.mc-marca .mc-splash {
+  font-family: var(--font-pixel-stack);
 }
 
 /* ── 5 · El texto, ahora claro sobre piedra ───────────────────────────── */

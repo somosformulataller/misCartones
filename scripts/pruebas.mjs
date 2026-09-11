@@ -1758,8 +1758,10 @@ console.log('\n10. El estilo de la interfaz');
     'el texto corrido va en la fuente del sistema'
   );
   ok(
-    /--font-display:\s*var\(--font-pixel-stack\)/.test(css),
-    'la de píxeles queda para rótulos, botones y cifras'
+    /--font-display:\s*var\(--font-ui\)/.test(css) &&
+      (css.match(/var\(--font-pixel-stack\)/g) || []).length === 1 &&
+      /\.mc-marca \.mc-rotulo,\s*\.mc-marca \.mc-splash \{\s*font-family: var\(--font-pixel-stack\);/.test(css),
+    'la de píxeles queda SOLO para el logo y el eslogan del acceso y el registro; lo demás, fuente normal'
   );
 
   // ── Los campos ──
