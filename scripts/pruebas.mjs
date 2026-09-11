@@ -1010,7 +1010,8 @@ console.log('\n6. La escena en 3D');
     ok(/if \(v\) \{\s*requestAnimationFrame\(\(\) => \{\s*if \(!destruido\) ajustarCamara\(\);/.test(fuente),
       'Al encender la calle se recalcula por dónde se anda, ya con el marcador pintado');
     ok(/if \(tx \* \(sx\(0\) - f\.x\) < 0\)/.test(fuente), 'De frente contra un poste lo rodea por el lado de la calle');
-    ok(/return acotar\(sx\(golpe\.x\)/.test(fuente), 'Tocar fuera de lo andable camina al punto andable más cercano');
+    ok(/const acotado = acotar\(sim\.x, sim\.y\);/.test(fuente) && /\} else if \(palanca\) \{/.test(fuente),
+      'Con el joystick se anda por toda la calle y se frena en el borde de lo andable');
   }
 
   // ── El suelo llega a todas partes ──
@@ -1909,6 +1910,11 @@ console.log('\n10. El estilo de la interfaz');
     /function onDown\(e: PointerEvent\) \{\s*if \(!encendida\) return;/.test(motor) &&
       /function onKeyDown\(e: KeyboardEvent\) \{\s*if \(!encendida\) return;/.test(motor),
     'con la calle apagada el ciudadano no camina, ni con el dedo ni con el teclado'
+  );
+  ok(
+    /const JOY_RADIO = /.test(motor) && /function joyMover\(/.test(motor) && /joy\.remove\(\);/.test(motor) &&
+      !/aSimulacion|Raycaster|destino/.test(motor),
+    'el ciudadano se mueve con un joystick flotante (aparece donde se apoya el dedo), no tocando la calle'
   );
   ok(!/mc-lobby/.test(css), 'y en la hoja de estilos no queda ni una regla del vestíbulo');
 

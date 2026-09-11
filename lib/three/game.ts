@@ -21,10 +21,7 @@ import {
   HemisphereLight,
   Object3D,
   PerspectiveCamera,
-  Plane,
-  Raycaster,
   Scene,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -82,7 +79,11 @@ const MUL_CARGA = 0.85;
 const MUL_CHARCO = 0.55;
 const ACEL = 2600;
 const FRENO = 3200;
-const RADIO_LLEGADA = 10;
+
+// ── El joystick (medidas en píxeles CSS) ──
+const JOY_RADIO = 56; // la base mide 112 px: lo que cubre un pulgar
+const JOY_MUERTA = 8; // por debajo no se mueve: es el temblor del dedo
+const JOY_TOPE = 0.6; // con la bola al 60 % del radio ya va a toda velocidad
 const TROPIEZO_MS = 800;
 const VEL_TROPIEZO = 150;
 const BOOST_POR_ENTREGA = 0.04;
@@ -403,8 +404,10 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     return { x: sx(Math.max(-media, Math.min(media, wx(x)))), y: sy(z) };
   }
 
-  let destino: { x: number; y: number } | null = null;
-  let presionando = false;
+  // Hacia dónde empuja el joystick: un vector de largo 0..1, o null si está
+  // suelto. `dedo` es el puntero que lo maneja: un segundo dedo no lo roba.
+  let palanca: { x: number; y: number } | null = null;
+  let dedo: number | null = null;
   const teclas = new Set<string>();
 
   // ── Cámara ────────────────────────────────────────────────────────────────
@@ -469,7 +472,11 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   // ResizeObserver sobre el propio contenedor se entera de TODOS esos casos,
   // incluido el de arrancar con tamaño 0 y recibir el tamaño real un
   // fotograma después.
-  const ro = new ResizeObserver(() => ajustarCamara());
+  const ro = new ResizeObserver(() => {
+    ajustarCamara();
+    // El joystick en reposo sigue pegado abajo aunque cambie la altura.
+    if (dedo === null) joyReposo();
+  });
   ro.observe(parent);
 
   // iOS informa medidas viejas justo al girar el teléfono: se vuelve a medir
@@ -482,40 +489,106 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
   const onResize = () => ajustarCamara();
   window.addEventListener('resize', onResize);
 
-  // ── Entrada: presionar y caminar ──────────────────────────────────────────
-  // Se lanza un rayo desde el puntero contra el plano del suelo. Es exacto con
-  // cámara en perspectiva, donde una regla de tres no valdría.
-  const rayo = new Raycaster();
-  const planoSuelo = new Plane(new Vector3(0, 1, 0), 0);
-  const ndc = new Vector2();
-  const golpe = new Vector3();
+  // ── Entrada: joystick flotante ────────────────────────────────────────────
+  // Como en los juegos de móvil (La Culebrita): donde se apoya el dedo aparece
+  // la base y la bola sigue al dedo sin salirse del círculo. La dirección y la
+  // fuerza salen de cuánto se aparta la bola del centro; al soltar, el
+  // ciudadano frena. En reposo queda uno tenue abajo a la izquierda, para que
+  // se entienda cómo se juega. Va en DOM, no en la escena: es nítido y no
+  // cuesta ni una llamada de dibujo.
+  const joy = document.createElement('div');
+  joy.setAttribute('aria-hidden', 'true');
+  joy.style.cssText =
+    `position:absolute;left:0;top:0;width:${JOY_RADIO * 2}px;height:${JOY_RADIO * 2}px;` +
+    `margin:-${JOY_RADIO}px 0 0 -${JOY_RADIO}px;border-radius:50%;` +
+    'background:rgba(255,255,255,0.16);border:2px solid rgba(255,255,255,0.4);' +
+    '-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);' +
+    'box-shadow:0 6px 18px rgba(6,12,9,0.25);pointer-events:none;opacity:0;transition:opacity 160ms ease;';
+  // Las cuatro flechas: arriba, derecha, abajo, izquierda. La del lado hacia
+  // el que se empuja se enciende en oro.
+  const FLECHA = 'rgba(255,255,255,0.85)';
+  const flechas = [0, 1, 2, 3].map((i) => {
+    const f = document.createElement('div');
+    f.style.cssText =
+      'position:absolute;left:50%;top:50%;width:0;height:0;' +
+      `border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:12px solid ${FLECHA};` +
+      `transform:translate(-50%,-50%) rotate(${i * 90}deg) translateY(-${JOY_RADIO - 17}px);`;
+    joy.appendChild(f);
+    return f;
+  });
+  const bola = document.createElement('div');
+  bola.style.cssText =
+    'position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;' +
+    'background:radial-gradient(circle at 35% 30%,#fff3b0 0%,#ffd75e 30%,#f7bd1e 62%,#c98c05 100%);' +
+    'box-shadow:0 0 0 3px #46310a,0 4px 10px rgba(6,12,9,0.45);';
+  joy.appendChild(bola);
+  // Redondos a la fuerza: la hoja global cuadra las esquinas de todo (el
+  // estilo de bloques) con !important y los dejaba en cuadrados.
+  for (const el of [joy, bola]) el.style.setProperty('border-radius', '50%', 'important');
+  parent.appendChild(joy);
 
-  function aSimulacion(clientX: number, clientY: number): { x: number; y: number } | null {
-    const r = renderer.domElement.getBoundingClientRect();
-    ndc.x = ((clientX - r.left) / r.width) * 2 - 1;
-    ndc.y = -((clientY - r.top) / r.height) * 2 + 1;
-    rayo.setFromCamera(ndc, camera);
-    if (!rayo.ray.intersectPlane(planoSuelo, golpe)) return null;
-    return acotar(sx(golpe.x), sy(golpe.z));
+  // Centro de la base, en píxeles del contenedor.
+  let joyX = 0;
+  let joyY = 0;
+  const encenderFlecha = (cual: number) =>
+    flechas.forEach((f, i) => (f.style.borderBottomColor = i === cual ? '#ffd75e' : FLECHA));
+
+  function joyReposo() {
+    palanca = null;
+    dedo = null;
+    joyX = JOY_RADIO + 24;
+    joyY = parent.clientHeight - JOY_RADIO - 96;
+    joy.style.transform = `translate(${joyX}px, ${joyY}px)`;
+    bola.style.transform = 'translate(0px, 0px)';
+    joy.style.opacity = encendida ? '0.6' : '0';
+    encenderFlecha(-1);
   }
+
+  function joyMover(clientX: number, clientY: number) {
+    const r = parent.getBoundingClientRect();
+    let dx = clientX - r.left - joyX;
+    let dy = clientY - r.top - joyY;
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_RADIO) {
+      dx *= JOY_RADIO / d;
+      dy *= JOY_RADIO / d;
+    }
+    bola.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (d < JOY_MUERTA) {
+      palanca = null;
+      encenderFlecha(-1);
+      return;
+    }
+    const largo = Math.min(d, JOY_RADIO);
+    const fuerza = Math.min(1, (d - JOY_MUERTA) / (JOY_RADIO * JOY_TOPE - JOY_MUERTA));
+    palanca = { x: (dx / largo) * fuerza, y: (dy / largo) * fuerza };
+    // 0 arriba, 1 derecha, 2 abajo, 3 izquierda.
+    encenderFlecha((Math.round(Math.atan2(dx, -dy) / (Math.PI / 2)) + 4) % 4);
+  }
+
+  joyReposo();
 
   function onDown(e: PointerEvent) {
     if (!encendida) return;
+    if (dedo !== null) return;
     audio.despertar();
-    presionando = true;
-    const p = aSimulacion(e.clientX, e.clientY);
-    if (p) destino = p;
+    dedo = e.pointerId;
+    const r = parent.getBoundingClientRect();
+    joyX = e.clientX - r.left;
+    joyY = e.clientY - r.top;
+    joy.style.transform = `translate(${joyX}px, ${joyY}px)`;
+    joy.style.opacity = '1';
+    joyMover(e.clientX, e.clientY);
     renderer.domElement.setPointerCapture?.(e.pointerId);
   }
   function onMove(e: PointerEvent) {
-    if (!presionando) return;
-    const p = aSimulacion(e.clientX, e.clientY);
-    if (p) destino = p;
+    if (e.pointerId !== dedo) return;
+    joyMover(e.clientX, e.clientY);
   }
-  function onUp() {
-    // El destino SE MANTIENE: un toque corto camina hasta ahí y se detiene
-    // solo. Soltar el dedo no frena en seco.
-    presionando = false;
+  function onUp(e: PointerEvent) {
+    if (e.pointerId !== dedo) return;
+    // Al soltar el joystick vuelve a su sitio y el ciudadano frena solo.
+    joyReposo();
   }
   function onKeyDown(e: KeyboardEvent) {
     if (!encendida) return;
@@ -619,7 +692,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     if (teclas.has('arrowright') || teclas.has('d')) kx += 1;
     if (teclas.has('arrowup') || teclas.has('w')) ky -= 1;
     if (teclas.has('arrowdown') || teclas.has('s')) ky += 1;
-    if (kx || ky) destino = null;
 
     const cargando = sim.cargando !== null;
     let velMax = VEL_BASE * (1 + entregadas * BOOST_POR_ENTREGA);
@@ -634,18 +706,11 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       const l = Math.hypot(kx, ky) || 1;
       sim.vx += ((kx / l) * velMax - sim.vx) * Math.min(1, (ACEL / velMax) * dt);
       sim.vy += ((ky / l) * velMax - sim.vy) * Math.min(1, (ACEL / velMax) * dt);
-    } else if (destino) {
-      const dx = destino.x - sim.x;
-      const dy = destino.y - sim.y;
-      const d = Math.hypot(dx, dy);
-      if (d > RADIO_LLEGADA) {
-        const deseada = Math.min(velMax, d * 5);
-        const k = Math.min(1, (ACEL / Math.max(60, velMax)) * dt);
-        sim.vx += ((dx / d) * deseada - sim.vx) * k;
-        sim.vy += ((dy / d) * deseada - sim.vy) * k;
-      } else {
-        destino = null;
-      }
+    } else if (palanca) {
+      // Joystick: la velocidad es proporcional a cuánto se aparta la bola.
+      const k = Math.min(1, (ACEL / velMax) * dt);
+      sim.vx += (palanca.x * velMax - sim.vx) * k;
+      sim.vy += (palanca.y * velMax - sim.vy) * k;
     } else {
       const k = Math.min(1, (FRENO / Math.max(60, velMax)) * dt);
       sim.vx -= sim.vx * k;
@@ -1037,6 +1102,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     renderer.dispose();
     renderer.forceContextLoss?.();
     destello.remove();
+    joy.remove();
     lienzo.remove();
   }
 
@@ -1047,6 +1113,7 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
     isMuted: () => audio.mudo,
     setEncendida: (v: boolean) => {
       encendida = v;
+      joyReposo();
       // Al encender aparece el marcador arriba: se vuelve a calcular por dónde
       // se anda para que el ciudadano no se meta debajo. Un fotograma después,
       // cuando React ya lo ha pintado.
@@ -1058,8 +1125,6 @@ export async function createGame(parent: HTMLElement, opts: GameOptions): Promis
       if (!v) {
         // Al apagar se suelta todo: un dedo o una tecla que siguieran
         // «pulsados» harían caminar al ciudadano en la penumbra.
-        presionando = false;
-        destino = null;
         teclas.clear();
       }
     },
