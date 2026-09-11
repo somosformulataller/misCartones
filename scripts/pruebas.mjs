@@ -45,7 +45,7 @@ Module._resolveFilename = function (peticion, ...resto) {
 const salida = path.join(raiz, '.pruebas-build', 'lib', 'game');
 const { drawPayoutTier, drawSessionTier, drawWorldSeed } = require(path.join(salida, 'rng.js'));
 const { bagSplit } = require(path.join(salida, 'bagSplit.js'));
-const { buildWorld, PLAY, CITIZEN_RADIUS, CITIZEN_BODY_RADIUS, CITIZEN_FEET_RADIUS, BAG_RADIUS, CART_RADIUS, WORLD_BAGS } =
+const { buildWorld, PLAY, CITIZEN_RADIUS, CITIZEN_BODY_RADIUS, CITIZEN_FEET_RADIUS, BAG_RADIUS, CART_RADIUS, WORLD_BAGS, SIDEWALK_BAGS, SIDEWALK_BAG_Y, SIDEWALK_BAG_OFFSET, POSTE_Y } =
   require(path.join(salida, 'world.js'));
 const { PAYOUT_TABLE, TOTAL_BAGS } = require(path.join(salida, 'constants.js'));
 
@@ -190,6 +190,7 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
   const N = 10_000;
   let malCantidad = 0;
   let fueraDelArea = 0;
+  let malAcera = 0;
   let encimaDeObstaculo = 0;
   let demasiadoJuntas = 0;
   let aisladas = 0;
@@ -248,14 +249,23 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
     const w = buildWorld(drawWorldSeed());
 
     if (w.bags.length !== WORLD_BAGS) malCantidad++;
+    let enAceraW = 0;
+    let izquierdaW = 0;
 
     for (const b of w.bags) {
-      if (
-        b.x < PLAY.x ||
-        b.x > PLAY.x + PLAY.w ||
-        b.y < PLAY.y ||
-        b.y > PLAY.y + PLAY.h
-      ) {
+      // Las de la acera quedan fuera de la calzada A PROPÓSITO; se miden aparte.
+      const enAcera = b.x === PLAY.x - SIDEWALK_BAG_OFFSET || b.x === PLAY.x + PLAY.w + SIDEWALK_BAG_OFFSET;
+      if (enAcera) {
+        enAceraW++;
+        if (b.x < PLAY.x) izquierdaW++;
+        if (
+          b.y < SIDEWALK_BAG_Y.min ||
+          b.y > SIDEWALK_BAG_Y.max ||
+          POSTE_Y.some((py) => Math.abs(py - b.y) < BAG_RADIUS + 20)
+        ) {
+          malAcera++;
+        }
+      } else if (b.x < PLAY.x || b.x > PLAY.x + PLAY.w || b.y < PLAY.y || b.y > PLAY.y + PLAY.h) {
         fueraDelArea++;
       }
       for (const o of w.obstacles) {
@@ -264,6 +274,8 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
       const d = Math.hypot(b.x - w.cart.x, b.y - w.cart.y);
       if (d < 100 || d > 700) malDistanciaCarretilla++;
     }
+
+    if (enAceraW !== SIDEWALK_BAGS || izquierdaW !== SIDEWALK_BAGS / 2) malAcera++;
 
     for (let a = 0; a < w.bags.length; a++) {
       for (let b = a + 1; b < w.bags.length; b++) {
@@ -278,6 +290,11 @@ console.log('\n4. Colocación del escenario (10.000 semillas)');
 
   ok(WORLD_BAGS >= 15 && malCantidad === 0, `Siempre ${WORLD_BAGS} bolsas en la calle (al menos 15)`, `${malCantidad} fallos`);
   ok(fueraDelArea === 0, 'Ninguna bolsa fuera del área jugable', `${fueraDelArea} fallos`);
+  ok(
+    malAcera === 0,
+    `Siempre ${SIDEWALK_BAGS} bolsas en la acera, la mitad a cada lado, en el tramo visible y lejos de los postes`,
+    `${malAcera} fallos`
+  );
   ok(encimaDeObstaculo === 0, 'Ninguna bolsa encima de un obstáculo', `${encimaDeObstaculo} fallos`);
   ok(demasiadoJuntas === 0, 'Ninguna pareja de bolsas amontonada', `${demasiadoJuntas} fallos`);
   ok(malDistanciaCarretilla === 0, 'Todas a distancia jugable de la carretilla', `${malDistanciaCarretilla} fallos`);
@@ -991,6 +1008,58 @@ console.log('\n6. La escena en 3D');
   ok(Math.abs(esc.ALTO_CIUDADANO - altoCiudadano) < 0.35, 'ALTO_CIUDADANO coincide con el modelo',
     'constante ' + esc.ALTO_CIUDADANO + ', modelo ' + altoCiudadano.toFixed(2));
   ok(esc.alturaSuelo(esc.MEDIA_CALZADA + 0.5) === 0.18 && esc.alturaSuelo(0) === 0, 'En la acera se pisa el escalón');
+
+  // ── Las bolsas de la acera ──
+  {
+    const xb = Math.abs(esc.wx(PLAY.x - SIDEWALK_BAG_OFFSET));
+    ok(
+      xb > esc.MEDIA_CALZADA && esc.alturaSuelo(xb) === 0.18 && xb + BAG_RADIUS / 40 <= esc.LINEA_CASAS + 0.06,
+      'Las bolsas de acera pisan la acera y no se meten en la fachada',
+      'centro en |x|=' + xb.toFixed(2)
+    );
+    ok(
+      xb - (CITIZEN_RADIUS + BAG_RADIUS) / 40 < esc.MEDIA_CALZADA + 0.3,
+      'Se recogen desde lo que se anda en TODAS las pantallas (el ciudadano llega a |x|=8,2 como poco)'
+    );
+    ok(
+      POSTE_Y.length === esc.Z_POSTES.length && POSTE_Y.every((y, i) => Math.abs(esc.sy(esc.Z_POSTES[i]) - y) < 1e-6),
+      'Las bolsas de acera esquivan los postes de verdad (mismas posiciones que la escena)'
+    );
+    const enc = require(path.join(raiz, '.pruebas-build', 'lib', 'three', 'encuadre.js'));
+    const v3 = new THREE.Vector3();
+    let fuera = 0;
+    for (const [nombre, w, h] of PANTALLAS) {
+      const cam = new PerspectiveCamera(42, w / h, 0.5, 120);
+      enc.colocarCamara(cam, enc.distanciaQueEncuadra(cam));
+      cam.updateMatrixWorld();
+      for (const y of [SIDEWALK_BAG_Y.min, SIDEWALK_BAG_Y.max]) {
+        for (const s of [-1, 1]) {
+          v3.set(s * xb, 0.18, esc.wz(y)).project(cam);
+          if (Math.abs(v3.x) > 1 || Math.abs(v3.y) > 1) {
+            fuera++;
+            console.log('     ✗ ' + nombre + ': bolsa de acera fuera de pantalla en y=' + y);
+          }
+        }
+      }
+    }
+    ok(fuera === 0, 'Las bolsas de acera se ven en las 14 pantallas', fuera + ' fuera');
+    let tapadas = 0;
+    for (let s = 0; s < 40; s++) {
+      const semilla = (s * 2654435761) >>> 0;
+      const mundoA = buildWorld(semilla);
+      const vegA = esc.crearVegetacion(mulberry32((semilla ^ 0x5bf03635) >>> 0), mundoA);
+      for (const b of mundoA.bags) {
+        const bx = esc.wx(b.x);
+        if (Math.abs(bx) <= esc.MEDIA_CALZADA) continue;
+        for (const a of vegA.copas.datos) {
+          if (Math.abs(a.x) > 40 || Math.sign(a.x) !== Math.sign(bx)) continue;
+          const dz = a.z - esc.wz(b.y);
+          if (dz > -2.8 && dz < 5) tapadas++;
+        }
+      }
+    }
+    ok(tapadas === 0, 'Ningún árbol tapa una bolsa de acera (40 calles)', tapadas + ' tapadas');
+  }
   {
     const fuente = fs.readFileSync(path.join(raiz, 'lib', 'three', 'game.ts'), 'utf8');
     ok(!/Math\.max\(PLAY\.[xy]/.test(fuente) && /limitesAndables\(/.test(fuente),

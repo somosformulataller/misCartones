@@ -67,6 +67,23 @@ const BAG_CLEARANCE = BAG_RADIUS + 10;
 export const TOTAL_BAGS = 5;
 /** Las bolsas que hay en la calle. Las que sobran no pagan nada: son elección. */
 export const WORLD_BAGS = 15;
+/** De esas, las que van sobre la ACERA, la mitad a cada lado: así no quedan
+ *  todas amontonadas en la calzada. */
+export const SIDEWALK_BAGS = 4;
+/** Del bordillo al centro de una bolsa de acera. La acera (68 px) es más
+ *  estrecha que la bolsa (96): a 30 px el saco no se mete en la fachada y solo
+ *  asoma un poco sobre el bordillo. */
+export const SIDEWALK_BAG_OFFSET = 30;
+/** Tramo de la calle donde van: por debajo del marcador y lejos de la parte
+ *  cercana a la cámara, donde en un teléfono estrecho la acera se sale de la
+ *  pantalla. Las pruebas lo comprueban en 14 pantallas. */
+export const SIDEWALK_BAG_Y = { min: PLAY.y + 110, max: PLAY.y + PLAY.h * 0.75 } as const;
+/** Los postes de luz de la acera, cada 11 unidades (440 px). Tiene que
+ *  coincidir con Z_POSTES de la escena: hay prueba. */
+export const POSTE_Y: readonly number[] = Array.from(
+  { length: 11 },
+  (_, i) => PLAY.y + PLAY.h / 2 + (-55 + i * 11) * 40
+);
 
 /**
  * Lo que estorba en una calle descuidada. La lista sale de la referencia, no
@@ -246,12 +263,23 @@ function intento(seed: number): World | null {
 
   // WORLD_BAGS bolsas por toda la calzada, cada una con hasta 80 tiros para
   // cumplir las distancias. Si alguna no cabe, se resortea el escenario.
+  // Las SIDEWALK_BAGS primeras van a la acera, alternando lado y nunca junto
+  // a un poste.
   const bags: WorldBag[] = [];
   for (let i = 0; i < WORLD_BAGS; i++) {
+    const enAcera = i < SIDEWALK_BAGS;
     let colocada: WorldBag | null = null;
     for (let t = 0; t < 80 && !colocada; t++) {
-      const x = PLAY.x + BAG_RADIUS + rnd() * (PLAY.w - BAG_RADIUS * 2);
-      const y = PLAY.y + BAG_RADIUS + rnd() * (PLAY.h - BAG_RADIUS * 2);
+      let x: number;
+      let y: number;
+      if (enAcera) {
+        x = i % 2 === 0 ? PLAY.x - SIDEWALK_BAG_OFFSET : PLAY.x + PLAY.w + SIDEWALK_BAG_OFFSET;
+        y = SIDEWALK_BAG_Y.min + rnd() * (SIDEWALK_BAG_Y.max - SIDEWALK_BAG_Y.min);
+        if (POSTE_Y.some((py) => Math.abs(py - y) < BAG_RADIUS + 30)) continue;
+      } else {
+        x = PLAY.x + BAG_RADIUS + rnd() * (PLAY.w - BAG_RADIUS * 2);
+        y = PLAY.y + BAG_RADIUS + rnd() * (PLAY.h - BAG_RADIUS * 2);
+      }
       const d = dist(x, y, cart.x, cart.y);
       if (d < MIN_CART_DIST || d > MAX_CART_DIST) continue;
       if (bags.some((b) => dist(x, y, b.x, b.y) < MIN_BAG_GAP)) continue;
@@ -302,18 +330,22 @@ export function buildWorld(seed: number): World {
   }
   const base = intento(seed >>> 0);
   if (base) return { ...base, obstacles: [] };
-  // Último recurso, imposible en la práctica: una rejilla fija que cumple
-  // todas las distancias (4 columnas cada 154 px; dos filas por encima y dos
-  // por debajo de la carretilla, a 140 px entre sí y a 295 px de ella).
+  // Último recurso, imposible en la práctica: posiciones fijas que cumplen
+  // todas las distancias. Cuatro en la acera (entre postes) y el resto en una
+  // rejilla de 4 columnas cada 154 px, dos filas por encima y dos por debajo
+  // de la carretilla, quitando las que quedan pegadas a las de la acera.
+  const acera = [400, 850].flatMap((y) => [
+    { x: PLAY.x - SIDEWALK_BAG_OFFSET, y },
+    { x: PLAY.x + PLAY.w + SIDEWALK_BAG_OFFSET, y },
+  ]);
   const xs = [0, 1, 2, 3].map((c) => PLAY.x + PLAY.w / 8 + (c * PLAY.w) / 4);
-  const ys = [262, 402, 972, 1112];
+  const calzada = [262, 402, 972, 1112]
+    .flatMap((y) => xs.map((x) => ({ x, y })))
+    .filter((p) => acera.every((a) => dist(p.x, p.y, a.x, a.y) >= MIN_BAG_GAP));
   return {
     seed,
     cart: { x: STAGE_W / 2, y: PLAY.y + PLAY.h / 2 },
-    bags: ys
-      .flatMap((y) => xs.map((x) => ({ x, y })))
-      .slice(0, WORLD_BAGS)
-      .map((p, i) => ({ id: i, ...p })),
+    bags: [...acera, ...calzada].slice(0, WORLD_BAGS).map((p, i) => ({ id: i, ...p })),
     obstacles: [],
   };
 }

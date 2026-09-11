@@ -1202,7 +1202,19 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
   // que la calle no parezca un decorado con un lado bueno y otro malo.
   const arboles: { x: number; z: number; e: number; fase: number }[] = [];
   const xArbol = -(MEDIA_CALZADA + ANCHO_ACERA * 0.82);
+  // Hay bolsas en la acera, y un árbol no puede taparlas. La cámara mira desde
+  // +Z inclinada: la copa (hasta 4,3 de alto) tapa lo que queda DETRÁS de ella
+  // (z menor) unas 3,4 unidades, más su radio y el de la bolsa. Donde taparía
+  // una, ese árbol no se planta.
+  const tapaBolsa = (x: number, z: number) =>
+    world.bags.some((b) => {
+      const bx = wx(b.x);
+      if (Math.abs(bx) <= MEDIA_CALZADA || Math.sign(bx) !== Math.sign(x)) return false;
+      const dz = z - wz(b.y);
+      return dz > -2.8 && dz < 5;
+    });
   for (let z = -40 + rnd() * 5; z < 40; z += 7.5 + rnd() * 3.5) {
+    if (tapaBolsa(xArbol, z)) continue;
     arboles.push({
       x: xArbol,
       z,
@@ -1211,6 +1223,7 @@ export function crearVegetacion(rnd: () => number, world: World): Vegetacion {
     });
   }
   for (let z = 4 + rnd() * 3; z < 40; z += 9 + rnd() * 5) {
+    if (tapaBolsa(-xArbol, z)) continue;
     arboles.push({
       x: -xArbol,
       z,
